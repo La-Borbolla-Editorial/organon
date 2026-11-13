@@ -1,0 +1,11 @@
+node_modules
+dist
+release
+src-tauri/target
+src-tauri/gen
+public/pdfjs
+.dev-state
+.dev-projects
+.claude
+.DS_Store
+*.tmp
