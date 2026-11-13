@@ -7,7 +7,7 @@
 //
 // Todo se carga en memoria al abrir el proyecto (son cientos de fichas, no
 // millones) y cada cambio reescribe el archivo afectado de forma atómica.
-import { backend } from './backend'
+import { backend, type Stamps } from './backend'
 import { DEFAULT_PAGINATION, type PageRange } from './pagination'
 import { suggestCitekey } from './source-form'
 import { matchSource, type ImportedFicha } from './fichero-io'
@@ -29,6 +29,22 @@ interface Data {
 }
 
 let data: Data | null = null
+// Sello de cada archivo tal como Organon lo leyó o escribió por última vez.
+let stamps: Stamps = {}
+let onConflict: () => void = () => {}
+
+/** Se llama cuando un guardado se rechaza porque los archivos cambiaron fuera de Organon. */
+export function setConflictHandler(handler: () => void): void {
+  onConflict = handler
+}
+
+/** true si algún archivo del proyecto cambió en disco desde que se cargó o se guardó. */
+export async function changedOnDisk(): Promise<boolean> {
+  if (!data) return false
+  await queue
+  const now = await backend.dataStamps(Object.values(FILES))
+  return Object.values(FILES).some((name) => (now[name] ?? null) !== (stamps[name] ?? null))
+}
 
 function db(): Data {
   if (!data) throw new Error('No hay ningún proyecto abierto.')
@@ -48,6 +64,8 @@ async function readJson<T>(name: string): Promise<T | null> {
 /** Carga en memoria el proyecto que el núcleo tiene abierto. Si la carpeta es nueva, lo inicia. */
 export async function loadProject(): Promise<void> {
   data = null
+  // Los sellos se toman antes de leer: un cambio posterior se detectará.
+  stamps = await backend.dataStamps(Object.values(FILES))
   const project = await readJson<ProjectFile>(FILES.project)
   if (project && project.format > FORMAT) throw new Error('Este proyecto se creó con una versión más reciente de Organon.')
   const sources = await readJson<{ fuentes: Source[] }>(FILES.sources)
@@ -79,7 +97,18 @@ function persist(...which: (keyof typeof FILES)[]): Promise<void> {
     name: FILES[w],
     content: stringify(w === 'project' ? d.project : w === 'sources' ? { format: FORMAT, fuentes: d.sources } : { format: FORMAT, fichas: d.fichas }),
   }))
-  const run = queue.then(() => backend.writeData(files))
+  const run = queue.then(async () => {
+    try {
+      // Se comprueban los tres archivos: si cualquiera cambió, la copia en memoria ya no vale.
+      stamps = { ...stamps, ...(await backend.writeData(files, stamps)) }
+    } catch (e) {
+      if (String(e instanceof Error ? e.message : e).includes('CONFLICT')) {
+        onConflict()
+        throw new Error('Los archivos del proyecto cambiaron fuera de Organon. Recarga el proyecto: este último cambio no se ha guardado.')
+      }
+      throw e
+    }
+  })
   queue = run.catch(() => {})
   return run
 }

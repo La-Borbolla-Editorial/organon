@@ -1,13 +1,15 @@
 import { useMemo, useState } from 'react'
 import { formatBibliographyEntry, type CiteOptions } from '../citations'
 import { lookup, parseIdentifier } from '../lookup'
-import { applyFields, EMPTY_FIELDS, fieldsFor, fieldsFromCsl, SOURCE_TYPES, type SourceFields } from '../source-form'
+import { applyFields, EMPTY_FIELDS, fieldsFor, fieldsFromCsl, findDuplicate, SOURCE_TYPES, type SourceFields } from '../source-form'
 import { saveSource } from '../store'
 import type { Source } from '../types'
 
 interface Props {
   /** Fuente que se edita; sin ella, se crea una nueva. */
   source?: Source
+  /** Fuentes de la biblioteca, para avisar si esta ya está. */
+  sources: Source[]
   cite: CiteOptions
   onDone: (id: string) => void
   onCancel: () => void
@@ -22,7 +24,7 @@ const ORDER: Exclude<keyof SourceFields, 'type'>[] = ['author', 'title', 'contai
 const PEOPLE = new Set(['author', 'editor', 'translator'])
 const SHORT = new Set(['year', 'volume', 'issue', 'page', 'edition'])
 
-export function SourceForm({ source, cite, onDone, onCancel }: Props) {
+export function SourceForm({ source, sources, cite, onDone, onCancel }: Props) {
   // `base` guarda los campos CSL que el formulario no muestra, para no perderlos.
   const [base, setBase] = useState<Record<string, any>>(() => { const { id: _id, ...rest } = source?.csl ?? { id: '' }; return rest })
   const [f, setF] = useState<SourceFields>(() => (source ? fieldsFromCsl(source.csl) : EMPTY_FIELDS))
@@ -35,6 +37,7 @@ export function SourceForm({ source, cite, onDone, onCancel }: Props) {
 
   const shown = fieldsFor(f.type)
   const csl = useMemo(() => applyFields(base, f), [base, f])
+  const duplicate = useMemo(() => findDuplicate(csl, sources, source?.id), [csl, sources, source])
   const preview = useMemo(() => (f.title.trim() ? formatBibliographyEntry({ ...csl, id: source?.id ?? '__nueva__' }, cite) : ''), [csl, f.title, cite, source])
 
   const search = async () => {
@@ -111,9 +114,16 @@ export function SourceForm({ source, cite, onDone, onCancel }: Props) {
           </section>
         )}
 
+        {duplicate && (
+          <div className="banner warn" data-testid="source-duplicate">
+            <span>
+              Esta fuente parece estar ya en la biblioteca: <span dangerouslySetInnerHTML={{ __html: formatBibliographyEntry(duplicate.csl, cite) }} />
+            </span>
+          </div>
+        )}
         {error && <div className="banner error">{error}</div>}
         <div className="form-actions">
-          <button type="submit" className="primary" disabled={saving} data-testid="source-save">{source ? 'Guardar cambios' : 'Añadir fuente'}</button>
+          <button type="submit" className="primary" disabled={saving} data-testid="source-save">{source ? 'Guardar cambios' : duplicate ? 'Añadirla de todos modos' : 'Añadir fuente'}</button>
           <button type="button" onClick={onCancel}>Cancelar</button>
         </div>
       </form>

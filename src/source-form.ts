@@ -112,3 +112,25 @@ export function suggestCitekey(csl: Record<string, any>, taken: Set<string>): st
     if (!taken.has(key)) return key
   }
 }
+
+const fold = (v: unknown) => String(v ?? '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim()
+const bare = (v: unknown) => String(v ?? '').toLowerCase().replace(/^https?:\/\/(dx\.)?doi\.org\//, '').replace(/[\s-]/g, '')
+
+/**
+ * Fuente de la biblioteca que parece la misma que `csl`: mismo DOI, o mismo
+ * título con el mismo primer autor y año. Un ISBN compartido no basta: los
+ * capítulos de un libro llevan todos el ISBN del libro.
+ */
+export function findDuplicate<T extends { id: string; csl: Record<string, any> }>(csl: Record<string, any>, sources: T[], selfId?: string): T | null {
+  const doi = bare(csl.DOI)
+  const title = fold(csl.title)
+  const person = (c: Record<string, any>) => fold((c.author ?? c.editor ?? [])[0]?.family ?? (c.author ?? c.editor ?? [])[0]?.literal)
+  const year = (c: Record<string, any>) => String(c.issued?.['date-parts']?.[0]?.[0] ?? '')
+  return (
+    sources.find((s) => {
+      if (s.id === selfId) return false
+      if (doi && bare(s.csl.DOI) === doi) return true
+      return title !== '' && fold(s.csl.title) === title && person(s.csl) === person(csl) && (!year(csl) || !year(s.csl) || year(s.csl) === year(csl))
+    }) ?? null
+  )
+}

@@ -7,6 +7,7 @@ import { EventBus, lacksTextLayer, openPdf, PDFLinkService, PDFViewer, type PDFD
 import { captureSelection, type Capture } from '../pdf/selection'
 import type { Anchor, Ficha, Fichero, Source } from '../types'
 import { FichaForm } from './FichaForm'
+import { SidePanel } from './SidePanel'
 import { PaginationEditor } from './PaginationEditor'
 
 const OCR_URL = 'https://www.ilovepdf.com/ocr-pdf'
@@ -298,7 +299,7 @@ export function Reader({ sourceId, cite, focusFichaId, linkFichaId, backLabel, o
           )}
         </div>
 
-        <aside className="side-panel">
+        <SidePanel>
           {source && panel.kind === 'form' && (
             <FichaForm
               key={panel.draft.id ?? 'new'} draft={panel.draft} num={panel.num} sources={[source]} ficheros={ficheros} lockSource cite={cite} knownTags={knownTags}
@@ -355,7 +356,7 @@ export function Reader({ sourceId, cite, focusFichaId, linkFichaId, backLabel, o
               ))}
             </div>
           )}
-        </aside>
+        </SidePanel>
       </div>
     </div>
   )

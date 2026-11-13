@@ -23,6 +23,8 @@ export interface ProjectInfo {
   exists: boolean
 }
 
+export type Stamps = Record<string, string | null>
+
 export const backend = {
   // ---- Proyectos ----
   recentProjects: () => call<ProjectInfo[]>('recent_projects'),
@@ -36,8 +38,14 @@ export const backend = {
   // ---- Archivos del proyecto abierto ----
   /** Lee un .json de la raíz del proyecto; `null` si no existe. */
   readData: (name: string) => call<string | null>('read_data', { name }),
-  /** Escribe varios .json a la vez: o se guardan todos o ninguno. */
-  writeData: (files: { name: string; content: string }[]) => call<void>('write_data', { files }),
+  /** Sello (fecha de modificación y tamaño) de cada archivo; `null` si no existe. */
+  dataStamps: (names: string[]) => call<Stamps>('data_stamps', { names }),
+  /**
+   * Escribe varios .json a la vez: o se guardan todos o ninguno. Si algún
+   * archivo ya no tiene el sello de `expected` (cambió fuera de Organon), no
+   * escribe nada y falla con un error que empieza por «CONFLICT».
+   */
+  writeData: (files: { name: string; content: string }[], expected: Stamps) => call<Stamps>('write_data', { files, expected }),
 
   async savePdf(name: string, bytes: Uint8Array): Promise<void> {
     if (isNative) await invoke('save_pdf', bytes, { headers: { 'x-name': name } })

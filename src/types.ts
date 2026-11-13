@@ -60,6 +60,8 @@ export interface Column {
   /** Encabezado tal como aparece en la hoja de cálculo. */
   header: string
   field: FieldKey
+  /** Ancho de la columna en la tabla, en píxeles (si se ha cambiado a mano). */
+  width?: number
 }
 
 /** Un fichero es como una pestaña de la hoja: sus fichas y sus columnas, en su orden. */

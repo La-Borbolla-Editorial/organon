@@ -183,7 +183,7 @@ export function Library({ project, onSwitchProject, onSection, cite, onCiteChang
       </main>
       {form && (
         <SourceForm
-          source={form.source} cite={cite} onCancel={() => setForm(null)}
+          source={form.source} sources={sources} cite={cite} onCancel={() => setForm(null)}
           onDone={async () => {
             const linked = form.source ? 0 : await linkOrphanFichas()
             setMessage({ kind: 'ok', text: form.source ? 'Fuente actualizada.' : `Fuente añadida.${linked ? ` ${linked} ficha(s) importada(s) quedaron vinculadas a ella.` : ''}` })

@@ -25,6 +25,11 @@ export function devBackend(): Plugin {
       const readRecents = (): string[] => (existsSync(recentsFile) ? JSON.parse(readFileSync(recentsFile, 'utf8')) : [])
       const writeRecents = (list: string[]) => writeFileSync(recentsFile, JSON.stringify(list, null, 2))
       const describe = (path: string) => ({ path, name: basename(path), exists: existsSync(path) && statSync(path).isDirectory() })
+      const stamp = (file: string) => {
+        if (!existsSync(file)) return null
+        const st = statSync(file, { bigint: true })
+        return `${st.mtimeNs}-${st.size}`
+      }
       let current: string | null = null
       const project = () => {
         if (!current) throw new Error('No hay ningún proyecto abierto')
@@ -52,11 +57,14 @@ export function devBackend(): Plugin {
           const file = join(project(), safe(name, '.json'))
           return existsSync(file) ? readFileSync(file, 'utf8') : null
         },
-        write_data: ({ files }: { files: { name: string; content: string }[] }) => {
+        data_stamps: ({ names }: { names: string[] }) => Object.fromEntries(names.map((n) => [n, stamp(join(project(), safe(n, '.json')))])),
+        write_data: ({ files, expected }: { files: { name: string; content: string }[]; expected: Record<string, string | null> }) => {
           const dir = project()
           for (const f of files) safe(f.name, '.json')
+          for (const [name, seen] of Object.entries(expected)) if (stamp(join(dir, safe(name, '.json'))) !== seen) throw new Error(`CONFLICT ${name}`)
           for (const f of files) writeFileSync(join(dir, `${f.name}.tmp`), f.content)
           for (const f of files) renameSync(join(dir, `${f.name}.tmp`), join(dir, f.name))
+          return Object.fromEntries(files.map((f) => [f.name, stamp(join(dir, f.name))]))
         },
       }
 

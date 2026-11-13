@@ -4,6 +4,7 @@
 //! del proyecto abierto.
 
 use std::{
+    collections::HashMap,
     fs,
     path::{Path, PathBuf},
     sync::Mutex,
@@ -133,22 +134,52 @@ struct DataFile {
     content: String,
 }
 
-/// Escribe uno o varios .json del proyecto. Primero se escriben todos en
-/// archivos temporales y solo entonces se renombran, para no dejar nunca un
-/// archivo a medias.
+/// Sello de un archivo (fecha de modificación y tamaño) para saber si alguien
+/// lo cambió fuera de Organon. `None` si no existe.
+fn stamp(path: &Path) -> Option<String> {
+    let meta = fs::metadata(path).ok()?;
+    let modified = meta.modified().ok()?.duration_since(std::time::UNIX_EPOCH).ok()?;
+    Some(format!("{}-{}", modified.as_nanos(), meta.len()))
+}
+
 #[tauri::command]
-fn write_data(state: State<'_, Current>, files: Vec<DataFile>) -> Result<(), String> {
+fn data_stamps(state: State<'_, Current>, names: Vec<String>) -> Result<HashMap<String, Option<String>>, String> {
+    let dir = current(&state)?;
+    let mut out = HashMap::new();
+    for name in names {
+        safe_name(&name, ".json")?;
+        let s = stamp(&dir.join(&name));
+        out.insert(name, s);
+    }
+    Ok(out)
+}
+
+/// Escribe uno o varios .json del proyecto y devuelve sus sellos nuevos.
+/// `expected` son los sellos que Organon vio por última vez: si alguno ya no
+/// coincide, el archivo cambió fuera de la app y no se escribe nada
+/// (el error empieza por `CONFLICT`). Primero se escriben todos en archivos
+/// temporales y solo entonces se renombran, para no dejar ninguno a medias.
+#[tauri::command]
+fn write_data(state: State<'_, Current>, files: Vec<DataFile>, expected: HashMap<String, Option<String>>) -> Result<HashMap<String, Option<String>>, String> {
     let dir = current(&state)?;
     for f in &files {
         safe_name(&f.name, ".json")?;
     }
+    for (name, seen) in &expected {
+        safe_name(name, ".json")?;
+        if stamp(&dir.join(name)) != *seen {
+            return Err(format!("CONFLICT {name}"));
+        }
+    }
     for f in &files {
         fs::write(dir.join(format!("{}.tmp", f.name)), &f.content).map_err(err)?;
     }
+    let mut out = HashMap::new();
     for f in &files {
         fs::rename(dir.join(format!("{}.tmp", f.name)), dir.join(&f.name)).map_err(err)?;
+        out.insert(f.name.clone(), stamp(&dir.join(&f.name)));
     }
-    Ok(())
+    Ok(out)
 }
 
 /// Guarda un PDF en `pdfs/`. El cuerpo es el archivo en bruto y el nombre
@@ -199,7 +230,7 @@ pub fn run() {
         .manage(Current::default())
         .invoke_handler(tauri::generate_handler![
             recent_projects, forget_project, current_project, pick_folder, open_project, close_project,
-            read_data, write_data, save_pdf, read_pdf, save_text_file, open_url
+            read_data, data_stamps, write_data, save_pdf, read_pdf, save_text_file, open_url
         ])
         .run(tauri::generate_context!())
         .expect("error al iniciar Organon");

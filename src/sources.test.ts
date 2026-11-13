@@ -1,6 +1,6 @@
 import { expect, test } from 'vitest'
 import { cslFromDoi, cslFromOpenLibrary, parseIdentifier, splitName } from './lookup'
-import { applyFields, EMPTY_FIELDS, fieldsFromCsl, suggestCitekey } from './source-form'
+import { applyFields, EMPTY_FIELDS, fieldsFromCsl, findDuplicate, suggestCitekey } from './source-form'
 
 test('reconoce DOI e ISBN pegados de cualquier manera', () => {
   expect(parseIdentifier('https://doi.org/10.1017/CCOL0521632056.004')).toEqual({ kind: 'doi', value: '10.1017/CCOL0521632056.004' })
@@ -55,4 +55,15 @@ test('clave de cita', () => {
   expect(suggestCitekey(csl, new Set())).toBe('pini2005')
   expect(suggestCitekey(csl, new Set(['pini2005']))).toBe('pini2005b')
   expect(suggestCitekey({ title: 'Ordinatio' }, new Set())).toBe('ordinatio')
+})
+
+test('detecta fuentes repetidas', () => {
+  const chapter = { id: 'a', csl: { title: 'Universals and Individuation', author: [{ family: 'Noone' }], issued: { 'date-parts': [[2002]] }, DOI: '10.1017/CCOL0521632056.004', ISBN: '9780521632058' } }
+  const sources = [chapter]
+  expect(findDuplicate({ DOI: 'https://doi.org/10.1017/ccol0521632056.004', title: 'Otro título' }, sources)?.id).toBe('a')
+  expect(findDuplicate({ title: 'Universals and individuation.', author: [{ family: 'Noone' }] }, sources)?.id).toBe('a')
+  // Otro capítulo del mismo libro comparte ISBN, pero no es la misma fuente.
+  expect(findDuplicate({ title: 'Space and Time', author: [{ family: 'Lewis' }], ISBN: '9780521632058' }, sources)).toBeNull()
+  expect(findDuplicate({ title: 'Universals and Individuation', author: [{ family: 'King' }] }, sources)).toBeNull()
+  expect(findDuplicate(chapter.csl, sources, 'a')).toBeNull() // al editarla, no es duplicada de sí misma
 })

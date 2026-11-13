@@ -3,8 +3,9 @@ import { backend, type ProjectInfo } from '../backend'
 import type { CiteOptions } from '../citations'
 import { cellText, fichasToCsv, readCsv, type ParsedCsv } from '../fichero-io'
 import { createFichero, deleteFicha, deleteFichero, getSettings, listFichas, listFicheros, listSources, listTags, saveFicha, setSettings, updateFichero, type FichaDraft } from '../store'
-import type { Column, Ficha, Fichero, Source } from '../types'
+import type { Column, Ficha, Fichero, FieldKey, Source } from '../types'
 import { FichaForm } from './FichaForm'
+import { SidePanel } from './SidePanel'
 import { ImportDialog } from './ImportDialog'
 import { TopNav, type Section } from './TopNav'
 
@@ -17,6 +18,8 @@ interface Props {
 }
 
 const NO_SOURCE = '__none__'
+const MIN_COLUMN = 48
+const DEFAULT_WIDTH: Record<FieldKey, number> = { num: 64, notaPermanente: 230, cita: 400, tags: 150, autor: 120, fuente: 190, pageLabel: 84, referencia: 190, notas: 240, extra: 150 }
 const fold = (s: string) => s.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase()
 
 export function FicheroView({ project, cite, onSection, onSwitchProject, onOpenPdf }: Props) {
@@ -34,6 +37,8 @@ export function FicheroView({ project, cite, onSection, onSwitchProject, onOpenP
   const [naming, setNaming] = useState<{ mode: 'new' | 'rename'; value: string } | null>(null)
   const [confirmDelete, setConfirmDelete] = useState(false)
   const fileInput = useRef<HTMLInputElement>(null)
+  // Columna que se está arrastrando: su ancho provisional hasta soltar.
+  const [resizing, setResizing] = useState<{ index: number; width: number } | null>(null)
 
   const reload = useCallback(async () => {
     const fs = await listFicheros()
@@ -78,6 +83,44 @@ export function FicheroView({ project, cite, onSection, onSwitchProject, onOpenP
       return fold(columns.map((c) => cellText(f, c, source)).join(' \n ')).includes(q)
     })
   }, [fichas, query, tag, sourceFilter, columns, sourceById])
+
+  const widthOf = (c: Column, i: number) => (resizing?.index === i ? resizing.width : (c.width ?? DEFAULT_WIDTH[c.field]))
+
+  const saveWidth = async (index: number, width: number | undefined) => {
+    if (!fichero) return
+    const next = fichero.columns.map((c, i) => (i === index ? { ...c, width } : c))
+    setFicheros((fs) => fs.map((f) => (f.id === fichero.id ? { ...f, columns: next } : f)))
+    await updateFichero(fichero.id, { columns: next })
+  }
+
+  const startResize = (index: number, e: React.PointerEvent) => {
+    e.preventDefault()
+    e.stopPropagation()
+    const startX = e.clientX
+    const startWidth = widthOf(columns[index], index)
+    let width = startWidth
+    const move = (ev: PointerEvent) => {
+      width = Math.max(MIN_COLUMN, Math.round(startWidth + ev.clientX - startX))
+      setResizing({ index, width })
+    }
+    const stop = () => {
+      window.removeEventListener('pointermove', move)
+      window.removeEventListener('pointerup', stop)
+      setResizing(null)
+      if (width !== startWidth) void saveWidth(index, width)
+    }
+    window.addEventListener('pointermove', move)
+    window.addEventListener('pointerup', stop)
+  }
+
+  // El editor se cierra con Esc y la fila que se edita queda siempre a la vista.
+  useEffect(() => {
+    if (!editing) return
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') setEditing(null) }
+    window.addEventListener('keydown', onKey)
+    document.querySelector('table.fichas tr.current')?.scrollIntoView({ block: 'nearest' })
+    return () => window.removeEventListener('keydown', onKey)
+  }, [editing])
 
   const edit = (f: Ficha) => {
     const { num, createdAt: _c, updatedAt: _u, ...draft } = f
@@ -188,9 +231,21 @@ export function FicheroView({ project, cite, onSection, onSwitchProject, onOpenP
               <button className="primary" onClick={() => fileInput.current?.click()}>Importar CSV…</button>
             </div>
           ) : (
-            <table className="fichas">
+            <table className={resizing ? 'fichas resizing' : 'fichas'} style={{ width: columns.reduce((sum, c, i) => sum + widthOf(c, i), 0) }}>
+              <colgroup>{columns.map((c, i) => <col key={i} style={{ width: widthOf(c, i) }} />)}</colgroup>
               <thead>
-                <tr>{columns.map((c, i) => <th key={i} className={`col-${c.field}`}>{c.header}</th>)}</tr>
+                <tr>
+                  {columns.map((c, i) => (
+                    <th key={i} className={`col-${c.field}`}>
+                      <span className="th-label">{c.header}</span>
+                      <span
+                        className="col-resizer" role="separator" aria-orientation="vertical" aria-label={`Cambiar el ancho de ${c.header}`}
+                        title="Arrastra para cambiar el ancho. Doble clic: ancho normal." data-testid={`resize-${i}`}
+                        onPointerDown={(e) => startResize(i, e)} onDoubleClick={() => void saveWidth(i, undefined)}
+                      />
+                    </th>
+                  ))}
+                </tr>
               </thead>
               <tbody>
                 {shown.map((f) => {
@@ -220,7 +275,7 @@ export function FicheroView({ project, cite, onSection, onSwitchProject, onOpenP
         </div>
 
         {editing && (
-          <aside className="side-panel">
+          <SidePanel>
             <FichaForm
               key={editing.draft.id ?? 'new'} draft={editing.draft} num={editing.num} sources={sources} ficheros={ficheros} cite={cite} knownTags={knownTags}
               onCancel={() => setEditing(null)}
@@ -228,7 +283,7 @@ export function FicheroView({ project, cite, onSection, onSwitchProject, onOpenP
               onDelete={editing.draft.id ? async () => { await deleteFicha(editing.draft.id!); await reload(); setEditing(null) } : undefined}
               onOpenPdf={editing.draft.id ? (d) => d.sourceId && onOpenPdf(d.sourceId, d.anchor ? { focusFichaId: d.id } : { linkFichaId: d.id }) : undefined}
             />
-          </aside>
+          </SidePanel>
         )}
       </div>
 

@@ -1,6 +1,6 @@
 {
   "name": "organon",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "description": "Lector de PDF y fichero para escribir una tesis: fichas con la cita y la página impresa correctas.",
   "license": "MIT",
   "author": "José Pablo Iglesias",

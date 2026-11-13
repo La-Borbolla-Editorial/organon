@@ -55,7 +55,11 @@ export function ImportDialog({ csv, fileName, ficheros, fichas, sources, onDone,
     try {
       let id = target
       if (target === 'new') id = await createFichero(name.trim() || baseName || 'Fichero', columns)
-      else await updateFichero(target, { columns })
+      else {
+        // Al reimportar se conservan los anchos de columna que ya tenía el fichero.
+        const old = ficheros.find((f) => f.id === target)?.columns ?? []
+        await updateFichero(target, { columns: columns.map((c) => ({ ...c, width: old.find((o) => o.header === c.header)?.width })) })
+      }
       const { added, updated } = await importFichas(id, rows, target !== 'new' && update)
       const linked = rows.filter((r) => r.sourceId).length
       onDone(id, `${added} ficha(s) añadida(s)${updated ? `, ${updated} actualizada(s)` : ''}. ${linked} de ${rows.length} con fuente reconocida.`)

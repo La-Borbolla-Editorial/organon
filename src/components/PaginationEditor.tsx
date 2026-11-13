@@ -15,6 +15,9 @@ interface Props {
   onCancel: () => void
 }
 
+// Varias fichas pueden compartir número (una por fichero): el título las distingue.
+const title = (f: Ficha) => { const t = f.notaPermanente || f.cita; return t.length > 46 ? `${t.slice(0, 45)}…` : t }
+
 const STYLE_NAMES: Record<NumStyle, string> = { arabic: '1, 2, 3…', roman: 'i, ii, iii…', ROMAN: 'I, II, III…', none: 'sin número' }
 
 export function PaginationEditor({ source, ranges, onChange, currentPage, numPages, fichas, onGoToPage, onSave, onCancel }: Props) {
@@ -141,14 +144,14 @@ export function PaginationEditor({ source, ranges, onChange, currentPage, numPag
             {changes.map(({ ficha, next }) => (
               <li key={ficha.id}>
                 {ficha.pageManual ? (
-                  <span className="muted">Ficha {ficha.num}: p. {ficha.pageLabel} (escrita a mano, no se toca)</span>
+                  <span className="muted">Ficha {ficha.num} <em>{title(ficha)}</em>: p. {ficha.pageLabel} (escrita a mano, no se toca)</span>
                 ) : (
                   <label className="check">
                     <input
                       type="checkbox" checked={!skip.has(ficha.id) && !!next} disabled={!next}
                       onChange={(e) => setSkip((s) => { const n = new Set(s); if (e.target.checked) n.delete(ficha.id); else n.add(ficha.id); return n })}
                     />
-                    Ficha {ficha.num}: p. {ficha.pageLabel || '—'} → <strong>{next ? `p. ${next}` : 'sin número (se deja como está)'}</strong>
+                    <span>Ficha {ficha.num} <em>{title(ficha)}</em>: p. {ficha.pageLabel || '—'} → <strong>{next ? `p. ${next}` : 'sin número (se deja como está)'}</strong></span>
                   </label>
                 )}
               </li>

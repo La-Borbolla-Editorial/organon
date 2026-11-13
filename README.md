@@ -85,8 +85,8 @@ Organon solo se conecta a internet cuando buscas una fuente por DOI (doi.org) o
 por ISBN (Open Library), y solo envía ese identificador.
 
 Si editas esos archivos a mano, o una sincronización los cambia, con el proyecto
-abierto, Organon no lo ve hasta que lo vuelves a abrir, y su siguiente guardado
-los pisaría. Cierra el proyecto antes.
+abierto, Organon lo detecta al volver a su ventana o al guardar: avisa, no
+sobrescribe nada y te ofrece recargar el proyecto.
 
 ## Desarrollo
 
