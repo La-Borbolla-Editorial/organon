@@ -16,8 +16,9 @@ una hoja de cálculo como fichero y un procesador de textos para citar.
 - **Proyectos en carpetas tuyas.** Un proyecto es una carpeta cualquiera (la de la
   tesis, la de un trabajo final). Dentro quedan las fuentes, los PDF y las fichas,
   en archivos legibles. Cambias de proyecto desde la barra superior.
-- **Biblioteca.** Importa los metadatos desde Zotero (BibTeX, BibLaTeX o CSL JSON)
-  y adjunta un PDF a cada fuente.
+- **Biblioteca.** Añade las fuentes a mano, a partir de un DOI o un ISBN, o
+  importándolas desde Zotero (BibTeX, BibLaTeX o CSL JSON), y adjunta un PDF a
+  cada una.
 - **Lector.** Seleccionas texto, pulsas «+ Ficha» y rellenas la nota permanente,
   los tags y las notas. Las fichas quedan resaltadas en el PDF y un clic te lleva
   de vuelta al pasaje.
@@ -53,8 +54,10 @@ Para Mac con Intel, Windows o Linux hay que compilarla (ver más abajo).
 ## Primeros pasos
 
 1. Abre Organon y elige la carpeta del proyecto.
-2. En Zotero, selecciona tus referencias y usa *Archivo → Exportar elementos…*
-   (BibTeX, BibLaTeX o CSL JSON). En Organon, **Importar de Zotero…**
+2. Pulsa **+ Añadir fuente** y pega su DOI o su ISBN (o rellena los datos a
+   mano). Si usas Zotero, selecciona allí tus referencias, usa *Archivo →
+   Exportar elementos…* (BibTeX, BibLaTeX o CSL JSON) y, en Organon, **Importar
+   de Zotero…**
 3. Pulsa **Adjuntar PDF…** en una fuente. Compara dos o tres hojas con el número
    que proponga Organon y confirma la paginación.
 4. Selecciona un pasaje y pulsa **+ Ficha**.
@@ -77,6 +80,9 @@ Cada proyecto es una carpeta con:
 
 Son JSON legibles: puedes abrirlos, copiarlos, versionarlos con git o sincronizar
 la carpeta. Organon no guarda nada más, salvo la lista de proyectos recientes.
+
+Organon solo se conecta a internet cuando buscas una fuente por DOI (doi.org) o
+por ISBN (Open Library), y solo envía ese identificador.
 
 Si editas esos archivos a mano, o una sincronización los cambia, con el proyecto
 abierto, Organon no lo ve hasta que lo vuelves a abrir, y su siguiente guardado
@@ -106,6 +112,7 @@ Cómo está hecho:
 - `src/citations.ts`: citas con [citeproc-js](https://github.com/Juris-M/citeproc-js)
   y estilos CSL.
 - `src/fichero-io.ts`: importación y exportación CSV.
+- `src/lookup.ts` y `src/source-form.ts`: fuentes por DOI o ISBN y edición a mano.
 - `src/components/`: biblioteca, lector ([PDF.js](https://mozilla.github.io/pdf.js/)) y fichero.
 
 ## Licencia

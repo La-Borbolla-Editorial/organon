@@ -9,6 +9,7 @@
 // millones) y cada cambio reescribe el archivo afectado de forma atómica.
 import { backend } from './backend'
 import { DEFAULT_PAGINATION, type PageRange } from './pagination'
+import { suggestCitekey } from './source-form'
 import { matchSource, type ImportedFicha } from './fichero-io'
 import { DEFAULT_COLUMNS, type Column, type CslItem, type Ficha, type Fichero, type Source } from './types'
 
@@ -205,6 +206,20 @@ export async function upsertSources(items: CslItem[]): Promise<{ added: number; 
   }
   await persist('sources')
   return { added, updated }
+}
+
+/** Crea una fuente a mano (sin `id`) o guarda los metadatos editados de una existente. */
+export async function saveSource(csl: Record<string, any>, id?: string): Promise<string> {
+  const d = db()
+  if (id) {
+    replaceSource(id, { csl: { ...csl, id } })
+  } else {
+    id = newId()
+    const citekey = suggestCitekey(csl, new Set(d.sources.map((s) => s.citekey)))
+    d.sources = [...d.sources, { id, citekey, csl: { ...csl, id }, pdfFile: null, pdfPages: null, pagination: DEFAULT_PAGINATION, paginationVerified: false, paginationNote: '' }]
+  }
+  await persist('sources')
+  return id
 }
 
 export async function setSourcePdf(id: string, pdfFile: string, pdfPages: number, pagination: PageRange[], note: string): Promise<void> {

@@ -1,5 +1,10 @@
 # Cambios
 
+## 0.2.0
+
+- Añadir fuentes a mano, sin pasar por Zotero, y editar los metadatos de cualquier fuente.
+- Rellenar una fuente a partir de su DOI (doi.org) o su ISBN (Open Library).
+
 ## 0.1.0
 
 Primera versión.

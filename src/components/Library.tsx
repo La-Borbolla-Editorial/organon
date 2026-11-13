@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { backend, type ProjectInfo } from '../backend'
 import { authorsLabel, firstPageFromCsl, formatBibliographyEntry, LOCALES, parseZoteroExport, STYLES, yearLabel, type CiteOptions, type LocaleId, type StyleId } from '../citations'
 import { countFichasBySource, deleteSource, linkOrphanFichas, listSources, setSourcePdf, upsertSources } from '../store'
+import { SourceForm } from './SourceForm'
 import { TopNav, type Section } from './TopNav'
 import { guessPagination } from '../pdf/guess'
 import { openPdf } from '../pdf/pdfjs'
@@ -25,6 +26,7 @@ export function Library({ project, onSwitchProject, onSection, cite, onCiteChang
   const [busy, setBusy] = useState<string | null>(null)
   const [confirmDelete, setConfirmDelete] = useState<string | null>(null)
   const [query, setQuery] = useState('')
+  const [form, setForm] = useState<{ source?: Source } | null>(null)
   const zoteroInput = useRef<HTMLInputElement>(null)
   const pdfInput = useRef<HTMLInputElement>(null)
   const pdfTarget = useRef<Source | null>(null)
@@ -90,7 +92,8 @@ export function Library({ project, onSwitchProject, onSection, cite, onCiteChang
             ))}
           </select>
         </label>
-        <button className="primary" onClick={() => zoteroInput.current?.click()}>Importar de Zotero…</button>
+        <button onClick={() => zoteroInput.current?.click()}>Importar de Zotero…</button>
+        <button className="primary" onClick={() => setForm({})} data-testid="add-source">+ Añadir fuente</button>
       </TopNav>
 
       <input
@@ -121,11 +124,13 @@ export function Library({ project, onSwitchProject, onSection, cite, onCiteChang
         {sources.length === 0 ? (
           <div className="empty">
             <h2>Tu biblioteca está vacía</h2>
+            <p>Añade una fuente a mano, o deja que Organon la rellene a partir de su DOI o su ISBN.</p>
+            <button className="primary" onClick={() => setForm({})}>+ Añadir fuente</button>
             <p>
-              En Zotero, selecciona las referencias y elige <em>Archivo → Exportar elementos…</em> con formato <strong>BibTeX</strong>,{' '}
+              Si usas Zotero, selecciona allí las referencias y elige <em>Archivo → Exportar elementos…</em> con formato <strong>BibTeX</strong>,{' '}
               <strong>BibLaTeX</strong> o <strong>CSL JSON</strong>. Después importa aquí ese archivo.
             </p>
-            <button className="primary" onClick={() => zoteroInput.current?.click()}>Importar de Zotero…</button>
+            <button onClick={() => zoteroInput.current?.click()}>Importar de Zotero…</button>
           </div>
         ) : (
           <>
@@ -165,6 +170,7 @@ export function Library({ project, onSwitchProject, onSection, cite, onCiteChang
                         <button onClick={() => { pdfTarget.current = s; pdfInput.current?.click() }} data-testid={`attach-${s.citekey}`}>
                           {s.pdfFile ? 'Cambiar PDF…' : 'Adjuntar PDF…'}
                         </button>
+                        <button className="link subtle" onClick={() => setForm({ source: s })} data-testid={`edit-${s.citekey}`}>Editar</button>
                         <button className="link subtle" onClick={() => setConfirmDelete(s.id)}>Eliminar</button>
                       </>
                     )}
@@ -175,6 +181,17 @@ export function Library({ project, onSwitchProject, onSection, cite, onCiteChang
           </>
         )}
       </main>
+      {form && (
+        <SourceForm
+          source={form.source} cite={cite} onCancel={() => setForm(null)}
+          onDone={async () => {
+            const linked = form.source ? 0 : await linkOrphanFichas()
+            setMessage({ kind: 'ok', text: form.source ? 'Fuente actualizada.' : `Fuente añadida.${linked ? ` ${linked} ficha(s) importada(s) quedaron vinculadas a ella.` : ''}` })
+            setForm(null)
+            await reload()
+          }}
+        />
+      )}
       <footer className="library-footer">Proyecto en <code>{project.path}</code>: <code>fuentes.json</code>, <code>fichas.json</code> y la carpeta <code>pdfs/</code>.</footer>
     </div>
   )

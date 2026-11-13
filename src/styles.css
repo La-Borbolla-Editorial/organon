@@ -216,3 +216,16 @@ td.col-cita { font-family: var(--serif); }
 .sample-cell { max-width: 260px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .unmatched { margin: 0; padding-left: 18px; max-height: 130px; overflow: auto; }
 .stack { display: grid; gap: 4px; }
+
+/* ---- Formulario de fuente ---- */
+.source-form > label, .source-fields label { display: grid; gap: 4px; font-size: 12px; font-weight: 600; color: var(--muted); }
+.source-form label > input, .source-form label > textarea, .source-form label > select { font-weight: normal; color: var(--ink); font-size: 14px; }
+.source-fields { display: grid; grid-template-columns: repeat(6, 1fr); gap: 10px 12px; }
+.source-fields label { grid-column: span 3; min-width: 0; }
+.source-fields label.wide { grid-column: 1 / -1; }
+.source-fields label.short { grid-column: span 2; }
+.lookup-box { background: #f6f4ef; border-radius: 8px; padding: 12px; }
+.lookup-box input { flex: 1; }
+.found { color: var(--ok); font-size: 12.5px; }
+.citation-preview.bordered { border: 1px solid var(--line); }
+.citation-preview .csl-entry { margin: 0; }
