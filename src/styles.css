@@ -240,3 +240,5 @@ td.col-cita { font-family: var(--serif); }
 
 /* ---- Aviso de cambios en disco ---- */
 .stale-bar { position: fixed; left: 50%; top: 10px; transform: translateX(-50%); z-index: 100; width: min(760px, calc(100% - 32px)); display: flex; gap: 14px; align-items: center; background: var(--warn-bg); color: var(--warn); border: 1px solid #ecd596; border-radius: 8px; padding: 10px 14px; box-shadow: 0 6px 24px rgb(0 0 0 / 0.18); }
+.pdf-box { border: 1px solid var(--line); border-radius: 8px; padding: 12px; }
+.source-form .form-actions { flex-wrap: wrap; }

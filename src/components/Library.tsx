@@ -1,11 +1,9 @@
 import { useEffect, useRef, useState } from 'react'
-import { backend, type ProjectInfo } from '../backend'
-import { authorsLabel, firstPageFromCsl, formatBibliographyEntry, LOCALES, parseZoteroExport, STYLES, yearLabel, type CiteOptions, type LocaleId, type StyleId } from '../citations'
-import { countFichasBySource, deleteSource, linkOrphanFichas, listSources, setSourcePdf, upsertSources } from '../store'
+import type { ProjectInfo } from '../backend'
+import { authorsLabel, formatBibliographyEntry, LOCALES, parseZoteroExport, STYLES, yearLabel, type CiteOptions, type LocaleId, type StyleId } from '../citations'
+import { countFichasBySource, linkOrphanFichas, listSources, upsertSources } from '../store'
 import { SourceForm } from './SourceForm'
 import { TopNav, type Section } from './TopNav'
-import { guessPagination } from '../pdf/guess'
-import { openPdf } from '../pdf/pdfjs'
 import type { Source } from '../types'
 
 interface Props {
@@ -17,19 +15,13 @@ interface Props {
   onOpen: (sourceId: string) => void
 }
 
-const slug = (s: string) => s.normalize('NFD').replace(/[^A-Za-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 40).toLowerCase() || 'fuente'
-
 export function Library({ project, onSwitchProject, onSection, cite, onCiteChange, onOpen }: Props) {
   const [sources, setSources] = useState<Source[]>([])
   const [counts, setCounts] = useState<Record<string, number>>({})
   const [message, setMessage] = useState<{ kind: 'ok' | 'error'; text: string } | null>(null)
-  const [busy, setBusy] = useState<string | null>(null)
-  const [confirmDelete, setConfirmDelete] = useState<string | null>(null)
   const [query, setQuery] = useState('')
   const [form, setForm] = useState<{ source?: Source } | null>(null)
   const zoteroInput = useRef<HTMLInputElement>(null)
-  const pdfInput = useRef<HTMLInputElement>(null)
-  const pdfTarget = useRef<Source | null>(null)
 
   const reload = async () => {
     setSources(await listSources())
@@ -49,24 +41,6 @@ export function Library({ project, onSwitchProject, onSection, cite, onCiteChang
       await reload()
     } catch (e) {
       setMessage({ kind: 'error', text: `No se pudo importar «${file.name}»: ${e instanceof Error ? e.message : e}` })
-    }
-  }
-
-  const attachPdf = async (source: Source, file: File) => {
-    setBusy(source.id)
-    try {
-      const bytes = new Uint8Array(await file.arrayBuffer())
-      const doc = await openPdf(bytes.slice()) // PDF.js se queda con el búfer: se le da una copia
-      const guess = await guessPagination(doc, firstPageFromCsl(source.csl))
-      const pages = doc.numPages
-      await doc.loadingTask.destroy()
-      const name = source.pdfFile ?? `${slug(source.citekey)}-${source.id.slice(0, 8)}.pdf`
-      await backend.savePdf(name, bytes)
-      await setSourcePdf(source.id, name, pages, guess.ranges, guess.note)
-      onOpen(source.id)
-    } catch (e) {
-      setMessage({ kind: 'error', text: `No se pudo adjuntar «${file.name}»: ${e instanceof Error ? e.message : e}` })
-      setBusy(null)
     }
   }
 
@@ -104,15 +78,6 @@ export function Library({ project, onSwitchProject, onSection, cite, onCiteChang
           if (f) void importZotero(f)
         }}
       />
-      <input
-        ref={pdfInput} type="file" accept="application/pdf,.pdf" hidden data-testid="pdf-input"
-        onChange={(e) => {
-          const f = e.target.files?.[0]
-          e.target.value = ''
-          if (f && pdfTarget.current) void attachPdf(pdfTarget.current, f)
-        }}
-      />
-
       <main className="library-main">
         {message && (
           <div className={`banner ${message.kind}`}>
@@ -156,24 +121,8 @@ export function Library({ project, onSwitchProject, onSection, cite, onCiteChang
                     </div>
                   </div>
                   <div className="source-actions">
-                    {busy === s.id ? (
-                      <span className="muted">Analizando el PDF…</span>
-                    ) : confirmDelete === s.id ? (
-                      <>
-                        <span className="muted">¿Eliminar la fuente?{counts[s.id] ? ' Sus fichas se conservan sin fuente.' : ''}</span>
-                        <button className="danger" onClick={async () => { await deleteSource(s.id); setConfirmDelete(null); await reload() }}>Eliminar</button>
-                        <button onClick={() => setConfirmDelete(null)}>Cancelar</button>
-                      </>
-                    ) : (
-                      <>
-                        {s.pdfFile && <button className="primary" onClick={() => onOpen(s.id)}>Abrir</button>}
-                        <button onClick={() => { pdfTarget.current = s; pdfInput.current?.click() }} data-testid={`attach-${s.citekey}`}>
-                          {s.pdfFile ? 'Cambiar PDF…' : 'Adjuntar PDF…'}
-                        </button>
-                        <button className="link subtle" onClick={() => setForm({ source: s })} data-testid={`edit-${s.citekey}`}>Editar</button>
-                        <button className="link subtle" onClick={() => setConfirmDelete(s.id)}>Eliminar</button>
-                      </>
-                    )}
+                    {s.pdfFile && <button className="primary" onClick={() => onOpen(s.id)}>Abrir</button>}
+                    <button onClick={() => setForm({ source: s })} data-testid={`edit-${s.citekey}`}>Editar</button>
                   </div>
                 </li>
               ))}
@@ -184,9 +133,13 @@ export function Library({ project, onSwitchProject, onSection, cite, onCiteChang
       {form && (
         <SourceForm
           source={form.source} sources={sources} cite={cite} onCancel={() => setForm(null)}
-          onDone={async () => {
-            const linked = form.source ? 0 : await linkOrphanFichas()
-            setMessage({ kind: 'ok', text: form.source ? 'Fuente actualizada.' : `Fuente añadida.${linked ? ` ${linked} ficha(s) importada(s) quedaron vinculadas a ella.` : ''}` })
+          fichaCount={form.source ? (counts[form.source.id] ?? 0) : 0}
+          onDone={async (id, result) => {
+            // Con un PDF recién adjuntado se abre el lector, que pide verificar la paginación.
+            if (result === 'pdf') return onOpen(id)
+            const linked = result === 'added' ? await linkOrphanFichas() : 0
+            const text = { added: `Fuente añadida.${linked ? ` ${linked} ficha(s) importada(s) quedaron vinculadas a ella.` : ''}`, updated: 'Fuente actualizada.', deleted: 'Fuente eliminada.' }[result]
+            setMessage({ kind: 'ok', text })
             setForm(null)
             await reload()
           }}

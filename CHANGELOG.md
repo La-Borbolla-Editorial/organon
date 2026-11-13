@@ -7,6 +7,8 @@
 - Organon detecta si los archivos del proyecto cambiaron fuera de la app (una sincronización, una
   edición a mano): avisa, no los sobrescribe y permite recargar.
 - Aviso al añadir una fuente que ya está en la biblioteca (mismo DOI, o mismo título y autor).
+- Adjuntar o cambiar el PDF y eliminar la fuente se hacen desde el formulario «Editar»; al añadir
+  una fuente se puede adjuntar su PDF en el mismo paso.
 - Al corregir la paginación, la lista de fichas afectadas muestra el título de cada una.
 
 ## 0.2.0
