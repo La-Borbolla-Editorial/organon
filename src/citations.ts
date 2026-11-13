@@ -106,6 +106,56 @@ export function formatBibliographyEntry(csl: CslItem, o: CiteOptions): string {
   }
 }
 
+// ---- Un documento entero: citas numeradas en orden y bibliografía -----------------
+
+export interface CiteItem {
+  csl: CslItem
+  page: string
+  /** Texto que precede a la referencia dentro de la nota: «cf.», «véase»… */
+  prefix?: string
+}
+
+export interface Sequence {
+  /** Texto (HTML) de cada cita, en el orden recibido. Vacío si la cita no tenía fuentes. */
+  texts: string[]
+  /** true si el estilo cita en notas al pie; false si cita en el texto (autor-año). */
+  isNote: boolean
+  /** Entradas de bibliografía (HTML) de todas las fuentes citadas, ya ordenadas. */
+  bibliography: string[]
+}
+
+/**
+ * Da formato a todas las citas de un documento, en orden. A diferencia de
+ * `formatCitation`, aquí el estilo sabe qué se citó antes: primera cita
+ * completa y siguientes abreviadas, «ibid.», etc., según lo que mande el estilo.
+ */
+export function formatSequence(clusters: CiteItem[][], o: CiteOptions): Sequence {
+  const local = new Map<string, CslItem>()
+  for (const cluster of clusters) for (const item of cluster) local.set(item.csl.id, item.csl)
+  const sys = { retrieveLocale: (lang: string) => LOCALE_XML[lang] ?? localeEn, retrieveItem: (id: string) => local.get(id) }
+  const e = new CSL.Engine(sys, STYLES[o.style].xml, o.locale, true)
+  const texts = clusters.map(() => '')
+  const pre: [string, number][] = []
+  clusters.forEach((cluster, i) => {
+    if (!cluster.length) return
+    const citation = {
+      citationID: `c${i}`,
+      citationItems: cluster.map((item) => ({
+        id: item.csl.id,
+        ...(item.page.trim() ? { locator: item.page.trim(), label: 'page' } : {}),
+        ...(item.prefix ? { prefix: `${item.prefix} ` } : {}),
+      })),
+      properties: { noteIndex: pre.length + 1 },
+    }
+    const [, updates] = e.processCitationCluster(citation, pre, [])
+    // Una cita nueva puede cambiar el texto de las anteriores (desambiguación).
+    for (const [, text, id] of updates as [number, string, string][]) texts[Number(id.slice(1))] = text
+    pre.push([citation.citationID, citation.properties.noteIndex])
+  })
+  const bib = local.size ? e.makeBibliography() : null
+  return { texts, isNote: e.opt.xclass === 'note', bibliography: bib ? (bib[1] as string[]).map((entry) => entry.trim()) : [] }
+}
+
 // ---- Etiquetas breves para la interfaz -----------------------------------
 
 const escapeHtml = (s: string) => s.replace(/[&<>]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' })[c]!)

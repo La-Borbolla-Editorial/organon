@@ -47,6 +47,26 @@ export const backend = {
    */
   writeData: (files: { name: string; content: string }[], expected: Stamps) => call<Stamps>('write_data', { files, expected }),
 
+  // ---- Borradores (borradores/*.md) ----
+  listDrafts: () => call<{ name: string; stamp: string | null }[]>('list_drafts'),
+  readDraft: (name: string) => call<{ content: string; stamp: string | null }>('read_draft', { name }),
+  /** Devuelve el sello nuevo. Falla con «CONFLICT» si el archivo cambió fuera de Organon (salvo con `force`). */
+  writeDraft: (name: string, content: string, expected: string | null, force = false) => call<string | null>('write_draft', { name, content, expected, force }),
+  renameDraft: (from: string, to: string) => call<void>('rename_draft', { from, to }),
+  /** Mueve el borrador a borradores/.papelera/ (no lo borra). */
+  trashDraft: (name: string) => call<void>('trash_draft', { name }),
+
+  /** Guarda un archivo binario donde elija el usuario. `false` si cancela. */
+  async saveBinaryFile(defaultName: string, bytes: Uint8Array, mime: string): Promise<boolean> {
+    if (isNative) return invoke<boolean>('save_binary_file', bytes, { headers: { 'x-name': encodeURIComponent(defaultName) } })
+    const a = document.createElement('a')
+    a.href = URL.createObjectURL(new Blob([bytes as BlobPart], { type: mime }))
+    a.download = defaultName
+    a.click()
+    URL.revokeObjectURL(a.href)
+    return true
+  },
+
   async savePdf(name: string, bytes: Uint8Array): Promise<void> {
     if (isNative) await invoke('save_pdf', bytes, { headers: { 'x-name': name } })
     else await dev('save_pdf', { body: bytes as BodyInit, headers: { 'x-name': name } })

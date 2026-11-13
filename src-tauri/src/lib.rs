@@ -182,6 +182,127 @@ fn write_data(state: State<'_, Current>, files: Vec<DataFile>, expected: HashMap
     Ok(out)
 }
 
+// ---- Borradores (borradores/*.md) -------------------------------------------------
+
+#[derive(Serialize)]
+struct Draft {
+    name: String,
+    stamp: Option<String>,
+}
+
+#[derive(Serialize)]
+struct DraftContent {
+    content: String,
+    stamp: Option<String>,
+}
+
+/// Nombre de borrador: lo que el usuario escriba (con acentos y espacios),
+/// pero sin separadores de ruta ni puntos iniciales.
+fn draft_path(dir: &Path, name: &str) -> Result<PathBuf, String> {
+    let ok = !name.trim().is_empty()
+        && name.len() <= 120
+        && !name.starts_with('.')
+        && !name.chars().any(|c| matches!(c, '/' | '\\' | ':' | '\0') || c.is_control());
+    if !ok {
+        return Err(format!("Nombre de borrador no válido: {name}"));
+    }
+    Ok(dir.join("borradores").join(format!("{name}.md")))
+}
+
+#[tauri::command]
+fn list_drafts(state: State<'_, Current>) -> Result<Vec<Draft>, String> {
+    let dir = current(&state)?.join("borradores");
+    let mut out = Vec::new();
+    if let Ok(entries) = fs::read_dir(&dir) {
+        for entry in entries.flatten() {
+            let path = entry.path();
+            let file = entry.file_name().to_string_lossy().into_owned();
+            if path.is_file() && !file.starts_with('.') && file.ends_with(".md") {
+                out.push(Draft { name: file[..file.len() - 3].to_string(), stamp: stamp(&path) });
+            }
+        }
+    }
+    out.sort_by(|a, b| a.name.to_lowercase().cmp(&b.name.to_lowercase()));
+    Ok(out)
+}
+
+#[tauri::command]
+fn read_draft(state: State<'_, Current>, name: String) -> Result<DraftContent, String> {
+    let path = draft_path(&current(&state)?, &name)?;
+    Ok(DraftContent { content: fs::read_to_string(&path).map_err(err)?, stamp: stamp(&path) })
+}
+
+/// Guarda un borrador. `expected` es el sello con el que se leyó (`None` si es
+/// nuevo): si el archivo ya no lo tiene, cambió fuera de Organon y no se
+/// escribe (error `CONFLICT`). Con `force` se escribe igualmente.
+#[tauri::command]
+fn write_draft(state: State<'_, Current>, name: String, content: String, expected: Option<String>, force: bool) -> Result<Option<String>, String> {
+    let dir = current(&state)?;
+    let path = draft_path(&dir, &name)?;
+    if !force && stamp(&path) != expected {
+        return Err(format!("CONFLICT {name}"));
+    }
+    fs::create_dir_all(dir.join("borradores")).map_err(err)?;
+    let tmp = dir.join("borradores").join(format!(".{name}.tmp"));
+    fs::write(&tmp, content).map_err(err)?;
+    fs::rename(&tmp, &path).map_err(err)?;
+    Ok(stamp(&path))
+}
+
+#[tauri::command]
+fn rename_draft(state: State<'_, Current>, from: String, to: String) -> Result<(), String> {
+    let dir = current(&state)?;
+    let target = draft_path(&dir, &to)?;
+    if target.exists() {
+        return Err(format!("Ya existe un borrador llamado «{to}»"));
+    }
+    fs::rename(draft_path(&dir, &from)?, target).map_err(err)
+}
+
+/// No borra: mueve el borrador a `borradores/.papelera/`.
+#[tauri::command]
+fn trash_draft(state: State<'_, Current>, name: String) -> Result<(), String> {
+    let dir = current(&state)?;
+    let trash = dir.join("borradores").join(".papelera");
+    fs::create_dir_all(&trash).map_err(err)?;
+    let when = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).map_err(err)?.as_secs();
+    fs::rename(draft_path(&dir, &name)?, trash.join(format!("{name} ({when}).md"))).map_err(err)
+}
+
+/// Guarda un archivo binario (p. ej. un .docx exportado) donde elija el usuario.
+#[tauri::command]
+async fn save_binary_file(app: AppHandle, request: tauri::ipc::Request<'_>) -> Result<bool, String> {
+    let name = request.headers().get("x-name").and_then(|v| v.to_str().ok()).map(|s| percent_decode(s)).ok_or("Falta la cabecera x-name")?;
+    let bytes = match request.body() {
+        InvokeBody::Raw(bytes) => bytes.clone(),
+        _ => return Err("Se esperaba un cuerpo binario".into()),
+    };
+    match app.dialog().file().set_file_name(&name).blocking_save_file() {
+        Some(p) => fs::write(p.into_path().map_err(err)?, bytes).map(|_| true).map_err(err),
+        None => Ok(false),
+    }
+}
+
+/// Decodifica %XX (los nombres con acentos viajan codificados en la cabecera).
+fn percent_decode(s: &str) -> String {
+    let bytes = s.as_bytes();
+    let mut out = Vec::with_capacity(bytes.len());
+    let mut i = 0;
+    let hex = |b: u8| (b as char).to_digit(16).map(|d| d as u8);
+    while i < bytes.len() {
+        if bytes[i] == b'%' && i + 2 < bytes.len() {
+            if let (Some(hi), Some(lo)) = (hex(bytes[i + 1]), hex(bytes[i + 2])) {
+                out.push(hi * 16 + lo);
+                i += 3;
+                continue;
+            }
+        }
+        out.push(bytes[i]);
+        i += 1;
+    }
+    String::from_utf8_lossy(&out).into_owned()
+}
+
 /// Guarda un PDF en `pdfs/`. El cuerpo es el archivo en bruto y el nombre
 /// viaja en la cabecera `x-name`.
 #[tauri::command]
@@ -230,7 +351,7 @@ pub fn run() {
         .manage(Current::default())
         .invoke_handler(tauri::generate_handler![
             recent_projects, forget_project, current_project, pick_folder, open_project, close_project,
-            read_data, data_stamps, write_data, save_pdf, read_pdf, save_text_file, open_url
+            read_data, data_stamps, write_data, list_drafts, read_draft, write_draft, rename_draft, trash_draft, save_binary_file, save_pdf, read_pdf, save_text_file, open_url
         ])
         .run(tauri::generate_context!())
         .expect("error al iniciar Organon");

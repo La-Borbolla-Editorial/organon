@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import { backend, type ProjectInfo } from './backend'
 import { DEFAULT_LOCALE, DEFAULT_STYLE, LOCALES, STYLES, type CiteOptions, type LocaleId, type StyleId } from './citations'
+import { DraftsView } from './components/DraftsView'
 import { FicheroView } from './components/FicheroView'
 import { Library } from './components/Library'
 import { ProjectPicker } from './components/ProjectPicker'
@@ -10,12 +11,13 @@ import { changedOnDisk, getSettings, loadProject, setConflictHandler, setSetting
 type View =
   | { name: 'library' }
   | { name: 'fichero' }
+  | { name: 'drafts' }
   | { name: 'reader'; sourceId: string; from: 'library' | 'fichero'; focusFichaId?: string; linkFichaId?: string }
 
 function viewFromHash(): View {
   const m = /^#\/fuente\/([\w-]+)$/.exec(location.hash)
   if (m) return { name: 'reader', sourceId: m[1], from: 'library' }
-  return location.hash === '#/fichero' ? { name: 'fichero' } : { name: 'library' }
+  return location.hash === '#/fichero' ? { name: 'fichero' } : location.hash === '#/borradores' ? { name: 'drafts' } : { name: 'library' }
 }
 
 export function App() {
@@ -30,7 +32,7 @@ export function App() {
 
   // La vista se refleja en la dirección para que sobreviva a una recarga.
   const setView = useCallback((v: View) => {
-    history.replaceState(null, '', v.name === 'reader' ? `#/fuente/${v.sourceId}` : v.name === 'fichero' ? '#/fichero' : '#/')
+    history.replaceState(null, '', v.name === 'reader' ? `#/fuente/${v.sourceId}` : v.name === 'fichero' ? '#/fichero' : v.name === 'drafts' ? '#/borradores' : '#/')
     setViewState(v)
   }, [])
 
@@ -131,6 +133,8 @@ export function App() {
         onOpenPdf={(sourceId, ficha) => setView({ name: 'reader', sourceId, from: 'fichero', ...ficha })}
       />
     )
+  } else if (view.name === 'drafts') {
+    content = <DraftsView key={`${project.path}:${epoch}`} project={project} cite={cite} onSection={(name) => setView({ name })} onSwitchProject={() => void closeProject()} />
   } else {
     content = (
       <Library

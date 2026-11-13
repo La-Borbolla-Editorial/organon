@@ -5,3 +5,4 @@ declare module '*.csl?raw' {
   const text: string
   export default text
 }
+declare module 'markdown-it-footnote'

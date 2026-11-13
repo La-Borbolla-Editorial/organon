@@ -1,7 +1,7 @@
 // Sustituto del núcleo nativo para desarrollar en el navegador (`npm run dev`).
 // Implementa los mismos comandos que src-tauri/src/lib.rs. La lista de
 // proyectos recientes se guarda en .dev-state/.
-import { existsSync, mkdirSync, readFileSync, renameSync, statSync, writeFileSync } from 'node:fs'
+import { existsSync, mkdirSync, readdirSync, readFileSync, renameSync, statSync, writeFileSync } from 'node:fs'
 import type { IncomingMessage } from 'node:http'
 import { basename, isAbsolute, join, resolve } from 'node:path'
 import type { Plugin } from 'vite'
@@ -40,7 +40,39 @@ export function devBackend(): Plugin {
         return name
       }
 
+      const draft = (name: string) => {
+        if (!name.trim() || name.length > 120 || name.startsWith('.') || /[/\\:\0]/.test(name)) throw new Error(`Nombre de borrador no válido: ${name}`)
+        return join(project(), 'borradores', `${name}.md`)
+      }
+
       const commands: Record<string, (args: any) => unknown> = {
+        list_drafts: () => {
+          const dir = join(project(), 'borradores')
+          if (!existsSync(dir)) return []
+          return readdirSync(dir)
+            .filter((f) => f.endsWith('.md') && !f.startsWith('.'))
+            .map((f) => ({ name: f.slice(0, -3), stamp: stamp(join(dir, f)) }))
+            .sort((a, b) => a.name.toLowerCase().localeCompare(b.name.toLowerCase()))
+        },
+        read_draft: ({ name }) => ({ content: readFileSync(draft(name), 'utf8'), stamp: stamp(draft(name)) }),
+        write_draft: ({ name, content, expected, force }) => {
+          const file = draft(name)
+          if (!force && stamp(file) !== (expected ?? null)) throw new Error(`CONFLICT ${name}`)
+          mkdirSync(join(project(), 'borradores'), { recursive: true })
+          const tmp = join(project(), 'borradores', `.${name}.tmp`)
+          writeFileSync(tmp, content)
+          renameSync(tmp, file)
+          return stamp(file)
+        },
+        rename_draft: ({ from, to }) => {
+          if (existsSync(draft(to))) throw new Error(`Ya existe un borrador llamado «${to}»`)
+          renameSync(draft(from), draft(to))
+        },
+        trash_draft: ({ name }) => {
+          const trash = join(project(), 'borradores', '.papelera')
+          mkdirSync(trash, { recursive: true })
+          renameSync(draft(name), join(trash, `${name} (${Math.floor(Date.now() / 1000)}).md`))
+        },
         recent_projects: () => readRecents().map(describe),
         forget_project: ({ path }) => writeRecents(readRecents().filter((p) => p !== path)),
         current_project: () => (current ? describe(current) : null),
