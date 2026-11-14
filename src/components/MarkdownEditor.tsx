@@ -136,9 +136,12 @@ class PeekBlock extends WidgetType {
   private readonly key: string
   constructor(readonly items: PeekItem[]) { super(); this.key = JSON.stringify(items) }
   eq(other: PeekBlock) { return other.key === this.key }
-  toDOM() {
+  toDOM(view: EditorView) {
     const box = document.createElement('div')
     box.className = 'cm-peek'
+    // Mientras el editor tiene el foco, deshace cualquier selección que no sea suya.
+    // Al soltarlo, el texto de la ficha se selecciona y se copia como en cualquier página.
+    box.onmousedown = () => view.contentDOM.blur()
     for (const item of this.items) {
       const card = box.appendChild(document.createElement('div'))
       card.className = `cm-peek-item${item.error ? ' bad' : ''}`

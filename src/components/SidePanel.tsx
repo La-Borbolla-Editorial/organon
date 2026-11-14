@@ -4,8 +4,8 @@ const KEY = 'organon.anchoPanel'
 const HIDDEN_KEY = 'organon.panelOculto'
 const MIN = 300
 const DEFAULT = 480
-// El panel nunca ocupa más del 70 % de la ventana ni deja menos de 160 px al resto.
-const maxWidth = () => Math.max(220, Math.min(Math.round(window.innerWidth * 0.7), window.innerWidth - 160))
+// El panel nunca ocupa más del 70 % de la ventana ni deja al resto menos de lo que necesita.
+const maxWidthFor = (reserve: number) => Math.max(220, Math.min(Math.round(window.innerWidth * 0.7), window.innerWidth - reserve))
 
 function read<T>(key: string, parse: (raw: string | null) => T): T {
   try {
@@ -25,10 +25,13 @@ interface Props {
   children: ReactNode
   /** Cuando cambia (p. ej. se abre otra ficha), el panel se muestra si estaba oculto. */
   revealKey?: unknown
+  /** Ancho mínimo (px) que debe quedarle al resto de la pantalla. */
+  reserve?: number
 }
 
 /** Panel lateral derecho (editor de ficha, vista final…): se puede ensanchar arrastrando su borde, y ocultar. */
-export function SidePanel({ children, revealKey }: Props) {
+export function SidePanel({ children, revealKey, reserve = 260 }: Props) {
+  const maxWidth = useCallback(() => maxWidthFor(reserve), [reserve])
   const [width, setWidth] = useState(() => read(KEY, (raw) => (Number(raw) >= MIN ? Number(raw) : DEFAULT)))
   const [hidden, setHiddenState] = useState(() => read(HIDDEN_KEY, (raw) => raw === '1'))
   const [dragging, setDragging] = useState(false)
@@ -69,7 +72,7 @@ export function SidePanel({ children, revealKey }: Props) {
     }
     window.addEventListener('pointermove', move)
     window.addEventListener('pointerup', stop)
-  }, [])
+  }, [maxWidth])
 
   if (hidden) {
     return (
@@ -80,7 +83,7 @@ export function SidePanel({ children, revealKey }: Props) {
   }
 
   return (
-    <aside className={dragging ? 'side-panel dragging' : 'side-panel'} style={{ width: Math.min(width, maxWidth()) }}>
+    <aside className={dragging ? 'side-panel dragging' : 'side-panel'} style={{ width: Math.min(width, maxWidth()), maxWidth: maxWidth() }}>
       <div
         className="panel-resizer" role="separator" aria-orientation="vertical" aria-label="Cambiar el ancho del panel" title="Arrastra para cambiar el ancho. Doble clic: ancho normal."
         onPointerDown={start}

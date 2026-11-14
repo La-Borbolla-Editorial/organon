@@ -302,7 +302,7 @@ export function Reader({ sourceId, cite, focusFichaId, linkFichaId, backLabel, o
           )}
         </div>
 
-        <SidePanel revealKey={panel.kind === 'list' ? null : panel.kind === 'form' ? (panel.draft.id ?? panel.draft.anchor?.exact ?? 'nueva') : 'paginacion'}>
+        <SidePanel reserve={340} revealKey={panel.kind === 'list' ? null : panel.kind === 'form' ? (panel.draft.id ?? panel.draft.anchor?.exact ?? 'nueva') : 'paginacion'}>
           {source && panel.kind === 'form' && panel.notice && <div className="banner warn form-notice" data-testid="cross-page-notice">{panel.notice}</div>}
           {source && panel.kind === 'form' && (
             <FichaForm

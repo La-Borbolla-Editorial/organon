@@ -393,7 +393,7 @@ export function DraftsView({ project, cite, onSection, onSwitchProject }: Props)
               </div>
             </main>
 
-            <SidePanel>
+            <SidePanel reserve={560}>
               <div className="panel-tabs">
                 <button className={panel === 'preview' ? 'current' : ''} onClick={() => setPanel('preview')}>Vista final</button>
                 <button className={panel === 'fichas' ? 'current' : ''} onClick={() => setPanel('fichas')} data-testid="tab-fichas">Fichas</button>
