@@ -1,9 +1,10 @@
 import MarkdownIt from 'markdown-it'
 import footnote from 'markdown-it-footnote'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { createPortal } from 'react-dom'
 import { backend, type ProjectInfo } from '../backend'
 import { authorsLabel, yearLabel, type CiteOptions } from '../citations'
-import { defaultFichero, lookupRef, resolveDraft, setFrontMatter, tokenText, type DraftContext, type RenderedToken, type Token } from '../draft'
+import { bibliographyHeading, defaultFichero, lookupRef, resolveDraft, setFrontMatter, tokenText, type DraftContext, type RenderedToken, type Token } from '../draft'
 import { getSettings, listFichas, listFicheros, listSources, setSettings } from '../store'
 import type { Ficha, Fichero, Source } from '../types'
 import { MarkdownEditor, type EditorMode, type Format, type MarkdownEditorHandle, type PeekItem, type TokenInfo } from './MarkdownEditor'
@@ -233,9 +234,35 @@ export function DraftsView({ project, cite, onSection, onSwitchProject }: Props)
     return () => clearTimeout(timer)
   }, [text, ctx, current])
 
-  const exportMarkdown = async () => {
+  // ---- Exportar ---------------------------------------------------------------------
+  const [exporting, setExporting] = useState('')
+  // Lo que se manda a imprimir: el texto compuesto, fuera de la interfaz.
+  const [printHtml, setPrintHtml] = useState('')
+
+  const exportAs = async (kind: 'docx' | 'pdf' | 'md') => {
     if (!current) return
-    await backend.saveTextFile(`${current}.md`, resolveDraft(text, ctx).markdown)
+    setError('')
+    setExporting(kind)
+    try {
+      if (disk.current.timer) await flush()
+      const resolved = resolveDraft(disk.current.text, ctx)
+      if (kind === 'md') await backend.saveTextFile(`${current}.md`, resolved.markdown)
+      else if (kind === 'docx') {
+        // La librería de Word es grande: se carga solo cuando hace falta.
+        const { markdownToDocx } = await import('../export-docx')
+        const bytes = await markdownToDocx(resolved.markdown, { title: current, bibliographyHeading: bibliographyHeading(cite.locale) })
+        await backend.saveBinaryFile(`${current}.docx`, bytes, 'application/vnd.openxmlformats-officedocument.wordprocessingml.document')
+      } else {
+        setPrintHtml(md.render(resolved.markdown))
+        // Se espera a que el texto esté en la página antes de abrir el diálogo.
+        await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)))
+        await backend.print()
+      }
+    } catch (e) {
+      setError(`No se pudo exportar: ${e instanceof Error ? e.message : e}`)
+    } finally {
+      setExporting('')
+    }
   }
 
   const pickId = pickFichero || fallback?.id || ''
@@ -251,7 +278,10 @@ export function DraftsView({ project, cite, onSection, onSwitchProject }: Props)
   return (
     <div className="drafts">
       <TopNav project={project} section="drafts" onSection={onSection} onSwitchProject={onSwitchProject}>
-        <button onClick={() => void exportMarkdown()} disabled={!current} data-testid="export-md">Exportar Markdown</button>
+        <span className="muted small">Exportar:</span>
+        <button onClick={() => void exportAs('docx')} disabled={!current || !!exporting} data-testid="export-docx" title="Documento de Word con notas al pie de verdad.">{exporting === 'docx' ? 'Generando…' : 'Word (.docx)'}</button>
+        <button onClick={() => void exportAs('pdf')} disabled={!current || !!exporting} data-testid="export-pdf" title="Abre el diálogo de impresión: elige «Guardar como PDF». Las notas van al final del texto.">PDF…</button>
+        <button onClick={() => void exportAs('md')} disabled={!current || !!exporting} data-testid="export-md" title="Markdown corriente, con las citas ya resueltas, notas y bibliografía.">Markdown</button>
       </TopNav>
 
       <div className="drafts-body">
@@ -427,6 +457,7 @@ export function DraftsView({ project, cite, onSection, onSwitchProject }: Props)
           </>
         )}
       </div>
+      {createPortal(<article className="print-doc draft-preview" dangerouslySetInnerHTML={{ __html: printHtml }} />, document.body)}
     </div>
   )
 }

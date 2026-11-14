@@ -87,6 +87,12 @@ export const backend = {
     return true
   },
 
+  /** Abre el diálogo de impresión con lo que la página muestra al imprimir. */
+  async print(): Promise<void> {
+    if (isNative) await invoke('print_page')
+    else window.print()
+  },
+
   async openUrl(url: string): Promise<void> {
     if (isNative) await invoke('open_url', { url })
     else window.open(url, '_blank', 'noopener')

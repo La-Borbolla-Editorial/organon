@@ -270,6 +270,9 @@ export function htmlToMd(html: string): string {
 }
 
 const QUOTES: Record<string, [string, string]> = { 'es-ES': ['«', '»'], 'en-US': ['“', '”'] }
+/** Encabezado de la bibliografía en el idioma de las citas. */
+export const bibliographyHeading = (locale: string) => BIBLIOGRAPHY[locale] ?? BIBLIOGRAPHY['en-US']
+
 const BIBLIOGRAPHY: Record<string, string> = { 'es-ES': 'Bibliografía', 'en-US': 'Bibliography' }
 
 export function resolveDraft(md: string, ctx: DraftContext, options: { bibliography?: boolean } = {}): Resolved {

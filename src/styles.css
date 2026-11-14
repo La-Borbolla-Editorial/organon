@@ -353,3 +353,19 @@ button.link.bad { color: var(--bad); }
 sup.cm-rich-mark { font-size: 0.68em; line-height: 0; padding-left: 1px; }
 /* En modo enriquecido, los resaltados de sintaxis de Markdown no hacen falta. */
 .cm-mode-rich .cm-line span[class^="ͼ"] { text-decoration: none; }
+
+/* ---- Imprimir / PDF: solo el texto compuesto ---- */
+.print-doc { display: none; }
+@media print {
+  html, body { height: auto; overflow: visible; background: #fff; }
+  #root, .stale-bar { display: none !important; }
+  .print-doc { display: block; font: 12pt/1.5 'Times New Roman', Times, serif; color: #000; }
+  .print-doc h1 { font-size: 18pt; }
+  .print-doc h2 { font-size: 15pt; break-after: avoid; }
+  .print-doc h3 { font-size: 13pt; break-after: avoid; }
+  .print-doc blockquote { font-size: 11pt; margin-left: 1.2cm; color: #000; }
+  .print-doc .footnotes { font-size: 10pt; }
+  .print-doc a { color: #000; }
+  .print-doc .footnote-backref { display: none; }
+  @page { margin: 2.5cm; }
+}

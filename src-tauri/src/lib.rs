@@ -335,6 +335,12 @@ async fn save_text_file(app: AppHandle, default_name: String, content: String) -
     }
 }
 
+/// Abre el diálogo de impresión del sistema (desde ahí se guarda como PDF).
+#[tauri::command]
+fn print_page(window: tauri::WebviewWindow) -> Result<(), String> {
+    window.print().map_err(err)
+}
+
 /// Abre un enlace web en el navegador del sistema.
 #[tauri::command]
 fn open_url(url: String) -> Result<(), String> {
@@ -351,7 +357,7 @@ pub fn run() {
         .manage(Current::default())
         .invoke_handler(tauri::generate_handler![
             recent_projects, forget_project, current_project, pick_folder, open_project, close_project,
-            read_data, data_stamps, write_data, list_drafts, read_draft, write_draft, rename_draft, trash_draft, save_binary_file, save_pdf, read_pdf, save_text_file, open_url
+            read_data, data_stamps, write_data, list_drafts, read_draft, write_draft, rename_draft, trash_draft, save_binary_file, print_page, save_pdf, read_pdf, save_text_file, open_url
         ])
         .run(tauri::generate_context!())
         .expect("error al iniciar Organon");
