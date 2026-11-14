@@ -309,3 +309,15 @@ button.link.bad { color: var(--bad); }
 .ficha-more { margin: 0; display: grid; gap: 2px; font-size: 13px; }
 .ficha-more dt { font-size: 11px; font-weight: 600; color: var(--muted); margin-top: 4px; }
 .ficha-more dd { margin: 0; white-space: pre-line; }
+
+/* ---- Fichas asomadas en el editor ---- */
+.cm-peek-toggle { border: 0; background: none; padding: 0 2px; margin-left: 1px; font-size: 11px; line-height: 1; color: var(--muted); cursor: pointer; vertical-align: baseline; }
+.cm-peek-toggle:hover, .cm-peek-toggle.open { color: var(--accent); }
+.cm-peek { margin: 4px 0 8px; display: grid; gap: 6px; font-family: -apple-system, sans-serif; cursor: default; user-select: text; }
+.cm-peek-item { border-left: 3px solid #e7c873; background: #fbf7ea; border-radius: 0 6px 6px 0; padding: 6px 10px; font-size: 13px; line-height: 1.4; }
+.cm-peek-item.bad { border-left-color: var(--bad); background: var(--bad-bg); color: var(--bad); }
+.cm-peek-head { display: flex; gap: 8px; align-items: baseline; flex-wrap: wrap; }
+.cm-peek-head span { color: var(--muted); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.cm-peek-head em { color: var(--muted); font-style: normal; font-size: 12px; margin-left: auto; }
+.cm-peek blockquote { margin: 4px 0 0; font: 14px/1.45 var(--serif); color: #45403a; max-height: 9em; overflow: auto; white-space: pre-line; }
+.draft-toolbar .check { align-items: center; color: var(--muted); font-size: 12px; }

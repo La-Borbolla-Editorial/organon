@@ -6,7 +6,7 @@ import { authorsLabel, yearLabel, type CiteOptions } from '../citations'
 import { defaultFichero, lookupRef, resolveDraft, setFrontMatter, tokenText, type DraftContext, type Token } from '../draft'
 import { getSettings, listFichas, listFicheros, listSources, setSettings } from '../store'
 import type { Ficha, Fichero, Source } from '../types'
-import { MarkdownEditor, type MarkdownEditorHandle, type TokenInfo } from './MarkdownEditor'
+import { MarkdownEditor, type MarkdownEditorHandle, type PeekItem, type TokenInfo } from './MarkdownEditor'
 import { SidePanel } from './SidePanel'
 import { TopNav, type Section } from './TopNav'
 
@@ -44,6 +44,9 @@ export function DraftsView({ project, cite, onSection, onSwitchProject }: Props)
   const [pickFichero, setPickFichero] = useState('')
   const [query, setQuery] = useState('')
   const [fullInNote, setFullInNote] = useState(false)
+  // Asomar en el editor todas las fichas nombradas (se ven, pero no se añaden al texto).
+  const [peekAll, setPeekAllState] = useState(() => { try { return localStorage.getItem('organon.asomarFichas') === '1' } catch { return false } })
+  const setPeekAll = (on: boolean) => { setPeekAllState(on); try { localStorage.setItem('organon.asomarFichas', on ? '1' : '0') } catch { /* preferencia no guardada */ } }
   // Fichas desplegadas en el selector: se ven enteras, con sus notas.
   const [expanded, setExpanded] = useState<Set<string>>(new Set())
   const toggle = (id: string) => setExpanded((prev) => { const next = new Set(prev); if (next.has(id)) next.delete(id); else next.add(id); return next })
@@ -191,6 +194,13 @@ export function DraftsView({ project, cite, onSection, onSwitchProject }: Props)
     }
   }, [fallback, ctx, sourceLabel])
 
+  const peek = useCallback((token: Token): PeekItem[] => token.refs.map((ref) => {
+    const found = lookupRef(ref, fallback, ctx)
+    const label = `${ref.marker} ${ref.num}`
+    if ('error' in found) return { label, title: '', quote: '', meta: '', error: found.error }
+    return { label, title: found.ficha.notaPermanente, quote: found.ficha.cita, meta: sourceLabel(found.ficha) }
+  }), [fallback, ctx, sourceLabel])
+
   // Si hay un pedazo de la cita seleccionado en la tarjeta, se cita solo ese pedazo.
   const insertFicha = (kind: Token['kind'], f: Ficha, card: HTMLElement | null) => {
     const sel = window.getSelection()
@@ -303,6 +313,10 @@ export function DraftsView({ project, cite, onSection, onSwitchProject }: Props)
                   </>
                 )}
                 <div className="spacer" />
+                <label className="check" title="Muestra cada ficha debajo de la línea que la nombra. Solo se ve en el editor: no se añade al texto.">
+                  <input type="checkbox" checked={peekAll} onChange={(e) => setPeekAll(e.target.checked)} data-testid="peek-all" />
+                  Ver las fichas en el texto
+                </label>
                 <label className="inline-field" title="Fichero al que se refieren {f. N} y [f. N] cuando no se nombra otro.">
                   Fichero por defecto
                   <select value={fallback?.name ?? ''} onChange={(e) => setDefaultFichero(e.target.value)} data-testid="draft-fichero">
@@ -326,7 +340,7 @@ export function DraftsView({ project, cite, onSection, onSwitchProject }: Props)
 
               <MarkdownEditor
                 key={loaded.version} ref={editor} initial={loaded.text}
-                ficheros={ficheros} onChange={onChange} describe={describe} revision={ctx}
+                ficheros={ficheros} onChange={onChange} describe={describe} peek={peek} peekAll={peekAll} revision={ctx}
               />
               <div className="draft-status">
                 {words} palabras · {preview.citations} cita(s) · {preview.sources} fuente(s)
