@@ -98,8 +98,14 @@ textarea { resize: vertical; width: 100%; }
 .og-hl.active { background: #ffbf47; }
 .og-hl.draft { background: #a9d5ff; }
 
-.side-panel { position: relative; flex: none; max-width: 70vw; background: var(--panel); border-left: 1px solid var(--line); box-shadow: -6px 0 18px rgb(60 45 20 / 0.10); z-index: 5; }
-.side-panel-scroll { height: 100%; overflow: auto; padding: 18px 20px; }
+/* min-width: 0 en todo lo de dentro: el contenido se estrecha con el panel en vez de salirse. */
+.side-panel { position: relative; flex: none; min-width: 0; max-width: min(70vw, calc(100vw - 160px)); background: var(--panel); border-left: 1px solid var(--line); box-shadow: -6px 0 18px rgb(60 45 20 / 0.10); z-index: 5; }
+.side-panel-scroll { height: 100%; overflow-y: auto; overflow-x: hidden; padding: 18px 20px; }
+.side-panel-scroll > * { min-width: 0; max-width: 100%; }
+.side-panel.collapsed { width: 26px; box-shadow: none; }
+.panel-toggle { position: absolute; top: 8px; left: 3px; z-index: 7; width: 20px; height: 26px; padding: 0; border-color: transparent; background: none; color: var(--muted); font-size: 16px; line-height: 1; }
+.panel-toggle:hover { background: #efebe3; color: var(--ink); }
+.side-panel:not(.collapsed) .side-panel-scroll { padding-left: 28px; }
 .panel-resizer { position: absolute; left: -4px; top: 0; bottom: 0; width: 9px; cursor: col-resize; z-index: 6; }
 .panel-resizer::after { content: ''; position: absolute; left: 3px; top: 0; bottom: 0; width: 3px; background: transparent; transition: background 0.12s; }
 .panel-resizer:hover::after, .side-panel.dragging .panel-resizer::after { background: var(--accent); }
@@ -123,7 +129,11 @@ textarea { resize: vertical; width: 100%; }
 .tag button { border: 0; background: none; padding: 0; color: var(--muted); line-height: 1; }
 
 /* ---- Formulario de ficha ---- */
-.ficha-form { display: grid; gap: 12px; }
+.ficha-form { display: grid; grid-template-columns: minmax(0, 1fr); gap: 12px; }
+.ficha-form > *, .ficha-form label > * { min-width: 0; }
+.ficha-form input, .ficha-form textarea, .ficha-form select { max-width: 100%; }
+.ficha-form > label > input, .ficha-form > label > select { width: 100%; }
+.ficha-form .page-row, .ficha-form .form-actions { flex-wrap: wrap; }
 .ficha-form > label { display: grid; gap: 4px; font-size: 12px; font-weight: 600; color: var(--muted); }
 .ficha-form > label > input, .ficha-form > label > textarea { font-weight: normal; color: var(--ink); font-size: 14px; }
 .ficha-form textarea.quote { font-family: var(--serif); font-size: 15px; }
@@ -369,3 +379,22 @@ sup.cm-rich-mark { font-size: 0.68em; line-height: 0; padding-left: 1px; }
   .print-doc .footnote-backref { display: none; }
   @page { margin: 2.5cm; }
 }
+
+/* El contenido de los paneles se adapta al ancho disponible. */
+.pagination-editor, .ficha-list, .ficha-picker { grid-template-columns: minmax(0, 1fr); }
+.pagination-editor > *, .pagination-editor section > *, .ficha-list > *, .ficha-picker > * { min-width: 0; }
+.pagination-editor .page-row, .ficha-picker .page-row, .pick-row { flex-wrap: wrap; }
+.ranges { display: block; overflow-x: auto; }
+.ficha-card { min-width: 0; grid-template-columns: minmax(0, 1fr); overflow-wrap: anywhere; }
+.tag-editor { min-width: 0; }
+.tag-editor input { min-width: 60px; }
+.draft-preview { min-width: 0; }
+
+/* Lector: al seleccionar a través de dos páginas, solo se marca el texto.
+   (WebKit pinta como seleccionados la imagen de la página y sus capas si no se le dice que no.) */
+.pdfViewer .page, .pdfViewer .canvasWrapper, .pdfViewer canvas, .og-hl-layer { -webkit-user-select: none; user-select: none; }
+.pdfViewer .textLayer { -webkit-user-select: text; user-select: text; }
+.pdfViewer .textLayer .endOfContent { -webkit-user-select: none; user-select: none; }
+.form-notice { margin-bottom: 12px; }
+.cm-peek, .cm-peek * { -webkit-user-select: text; user-select: text; }
+.cm-peek { cursor: text; }

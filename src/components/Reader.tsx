@@ -23,7 +23,7 @@ interface Props {
   onBack: () => void
 }
 
-type Panel = { kind: 'list' } | { kind: 'form'; draft: FichaDraft; num: number | null } | { kind: 'pagination' }
+type Panel = { kind: 'list' } | { kind: 'form'; draft: FichaDraft; num: number | null; notice?: string } | { kind: 'pagination' }
 
 export function Reader({ sourceId, cite, focusFichaId, linkFichaId, backLabel, onBack }: Props) {
   const [source, setSource] = useState<Source | null>(null)
@@ -180,6 +180,8 @@ export function Reader({ sourceId, cite, focusFichaId, linkFichaId, backLabel, o
   const startFicha = () => {
     if (!pending || !source) return
     const { anchor } = pending
+    // Si la cita cruza de página, se le quitaron el encabezado y el pie que quedaban en medio.
+    const notice = pending.dropped.length ? `La cita cruza de página: se quitó ${pending.dropped.map((d) => `«${d}»`).join(' y ')}. Revisa el texto.` : undefined
     setPending(null)
     window.getSelection()?.removeAllRanges()
     if (linking) {
@@ -187,13 +189,14 @@ export function Reader({ sourceId, cite, focusFichaId, linkFichaId, backLabel, o
       const { num, createdAt: _c, updatedAt: _u, ...draft } = linking
       const computed = citedPages(source.pagination, anchor.start, anchor.end)
       setActiveId(linking.id)
-      setPanel({ kind: 'form', num, draft: { ...draft, anchor, pageLabel: draft.pageLabel || computed, pageManual: (draft.pageLabel || computed) !== computed } })
+      setPanel({ kind: 'form', num, notice, draft: { ...draft, anchor, pageLabel: draft.pageLabel || computed, pageManual: (draft.pageLabel || computed) !== computed } })
       setLinking(null)
       return
     }
     setPanel({
       kind: 'form',
       num: null,
+      notice,
       draft: {
         ficheroId: defaultFichero, notaPermanente: '', cita: anchor.exact, sourceId: source.id,
         pageLabel: citedPages(source.pagination, anchor.start, anchor.end), pageManual: false,
@@ -299,7 +302,8 @@ export function Reader({ sourceId, cite, focusFichaId, linkFichaId, backLabel, o
           )}
         </div>
 
-        <SidePanel>
+        <SidePanel revealKey={panel.kind === 'list' ? null : panel.kind === 'form' ? (panel.draft.id ?? panel.draft.anchor?.exact ?? 'nueva') : 'paginacion'}>
+          {source && panel.kind === 'form' && panel.notice && <div className="banner warn form-notice" data-testid="cross-page-notice">{panel.notice}</div>}
           {source && panel.kind === 'form' && (
             <FichaForm
               key={panel.draft.id ?? 'new'} draft={panel.draft} num={panel.num} sources={[source]} ficheros={ficheros} lockSource cite={cite} knownTags={knownTags}

@@ -292,7 +292,7 @@ export function FicheroView({ project, cite, onSection, onSwitchProject, onOpenP
         </div>
 
         {editing && (
-          <SidePanel>
+          <SidePanel revealKey={editing.draft.id ?? 'nueva'}>
             <FichaForm
               key={editing.draft.id ?? 'new'} draft={editing.draft} num={editing.num} sources={sources} ficheros={ficheros} cite={cite} knownTags={knownTags}
               onCancel={() => setEditing(null)}

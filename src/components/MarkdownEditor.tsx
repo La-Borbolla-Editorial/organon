@@ -151,7 +151,8 @@ class PeekBlock extends WidgetType {
     }
     return box
   }
-  ignoreEvent() { return false }
+  // El editor no interviene dentro de la ficha: así su texto se puede seleccionar y copiar.
+  ignoreEvent() { return true }
 }
 
 export const MarkdownEditor = forwardRef<MarkdownEditorHandle, Props>(function MarkdownEditor({ initial, ficheros, onChange, describe, peek, peekAll, mode, rendered, quotes, revision }, ref) {
