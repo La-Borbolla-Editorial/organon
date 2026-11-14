@@ -18,6 +18,8 @@ interface Props {
 }
 
 const md = new MarkdownIt({ html: false, linkify: true, typographer: false }).use(footnote)
+// Una línea sangrada es parte de un esquema, no un bloque de código (para código, ```).
+md.disable('code')
 const fold = (s: string) => s.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase()
 const clip = (s: string, n: number) => (s.length > n ? `${s.slice(0, n - 1)}…` : s)
 
@@ -41,6 +43,10 @@ export function DraftsView({ project, cite, onSection, onSwitchProject }: Props)
   const [preview, setPreview] = useState({ html: '', problems: [] as { message: string; from: number }[], citations: 0, sources: 0 })
   const [pickFichero, setPickFichero] = useState('')
   const [query, setQuery] = useState('')
+  const [fullInNote, setFullInNote] = useState(false)
+  // Fichas desplegadas en el selector: se ven enteras, con sus notas.
+  const [expanded, setExpanded] = useState<Set<string>>(new Set())
+  const toggle = (id: string) => setExpanded((prev) => { const next = new Set(prev); if (next.has(id)) next.delete(id); else next.add(id); return next })
 
   const editor = useRef<MarkdownEditorHandle>(null)
   // Estado del guardado, fuera de React para que los temporizadores vean lo último.
@@ -137,7 +143,7 @@ export function DraftsView({ project, cite, onSection, onSwitchProject }: Props)
     setError('')
     try {
       if (naming.mode === 'new') {
-        if (drafts.some((d) => d.toLowerCase() === name.toLowerCase())) throw new Error(`Ya existe un borrador llamado «${name}».`)
+        if (drafts.some((d) => d.toLowerCase() === name.toLowerCase())) throw new Error(`Ya existe un texto llamado «${name}».`)
         await backend.writeDraft(name, `# ${name}\n\n`, null)
         setDrafts((await backend.listDrafts()).map((d) => d.name))
         await open(name)
@@ -180,14 +186,18 @@ export function DraftsView({ project, cite, onSection, onSwitchProject }: Props)
     const missing = found.some((f) => 'ficha' in f && !f.source)
     return {
       ok: !missing,
-      title: `${token.kind === 'insert' ? 'Cita' : 'Referencia'}: ficha ${first.ficha.num} · ${sourceLabel(first.ficha)}${found.length > 1 ? ` (+${found.length - 1})` : ''}`,
+      title: `${token.kind === 'insert' ? (token.refs[0].fragment ? 'Pedazo de la cita' : 'Cita') : 'Referencia'}: ${ficheroById.get(first.ficha.ficheroId)?.name ?? ''} ${first.ficha.num} · ${sourceLabel(first.ficha)}${found.length > 1 ? ` (+${found.length - 1})` : ''}${token.refs.some((r) => r.fullInNote) ? ' · cita completa en la nota' : ''}`,
       detail: missing ? 'Esta ficha no tiene fuente: no se puede citar.' : clip(first.ficha.notaPermanente || first.ficha.cita, 220),
     }
   }, [fallback, ctx, sourceLabel])
 
-  const insertFicha = (kind: Token['kind'], f: Ficha) => {
-    const unique = fichas.filter((x) => x.num === f.num).length === 1
-    editor.current?.insert(tokenText(kind, f, ficheroById.get(f.ficheroId), fallback?.id ?? null, unique))
+  // Si hay un pedazo de la cita seleccionado en la tarjeta, se cita solo ese pedazo.
+  const insertFicha = (kind: Token['kind'], f: Ficha, card: HTMLElement | null) => {
+    const sel = window.getSelection()
+    const quote = card?.querySelector('blockquote')
+    const fragment = sel && !sel.isCollapsed && quote && quote.contains(sel.anchorNode) && quote.contains(sel.focusNode) ? sel.toString() : ''
+    editor.current?.insert(tokenText(kind, f, ctx, fallback, { fragment, fullInNote }))
+    sel?.removeAllRanges()
   }
 
   const setDefaultFichero = (name: string) => {
@@ -232,7 +242,7 @@ export function DraftsView({ project, cite, onSection, onSwitchProject }: Props)
 
       <div className="drafts-body">
         <aside className="draft-list">
-          <h3>Borradores</h3>
+          <h3>Textos</h3>
           <ul>
             {drafts.map((name) => (
               <li key={name}>
@@ -242,16 +252,16 @@ export function DraftsView({ project, cite, onSection, onSwitchProject }: Props)
           </ul>
           {naming?.mode === 'new' ? (
             <form onSubmit={(e) => { e.preventDefault(); void submitName() }}>
-              <input autoFocus value={naming.value} placeholder="Nombre del borrador" onChange={(e) => setNaming({ ...naming, value: e.target.value })} onKeyDown={(e) => e.key === 'Escape' && setNaming(null)} data-testid="draft-name" />
+              <input autoFocus value={naming.value} placeholder="Nombre del texto" onChange={(e) => setNaming({ ...naming, value: e.target.value })} onKeyDown={(e) => e.key === 'Escape' && setNaming(null)} data-testid="draft-name" />
               <div className="page-row">
                 <button type="submit" className="primary" data-testid="draft-create">Crear</button>
                 <button type="button" onClick={() => setNaming(null)}>Cancelar</button>
               </div>
             </form>
           ) : (
-            <button className="link" onClick={() => setNaming({ mode: 'new', value: '' })} data-testid="draft-new">+ Nuevo borrador</button>
+            <button className="link" onClick={() => setNaming({ mode: 'new', value: '' })} data-testid="draft-new">+ Nuevo texto</button>
           )}
-          <p className="muted small">Cada borrador es un archivo Markdown en la carpeta <code>borradores/</code> del proyecto.</p>
+          <p className="muted small">Cada texto es un archivo Markdown en la carpeta <code>escritura/</code> del proyecto.</p>
         </aside>
 
         {!current || !loaded ? (
@@ -259,10 +269,11 @@ export function DraftsView({ project, cite, onSection, onSwitchProject }: Props)
             <div className="empty">
               <h2>Escribe con tus fichas</h2>
               <p>
-                Un borrador es texto en Markdown. Escribe <code>{'{f. 51}'}</code> para insertar la cita de la ficha 51 con su nota, o <code>[f. 51]</code> para
-                dejar solo la referencia. Organon numera las notas y compone la bibliografía.
+                Cada texto se escribe en Markdown. Escribe <code>{'{f. 51}'}</code> para insertar la cita de la ficha 51 con su nota, o <code>[f. 51]</code> para
+                dejar solo la referencia. Con <code>{'{f. 51 «un pedazo»}'}</code> citas solo ese pedazo, y un <code>+</code> pone la cita completa en la nota.
+                Organon numera las notas y compone la bibliografía.
               </p>
-              <button className="primary" onClick={() => setNaming({ mode: 'new', value: '' })}>+ Nuevo borrador</button>
+              <button className="primary" onClick={() => setNaming({ mode: 'new', value: '' })}>+ Nuevo texto</button>
               {error && <div className="banner error">{error}</div>}
             </div>
           </main>
@@ -306,7 +317,7 @@ export function DraftsView({ project, cite, onSection, onSwitchProject }: Props)
 
               {save === 'conflict' && (
                 <div className="banner warn">
-                  <span>Este borrador cambió fuera de Organon desde que lo abriste.</span>
+                  <span>Este texto cambió fuera de Organon desde que lo abriste.</span>
                   <button onClick={() => void reloadFromDisk()}>Cargar la versión del disco</button>
                   <button onClick={() => void flush(true)}>Guardar la mía encima</button>
                 </div>
@@ -315,7 +326,7 @@ export function DraftsView({ project, cite, onSection, onSwitchProject }: Props)
 
               <MarkdownEditor
                 key={loaded.version} ref={editor} initial={loaded.text}
-                ficheroNames={ficheros.map((f) => f.name)} onChange={onChange} describe={describe} revision={ctx}
+                ficheros={ficheros} onChange={onChange} describe={describe} revision={ctx}
               />
               <div className="draft-status">
                 {words} palabras · {preview.citations} cita(s) · {preview.sources} fuente(s)
@@ -349,19 +360,34 @@ export function DraftsView({ project, cite, onSection, onSwitchProject }: Props)
                     </select>
                     <input className="search" placeholder="Buscar fichas…" value={query} onChange={(e) => setQuery(e.target.value)} data-testid="picker-search" />
                   </div>
-                  <p className="muted small">{picked.length} ficha(s). «Insertar» pone la cita con su nota; «Referenciar», solo la nota.</p>
+                  <label className="check">
+                    <input type="checkbox" checked={fullInNote} onChange={(e) => setFullInNote(e.target.checked)} data-testid="pick-full-in-note" />
+                    Poner la cita completa de la ficha en la nota (<code>+</code>)
+                  </label>
+                  <p className="muted small">
+                    {picked.length} ficha(s). «Insertar» pone la cita en el texto, con su nota; «Referenciar», solo la nota. Para citar solo un pedazo, selecciónalo
+                    en la tarjeta antes de pulsar.
+                  </p>
                   {picked.slice(0, 200).map((f) => (
-                    <article key={f.id} className="ficha-card pick" data-testid="picker-card">
+                    <article key={f.id} className={expanded.has(f.id) ? 'ficha-card pick open' : 'ficha-card pick'} data-testid="picker-card">
                       <header>
-                        <span className="ficha-num">{!pickId && ficheros.length > 1 ? `${ficheroById.get(f.ficheroId)?.name ?? ''} ` : ''}{f.num}</span>
+                        <span className="ficha-num">{ficheroById.get(f.ficheroId)?.marker} {f.num}</span>
                         <h3>{f.notaPermanente || <em className="muted">Sin nota permanente</em>}</h3>
                       </header>
                       {f.cita && <blockquote>{f.cita}</blockquote>}
+                      {expanded.has(f.id) && (
+                        <dl className="ficha-more">
+                          {f.tags.length > 0 && <><dt>Tags</dt><dd><div className="tags">{f.tags.map((t) => <span key={t} className="tag">{t}</span>)}</div></dd></>}
+                          {f.referencia && <><dt>Obra canónica / referencias</dt><dd>{f.referencia}</dd></>}
+                          {f.notas && <><dt>Notas</dt><dd>{f.notas}</dd></>}
+                        </dl>
+                      )}
+                      <button className="link small" onClick={() => toggle(f.id)} data-testid="pick-toggle">{expanded.has(f.id) ? 'Plegar' : 'Ver la ficha completa'}</button>
                       <div className="pick-row">
                         <span className="ficha-citation">{sourceLabel(f)}</span>
                         <div className="spacer" />
-                        <button onClick={() => insertFicha('insert', f)} disabled={!f.cita.trim()} data-testid="pick-insert">Insertar</button>
-                        <button onClick={() => insertFicha('cite', f)} data-testid="pick-cite">Referenciar</button>
+                        <button onMouseDown={(e) => e.preventDefault()} onClick={(e) => insertFicha('insert', f, e.currentTarget.closest('article'))} disabled={!f.cita.trim()} data-testid="pick-insert">Insertar</button>
+                        <button onMouseDown={(e) => e.preventDefault()} onClick={(e) => insertFicha('cite', f, e.currentTarget.closest('article'))} data-testid="pick-cite">Referenciar</button>
                       </div>
                     </article>
                   ))}

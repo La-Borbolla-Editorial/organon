@@ -1,6 +1,8 @@
+import { indentWithTab } from '@codemirror/commands'
 import { markdown } from '@codemirror/lang-markdown'
-import { RangeSetBuilder, StateEffect } from '@codemirror/state'
-import { Decoration, hoverTooltip, ViewPlugin, type DecorationSet, type ViewUpdate } from '@codemirror/view'
+import { indentUnit } from '@codemirror/language'
+import { EditorState, RangeSetBuilder, StateEffect } from '@codemirror/state'
+import { Decoration, hoverTooltip, keymap, ViewPlugin, type DecorationSet, type ViewUpdate } from '@codemirror/view'
 import { EditorView, minimalSetup } from 'codemirror'
 import { forwardRef, useEffect, useImperativeHandle, useRef } from 'react'
 import { findTokens, type Token } from '../draft'
@@ -24,7 +26,8 @@ export interface MarkdownEditorHandle {
 interface Props {
   /** Texto inicial. Para cargar otro borrador, monta otro editor (`key`). */
   initial: string
-  ficheroNames: string[]
+  /** Ficheros del proyecto: de ellos salen los marcadores («f.», «e.»…) que se reconocen. */
+  ficheros: { name: string; marker: string }[]
   onChange: (text: string) => void
   describe: (token: Token) => TokenInfo
   /** Cambia cuando cambian las fichas o los ficheros: se repintan las referencias. */
@@ -33,15 +36,15 @@ interface Props {
 
 const refresh = StateEffect.define<null>()
 
-export const MarkdownEditor = forwardRef<MarkdownEditorHandle, Props>(function MarkdownEditor({ initial, ficheroNames, onChange, describe, revision }, ref) {
+export const MarkdownEditor = forwardRef<MarkdownEditorHandle, Props>(function MarkdownEditor({ initial, ficheros, onChange, describe, revision }, ref) {
   const host = useRef<HTMLDivElement>(null)
   const view = useRef<EditorView | null>(null)
   // Lo que usan las extensiones de CodeMirror, siempre al día sin recrear el editor.
-  const live = useRef({ ficheroNames, onChange, describe })
-  live.current = { ficheroNames, onChange, describe }
+  const live = useRef({ ficheros, onChange, describe })
+  live.current = { ficheros, onChange, describe }
 
   useEffect(() => {
-    const tokensIn = (v: EditorView) => findTokens(v.state.doc.toString(), live.current.ficheroNames)
+    const tokensIn = (v: EditorView) => findTokens(v.state.doc.toString(), live.current.ficheros)
 
     const highlight = ViewPlugin.fromClass(
       class {
@@ -87,11 +90,16 @@ export const MarkdownEditor = forwardRef<MarkdownEditorHandle, Props>(function M
       extensions: [
         minimalSetup,
         markdown(),
+        // Tab sangra la línea (o las seleccionadas) y Mayús+Tab la desangra: así se
+        // anidan los puntos de un esquema. Esc y luego Tab saca el foco del editor.
+        keymap.of([indentWithTab]),
+        indentUnit.of('\t'),
+        EditorState.tabSize.of(4),
         EditorView.lineWrapping,
         highlight,
         tooltip,
         EditorView.updateListener.of((u) => { if (u.docChanged) live.current.onChange(u.state.doc.toString()) }),
-        EditorView.contentAttributes.of({ spellcheck: 'true', autocorrect: 'on', 'aria-label': 'Texto del borrador' }),
+        EditorView.contentAttributes.of({ spellcheck: 'true', autocorrect: 'on', 'aria-label': 'Texto' }),
       ],
     })
     view.current = v

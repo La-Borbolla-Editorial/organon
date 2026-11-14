@@ -17,7 +17,7 @@ type View =
 function viewFromHash(): View {
   const m = /^#\/fuente\/([\w-]+)$/.exec(location.hash)
   if (m) return { name: 'reader', sourceId: m[1], from: 'library' }
-  return location.hash === '#/fichero' ? { name: 'fichero' } : location.hash === '#/borradores' ? { name: 'drafts' } : { name: 'library' }
+  return location.hash === '#/fichero' ? { name: 'fichero' } : location.hash === '#/escritura' ? { name: 'drafts' } : { name: 'library' }
 }
 
 export function App() {
@@ -32,7 +32,7 @@ export function App() {
 
   // La vista se refleja en la dirección para que sobreviva a una recarga.
   const setView = useCallback((v: View) => {
-    history.replaceState(null, '', v.name === 'reader' ? `#/fuente/${v.sourceId}` : v.name === 'fichero' ? '#/fichero' : v.name === 'drafts' ? '#/borradores' : '#/')
+    history.replaceState(null, '', v.name === 'reader' ? `#/fuente/${v.sourceId}` : v.name === 'fichero' ? '#/fichero' : v.name === 'drafts' ? '#/escritura' : '#/')
     setViewState(v)
   }, [])
 

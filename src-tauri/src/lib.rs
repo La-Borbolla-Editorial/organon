@@ -182,7 +182,7 @@ fn write_data(state: State<'_, Current>, files: Vec<DataFile>, expected: HashMap
     Ok(out)
 }
 
-// ---- Borradores (borradores/*.md) -------------------------------------------------
+// ---- Borradores (escritura/*.md) -------------------------------------------------
 
 #[derive(Serialize)]
 struct Draft {
@@ -204,14 +204,14 @@ fn draft_path(dir: &Path, name: &str) -> Result<PathBuf, String> {
         && !name.starts_with('.')
         && !name.chars().any(|c| matches!(c, '/' | '\\' | ':' | '\0') || c.is_control());
     if !ok {
-        return Err(format!("Nombre de borrador no válido: {name}"));
+        return Err(format!("Nombre de texto no válido: {name}"));
     }
-    Ok(dir.join("borradores").join(format!("{name}.md")))
+    Ok(dir.join("escritura").join(format!("{name}.md")))
 }
 
 #[tauri::command]
 fn list_drafts(state: State<'_, Current>) -> Result<Vec<Draft>, String> {
-    let dir = current(&state)?.join("borradores");
+    let dir = current(&state)?.join("escritura");
     let mut out = Vec::new();
     if let Ok(entries) = fs::read_dir(&dir) {
         for entry in entries.flatten() {
@@ -242,8 +242,8 @@ fn write_draft(state: State<'_, Current>, name: String, content: String, expecte
     if !force && stamp(&path) != expected {
         return Err(format!("CONFLICT {name}"));
     }
-    fs::create_dir_all(dir.join("borradores")).map_err(err)?;
-    let tmp = dir.join("borradores").join(format!(".{name}.tmp"));
+    fs::create_dir_all(dir.join("escritura")).map_err(err)?;
+    let tmp = dir.join("escritura").join(format!(".{name}.tmp"));
     fs::write(&tmp, content).map_err(err)?;
     fs::rename(&tmp, &path).map_err(err)?;
     Ok(stamp(&path))
@@ -254,16 +254,16 @@ fn rename_draft(state: State<'_, Current>, from: String, to: String) -> Result<(
     let dir = current(&state)?;
     let target = draft_path(&dir, &to)?;
     if target.exists() {
-        return Err(format!("Ya existe un borrador llamado «{to}»"));
+        return Err(format!("Ya existe un texto llamado «{to}»"));
     }
     fs::rename(draft_path(&dir, &from)?, target).map_err(err)
 }
 
-/// No borra: mueve el borrador a `borradores/.papelera/`.
+/// No borra: mueve el borrador a `escritura/.papelera/`.
 #[tauri::command]
 fn trash_draft(state: State<'_, Current>, name: String) -> Result<(), String> {
     let dir = current(&state)?;
-    let trash = dir.join("borradores").join(".papelera");
+    let trash = dir.join("escritura").join(".papelera");
     fs::create_dir_all(&trash).map_err(err)?;
     let when = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).map_err(err)?.as_secs();
     fs::rename(draft_path(&dir, &name)?, trash.join(format!("{name} ({when}).md"))).map_err(err)

@@ -41,13 +41,13 @@ export function devBackend(): Plugin {
       }
 
       const draft = (name: string) => {
-        if (!name.trim() || name.length > 120 || name.startsWith('.') || /[/\\:\0]/.test(name)) throw new Error(`Nombre de borrador no válido: ${name}`)
-        return join(project(), 'borradores', `${name}.md`)
+        if (!name.trim() || name.length > 120 || name.startsWith('.') || /[/\\:\0]/.test(name)) throw new Error(`Nombre de texto no válido: ${name}`)
+        return join(project(), 'escritura', `${name}.md`)
       }
 
       const commands: Record<string, (args: any) => unknown> = {
         list_drafts: () => {
-          const dir = join(project(), 'borradores')
+          const dir = join(project(), 'escritura')
           if (!existsSync(dir)) return []
           return readdirSync(dir)
             .filter((f) => f.endsWith('.md') && !f.startsWith('.'))
@@ -58,18 +58,18 @@ export function devBackend(): Plugin {
         write_draft: ({ name, content, expected, force }) => {
           const file = draft(name)
           if (!force && stamp(file) !== (expected ?? null)) throw new Error(`CONFLICT ${name}`)
-          mkdirSync(join(project(), 'borradores'), { recursive: true })
-          const tmp = join(project(), 'borradores', `.${name}.tmp`)
+          mkdirSync(join(project(), 'escritura'), { recursive: true })
+          const tmp = join(project(), 'escritura', `.${name}.tmp`)
           writeFileSync(tmp, content)
           renameSync(tmp, file)
           return stamp(file)
         },
         rename_draft: ({ from, to }) => {
-          if (existsSync(draft(to))) throw new Error(`Ya existe un borrador llamado «${to}»`)
+          if (existsSync(draft(to))) throw new Error(`Ya existe un texto llamado «${to}»`)
           renameSync(draft(from), draft(to))
         },
         trash_draft: ({ name }) => {
-          const trash = join(project(), 'borradores', '.papelera')
+          const trash = join(project(), 'escritura', '.papelera')
           mkdirSync(trash, { recursive: true })
           renameSync(draft(name), join(trash, `${name} (${Math.floor(Date.now() / 1000)}).md`))
         },

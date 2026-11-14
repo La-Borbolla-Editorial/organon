@@ -68,6 +68,8 @@ export interface Column {
 export interface Fichero {
   id: string
   name: string
+  /** Cómo se nombran sus fichas en los borradores: «f.» en {f. 51}. Cada fichero puede tener el suyo. */
+  marker: string
   columns: Column[]
 }
 

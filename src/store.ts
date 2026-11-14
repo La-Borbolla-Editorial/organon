@@ -74,7 +74,7 @@ export async function loadProject(): Promise<void> {
     project: {
       format: FORMAT,
       settings: project?.settings ?? {},
-      ficheros: ((project?.ficheros?.length ? project.ficheros : [{ id: 'general', name: 'General' }]) as Partial<Fichero>[] as Fichero[]).map((f) => ({ ...f, columns: f.columns?.length ? f.columns : DEFAULT_COLUMNS })),
+      ficheros: ((project?.ficheros?.length ? project.ficheros : [{ id: 'general', name: 'General' }]) as Partial<Fichero>[] as Fichero[]).map((f) => ({ ...f, marker: f.marker?.trim() || 'f.', columns: f.columns?.length ? f.columns : DEFAULT_COLUMNS })),
     },
     sources: sources?.fuentes ?? [],
     fichas: fichas?.fichas ?? [],
@@ -130,15 +130,15 @@ export async function setSettings(patch: Record<string, string>): Promise<void> 
 
 export const listFicheros = async (): Promise<Fichero[]> => db().project.ficheros
 
-export async function createFichero(name: string, columns: Column[] = DEFAULT_COLUMNS): Promise<string> {
+export async function createFichero(name: string, columns: Column[] = DEFAULT_COLUMNS, marker = 'f.'): Promise<string> {
   const d = db()
   const id = newId()
-  d.project = { ...d.project, ficheros: [...d.project.ficheros, { id, name, columns }] }
+  d.project = { ...d.project, ficheros: [...d.project.ficheros, { id, name, marker, columns }] }
   await persist('project')
   return id
 }
 
-export async function updateFichero(id: string, patch: Partial<Pick<Fichero, 'name' | 'columns'>>): Promise<void> {
+export async function updateFichero(id: string, patch: Partial<Pick<Fichero, 'name' | 'columns' | 'marker'>>): Promise<void> {
   const d = db()
   d.project = { ...d.project, ficheros: d.project.ficheros.map((f) => (f.id === id ? { ...f, ...patch } : f)) }
   await persist('project')

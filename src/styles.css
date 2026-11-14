@@ -300,3 +300,12 @@ button.link.bad { color: var(--bad); }
 .ficha-picker .search { flex: 1; width: auto; min-width: 0; }
 .ficha-card.pick { cursor: default; }
 .pick-row { display: flex; gap: 6px; align-items: center; }
+.ficha-card.pick blockquote { display: block; max-height: 8.5em; overflow: auto; user-select: text; cursor: text; }
+.ficha-card.pick blockquote::selection { background: #fdeebf; }
+.marker-input { width: 70px; }
+.tab code { margin-left: 2px; }
+.ficha-card.pick.open blockquote { max-height: none; }
+.ficha-card.pick > .link { justify-self: start; }
+.ficha-more { margin: 0; display: grid; gap: 2px; font-size: 13px; }
+.ficha-more dt { font-size: 11px; font-weight: 600; color: var(--muted); margin-top: 4px; }
+.ficha-more dd { margin: 0; white-space: pre-line; }

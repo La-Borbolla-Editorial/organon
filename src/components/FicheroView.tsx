@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { backend, type ProjectInfo } from '../backend'
 import type { CiteOptions } from '../citations'
+import { markerProblem, suggestMarker } from '../draft'
 import { cellText, fichasToCsv, readCsv, type ParsedCsv } from '../fichero-io'
 import { createFichero, deleteFicha, deleteFichero, getSettings, listFichas, listFicheros, listSources, listTags, saveFicha, setSettings, updateFichero, type FichaDraft } from '../store'
 import type { Column, Ficha, Fichero, FieldKey, Source } from '../types'
@@ -34,7 +35,7 @@ export function FicheroView({ project, cite, onSection, onSwitchProject, onOpenP
   const [editing, setEditing] = useState<{ draft: FichaDraft; num: number | null } | null>(null)
   const [importing, setImporting] = useState<{ csv: ParsedCsv; fileName: string } | null>(null)
   const [message, setMessage] = useState<{ kind: 'ok' | 'error'; text: string } | null>(null)
-  const [naming, setNaming] = useState<{ mode: 'new' | 'rename'; value: string } | null>(null)
+  const [naming, setNaming] = useState<{ mode: 'new' | 'rename'; value: string; marker: string; error?: string } | null>(null)
   const [confirmDelete, setConfirmDelete] = useState(false)
   const fileInput = useRef<HTMLInputElement>(null)
   // Columna que se está arrastrando: su ancho provisional hasta soltar.
@@ -139,12 +140,17 @@ export function FicheroView({ project, cite, onSection, onSwitchProject, onOpenP
 
   const submitName = async () => {
     if (!naming || !naming.value.trim()) return setNaming(null)
+    const name = naming.value.trim()
+    // En un fichero nuevo, sin marcador escrito se propone uno libre.
+    const marker = naming.marker.trim() || (naming.mode === 'new' ? suggestMarker(name, ficheros) : '')
+    const problem = markerProblem(marker)
+    if (problem) return setNaming({ ...naming, error: problem })
     if (naming.mode === 'new') {
-      const id = await createFichero(naming.value.trim())
+      const id = await createFichero(name, undefined, marker)
       await reload()
       select(id)
     } else if (fichero) {
-      await updateFichero(fichero.id, { name: naming.value.trim() })
+      await updateFichero(fichero.id, { name, marker })
       await reload()
     }
     setNaming(null)
@@ -171,20 +177,31 @@ export function FicheroView({ project, cite, onSection, onSwitchProject, onOpenP
       <div className="fichero-tabs">
         {ficheros.map((f) => (
           <button key={f.id} className={f.id === currentId ? 'tab current' : 'tab'} onClick={() => select(f.id)}>
-            {f.name} <span className="muted">{all.filter((x) => x.ficheroId === f.id).length}</span>
+            {f.name} <span className="muted">{all.filter((x) => x.ficheroId === f.id).length}</span> <code title="Marcador de este fichero al escribir">{f.marker}</code>
           </button>
         ))}
         {naming ? (
           <form className="page-row" onSubmit={(e) => { e.preventDefault(); void submitName() }}>
-            <input autoFocus value={naming.value} onChange={(e) => setNaming({ ...naming, value: e.target.value })} placeholder="Nombre del fichero" onKeyDown={(e) => e.key === 'Escape' && setNaming(null)} />
-            <button type="submit" className="primary">{naming.mode === 'new' ? 'Crear' : 'Renombrar'}</button>
+            <input autoFocus value={naming.value} onChange={(e) => setNaming({ ...naming, value: e.target.value })} placeholder="Nombre del fichero" onKeyDown={(e) => e.key === 'Escape' && setNaming(null)} data-testid="fichero-name" />
+            <label className="inline-field" title="Cómo se nombran las fichas de este fichero al escribir: con «e.» escribes {e. 51}.">
+              Marcador
+              <input
+                className="marker-input" value={naming.marker} placeholder={naming.mode === 'new' ? suggestMarker(naming.value, ficheros) : 'f.'} data-testid="fichero-marker"
+                onChange={(e) => setNaming({ ...naming, marker: e.target.value, error: undefined })} onKeyDown={(e) => e.key === 'Escape' && setNaming(null)}
+              />
+            </label>
+            <button type="submit" className="primary" data-testid="fichero-save">{naming.mode === 'new' ? 'Crear' : 'Guardar'}</button>
             <button type="button" onClick={() => setNaming(null)}>Cancelar</button>
+            {naming.error && <span className="page-warning">{naming.error}</span>}
+            {naming.mode === 'rename' && fichero && naming.marker.trim() && naming.marker.trim() !== fichero.marker && (
+              <span className="muted small">Los textos que ya usan «{fichero.marker}» para este fichero habrá que cambiarlos a mano.</span>
+            )}
           </form>
         ) : (
           <>
-            <button className="link" onClick={() => setNaming({ mode: 'new', value: '' })}>+ Nuevo fichero</button>
+            <button className="link" onClick={() => setNaming({ mode: 'new', value: '', marker: '' })}>+ Nuevo fichero</button>
             <div className="spacer" />
-            {fichero && <button className="link subtle" onClick={() => setNaming({ mode: 'rename', value: fichero.name })}>Renombrar</button>}
+            {fichero && <button className="link subtle" onClick={() => setNaming({ mode: 'rename', value: fichero.name, marker: fichero.marker })} data-testid="fichero-settings">Nombre y marcador</button>}
             {fichero && ficheros.length > 1 && (confirmDelete ? (
               <>
                 <span className="muted">¿Eliminar «{fichero.name}» y sus {fichas.length} fichas?</span>

@@ -47,13 +47,13 @@ export const backend = {
    */
   writeData: (files: { name: string; content: string }[], expected: Stamps) => call<Stamps>('write_data', { files, expected }),
 
-  // ---- Borradores (borradores/*.md) ----
+  // ---- Escritura (escritura/*.md) ----
   listDrafts: () => call<{ name: string; stamp: string | null }[]>('list_drafts'),
   readDraft: (name: string) => call<{ content: string; stamp: string | null }>('read_draft', { name }),
   /** Devuelve el sello nuevo. Falla con «CONFLICT» si el archivo cambió fuera de Organon (salvo con `force`). */
   writeDraft: (name: string, content: string, expected: string | null, force = false) => call<string | null>('write_draft', { name, content, expected, force }),
   renameDraft: (from: string, to: string) => call<void>('rename_draft', { from, to }),
-  /** Mueve el borrador a borradores/.papelera/ (no lo borra). */
+  /** Mueve el texto a escritura/.papelera/ (no lo borra). */
   trashDraft: (name: string) => call<void>('trash_draft', { name }),
 
   /** Guarda un archivo binario donde elija el usuario. `false` si cancela. */

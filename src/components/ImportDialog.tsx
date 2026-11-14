@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react'
 import { authorsLabel, yearLabel } from '../citations'
+import { suggestMarker } from '../draft'
 import { FIELD_NAMES, guessColumns, rowsToFichas, type ParsedCsv } from '../fichero-io'
 import { createFichero, importFichas, updateFichero } from '../store'
 import type { Column, Ficha, Fichero, FieldKey, Source } from '../types'
@@ -54,7 +55,10 @@ export function ImportDialog({ csv, fileName, ficheros, fichas, sources, onDone,
     setError('')
     try {
       let id = target
-      if (target === 'new') id = await createFichero(name.trim() || baseName || 'Fichero', columns)
+      if (target === 'new') {
+        const ficheroName = name.trim() || baseName || 'Fichero'
+        id = await createFichero(ficheroName, columns, suggestMarker(ficheroName, ficheros))
+      }
       else {
         // Al reimportar se conservan los anchos de columna que ya tenía el fichero.
         const old = ficheros.find((f) => f.id === target)?.columns ?? []
