@@ -180,3 +180,15 @@ test('estilo autor-año con cita en nota', () => {
   expect(r.markdown).toContain('Una paráfrasis (Pini, 2005, pp. 69-70)[^1].')
   expect(r.markdown).toContain('[^1]: «A second passage.».')
 })
+
+test('cómo queda cada referencia, para mostrarla en el editor', () => {
+  const r = resolveDraft('Dice {s. 1 «a positive entity»} y [s. 2].\n\n{e. 1}\n\nMala [s. 99].', marked)
+  expect(r.tokens.map((t) => [t.raw, t.inText, t.block, t.mark, t.failed])).toEqual([
+    ['{s. 1 «a positive entity»}', 'a positive entity', false, '1', false],
+    ['[s. 2]', null, false, '2', false],
+    ['{e. 1}', 'Natura est indifferens.', true, '3', false],
+    ['[s. 99]', null, false, '⚠', true],
+  ])
+  expect(r.tokens[0].note).toBe('Pini, «Scotus on Individuation», 68.')
+  expect(r.tokens[1].from).toBe(34)
+})

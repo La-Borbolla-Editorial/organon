@@ -227,9 +227,28 @@ export interface Problem {
   from: number
 }
 
+/** Cómo queda una referencia en el texto final (para mostrarla así en el editor). */
+export interface RenderedToken {
+  /** La referencia tal como está escrita. */
+  raw: string
+  /** Posición en el texto completo. */
+  from: number
+  kind: Token['kind']
+  /** Cita que aparece en el texto (solo con llaves). */
+  inText: string | null
+  /** true si va sola en su párrafo: cita en bloque. */
+  block: boolean
+  /** Número de la nota o, en estilos autor-año, la referencia entre paréntesis. */
+  mark: string
+  /** Texto de la nota al pie, si la hay. */
+  note: string
+  failed: boolean
+}
+
 export interface Resolved {
   /** Markdown corriente: citas, notas `[^n]` y bibliografía. */
   markdown: string
+  tokens: RenderedToken[]
   problems: Problem[]
   citations: number
   sources: number
@@ -299,6 +318,7 @@ export function resolveDraft(md: string, ctx: DraftContext, options: { bibliogra
   let last = 0
   const notes: string[] = []
   const note = (text: string) => `[^${notes.push(text)}]`
+  const rendered: RenderedToken[] = []
   resolved.forEach((r, i) => {
     const { token } = r
     const text = htmlToMd(seq.texts[i])
@@ -309,16 +329,22 @@ export function resolveDraft(md: string, ctx: DraftContext, options: { bibliogra
     // Estilos autor-año: la referencia va en el texto y la cita añadida, en una nota.
     else mark = ` ${text}${extra ? note(`${extra}.`) : ''}`
 
+    const notesBefore = rendered.reduce((n, t) => n + (t.note ? 1 : 0), 0)
+    const ownNote = notes.length > notesBefore ? notes[notes.length - 1] : ''
+    const shown = r.failed ? '⚠' : seq.isNote ? String(notes.length) : text
+    let block = false
     let replacement = mark.trimStart()
     if (token.kind === 'insert' && r.inText) {
       // Sola en su párrafo → cita en bloque; dentro de una frase → entre comillas.
       const lineStart = body.lastIndexOf('\n', token.from - 1) + 1
       const lineEnd = body.indexOf('\n', token.to) === -1 ? body.length : body.indexOf('\n', token.to)
       const alone = body.slice(lineStart, token.from).trim() === '' && body.slice(token.to, lineEnd).trim() === ''
+      block = alone
       replacement = alone
         ? `${escapeMd(r.inText).split(/\n+/).map((p) => `> ${p.trim()}`).join('\n>\n')}${mark}`
         : `${quoted(r.inText)}${mark}`
     } else if (!seq.isNote && !r.failed && /\S$/.test(body.slice(0, token.from))) replacement = mark // «…texto (Pini 2005, 69)»
+    rendered.push({ raw: body.slice(token.from, token.to), from: offset + token.from, kind: token.kind, inText: r.inText, block, mark: shown, note: ownNote, failed: r.failed })
     out += body.slice(last, token.from) + replacement
     last = token.to
   })
@@ -329,5 +355,5 @@ export function resolveDraft(md: string, ctx: DraftContext, options: { bibliogra
   if (options.bibliography !== false && seq.bibliography.length) {
     out += `\n## ${BIBLIOGRAPHY[ctx.cite.locale] ?? BIBLIOGRAPHY['en-US']}\n\n${seq.bibliography.map(htmlToMd).join('\n\n')}\n`
   }
-  return { markdown: out, problems, citations: resolved.filter((r) => !r.failed).length, sources: seq.bibliography.length }
+  return { markdown: out, tokens: rendered, problems, citations: resolved.filter((r) => !r.failed).length, sources: seq.bibliography.length }
 }
