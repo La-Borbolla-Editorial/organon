@@ -255,7 +255,7 @@ export function DraftsView({ project, cite, onSection, onSwitchProject }: Props)
       } else {
         setPrintHtml(md.render(resolved.markdown))
         // Se espera a que el texto esté en la página antes de abrir el diálogo.
-        await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)))
+        await new Promise((r) => setTimeout(r, 80))
         await backend.print()
       }
     } catch (e) {
