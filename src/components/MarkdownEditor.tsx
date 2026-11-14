@@ -1,7 +1,7 @@
 import { indentWithTab } from '@codemirror/commands'
 import { markdown } from '@codemirror/lang-markdown'
 import { ensureSyntaxTree, indentUnit, syntaxTree } from '@codemirror/language'
-import { EditorSelection, EditorState, StateEffect, StateField, type Range } from '@codemirror/state'
+import { EditorSelection, EditorState, Prec, StateEffect, StateField, type Range } from '@codemirror/state'
 import { Decoration, hoverTooltip, keymap, WidgetType, type DecorationSet } from '@codemirror/view'
 import { EditorView, minimalSetup } from 'codemirror'
 import { forwardRef, useEffect, useImperativeHandle, useRef } from 'react'
@@ -369,7 +369,9 @@ export const MarkdownEditor = forwardRef<MarkdownEditorHandle, Props>(function M
         peeks,
         modeField,
         highlight,
-        keymap.of([{ key: 'Mod-b', run: (v) => wrap(v, '**') }, { key: 'Mod-i', run: (v) => wrap(v, '*') }]),
+        // Prioridad alta: el teclado por defecto de CodeMirror usa Cmd+I para
+        // «seleccionar el nodo padre» y, sin esto, gana él.
+        Prec.high(keymap.of([{ key: 'Mod-b', run: (v) => wrap(v, '**') }, { key: 'Mod-i', run: (v) => wrap(v, '*') }])),
         EditorView.editorAttributes.of((v) => ({ class: v.state.field(modeField) === 'rich' ? 'cm-mode-rich' : 'cm-mode-markdown' })),
         tooltip,
         EditorView.updateListener.of((u) => { if (u.docChanged) live.current.onChange(u.state.doc.toString()) }),
