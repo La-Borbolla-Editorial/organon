@@ -9,7 +9,7 @@ type MdToken = ReturnType<InstanceType<typeof MarkdownIt>['parse']>[number]
 const md = new MarkdownIt({ html: false, linkify: true, typographer: false }).use(footnote)
 md.disable('code') // una línea sangrada es parte de un esquema, no código
 
-const FONT = 'Times New Roman'
+const FONT = 'EB Garamond'
 const BODY = 24 // medios puntos: 12 pt
 const NOTE = 20
 const HEADINGS = [HeadingLevel.HEADING_1, HeadingLevel.HEADING_2, HeadingLevel.HEADING_3, HeadingLevel.HEADING_4, HeadingLevel.HEADING_5, HeadingLevel.HEADING_6]
