@@ -325,6 +325,11 @@ button.link.bad { color: var(--bad); }
 
 .panel-tabs { display: flex; gap: 2px; margin-bottom: 14px; border-bottom: 1px solid var(--line); }
 .panel-tabs button { border: 0; border-bottom: 2px solid transparent; border-radius: 0; background: none; color: var(--muted); padding: 6px 10px; }
+.ficha-open { font: inherit; color: inherit; text-align: left; text-decoration: none; padding: 0; white-space: normal; }
+.ficha-open:hover { color: var(--accent); text-decoration: underline; text-underline-offset: 2px; }
+.canonical-box { margin: 0 0 14px; }
+.canonical-box .check { align-items: flex-start; gap: 8px; line-height: 1.4; }
+.canonical-box .check input { margin-top: 3px; }
 .export-menu { position: relative; }
 
 /* ---- Ajustes ---- */

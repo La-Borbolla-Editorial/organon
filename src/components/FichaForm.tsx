@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react'
 import { authorsLabel, formatCitation, yearLabel, type CiteOptions } from '../citations'
+import { canonicalRef } from '../draft'
 import { citedPages } from '../pagination'
 import type { FichaDraft } from '../store'
 import type { Fichero, Source } from '../types'
@@ -32,7 +33,9 @@ export function FichaForm({ draft, num, sources, ficheros, lockSource, cite, kno
   const source = sources.find((s) => s.id === d.sourceId) ?? null
   // La página que da la paginación actual de la fuente para este punto del PDF.
   const computed = d.anchor && source ? citedPages(source.pagination, d.anchor.start, d.anchor.end) : ''
-  const citation = useMemo(() => (source ? formatCitation(source.csl, d.pageLabel, cite) : ''), [source, d.pageLabel, cite])
+  // En una obra canónica, la cita es la referencia canónica de la ficha (si la tiene).
+  const canonical = canonicalRef(source, d)
+  const citation = useMemo(() => (source ? formatCitation(source.csl, d.pageLabel, cite, canonical) : ''), [source, d.pageLabel, cite, canonical])
   const pdfPages = d.anchor ? (d.anchor.start.page === d.anchor.end.page ? `hoja ${d.anchor.start.page} del PDF` : `hojas ${d.anchor.start.page}–${d.anchor.end.page} del PDF`) : 'sin posición en el PDF'
   const unverified = !!source && !!d.anchor && !source.paginationVerified && !d.pageManual
   const missingPage = !d.pageLabel.trim() && !!source
@@ -144,7 +147,7 @@ export function FichaForm({ draft, num, sources, ficheros, lockSource, cite, kno
       </label>
 
       <label>
-        <span>Obra canónica / referencias <span className="muted">(opcional)</span></span>
+        <span>Obra canónica / referencias {source?.canonical ? <span className="muted">(obra canónica: la primera línea es lo que se cita)</span> : <span className="muted">(opcional)</span>}</span>
         <textarea rows={2} value={d.referencia} onChange={(e) => set({ referencia: e.target.value })} placeholder="Ordinatio II, d. 3, p. 1, q. 2, n. 48" />
       </label>
 
