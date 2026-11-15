@@ -44,6 +44,9 @@ una hoja de cálculo como fichero y un procesador de textos para citar.
 - **Citas con formato.** Chicago (notas abreviadas, notas completas, autor-año),
   APA y MLA, en español o en inglés. Cualquier otro estilo CSL se añade con su
   archivo.
+  El estilo y el idioma se eligen en **Ajustes** (⚙︎), por proyecto.
+- **Temas.** En Ajustes → Apariencia: Organon, Noche (oscuro) o Sepia, o un tema
+  propio con tus colores y tipografías.
 
 ## Instalación (macOS, Apple Silicon)
 

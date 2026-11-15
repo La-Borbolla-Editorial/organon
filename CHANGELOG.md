@@ -1,15 +1,12 @@
 # Cambios
 
-## 0.4.0 (en curso)
+## 0.4.0
 
 - **Ajustes** (⚙︎ en la barra superior): apariencia de Organon y ajustes del proyecto.
 - **Temas**: colores y tipografía de la interfaz definidos en archivos de tema. Vienen
   Organon, Noche (oscuro) y Sepia; cualquiera se puede personalizar con vista previa en vivo y
   guardar como tema propio (`temas/*.json` en la configuración de Organon).
 - El estilo de cita y el idioma pasan de la Biblioteca a Ajustes → Este proyecto.
-
-## 0.3.3
-
 - **Obras canónicas.** Una fuente se puede marcar como obra canónica (la *Ordinatio*, la
   *Metafísica*…) desde «Editar» en la Biblioteca. Sus fichas se citan con la estructura normal del
   estilo, pero con la referencia canónica en lugar de la página («Escoto, *Ordinatio*, Ord. II, d. 3,
