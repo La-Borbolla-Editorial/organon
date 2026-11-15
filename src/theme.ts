@@ -145,8 +145,27 @@ export const SEPIA: Theme = {
   tipografia: { ...ORGANON.tipografia, texto: GARAMOND, editor: GARAMOND, tamanoEditor: 19 },
 }
 
+/** Basado en Gryphon Code Dark, el tema de VS Code de José Pablo Iglesias (github.com/fraile-tok/gryphon-code-dark). */
+export const GRYPHON: Theme = {
+  nombre: 'Gryphon',
+  esquema: 'oscuro',
+  colores: {
+    fondo: '#0b1017', panel: '#11161d', papel: '#0b1017', campos: '#1c222a', suave: '#1c222a', hover: '#161c24',
+    lineas: '#232b35', lineasFuertes: '#36414f', fondoPdf: '#070a0f', sombra: 'rgb(0 0 0 / 0.5)', velo: 'rgb(0 0 0 / 0.6)',
+    texto: '#cfdce9', textoSuave: '#b2ccd6', textoTenue: '#7d8794', seleccion: '#093669',
+    acento: '#316dca', textoSobreAcento: '#cfdce9',
+    ok: '#57ab5a', okFondo: '#0f2418', okLinea: '#1f4d2c',
+    aviso: '#ffb61e', avisoFondo: '#2a2110', avisoLinea: '#5c4614',
+    error: '#fa4549', errorFondo: '#2b1216', errorLinea: '#5e1f25', textoSobreError: '#0b1017',
+    marca: '#ffb61e', marcaFondo: '#1d1a12', resaltado: '#ffc64b', resaltadoActivo: '#ffb61e', resaltadoNuevo: '#8fbcff',
+    citaInsertadaFondo: '#2a2312', citaInsertadaTexto: '#ffb61e', notaFondo: '#0d2745', notaTexto: '#79b0ff',
+    fichaAsomadaFondo: '#11161d', fichaAsomadaLinea: '#b083f0',
+  },
+  tipografia: { ...ORGANON.tipografia },
+}
+
 /** Temas que vienen con Organon, por su identificador. */
-export const BUILTIN: Record<string, Theme> = { organon: ORGANON, noche: NOCHE, sepia: SEPIA }
+export const BUILTIN: Record<string, Theme> = { organon: ORGANON, noche: NOCHE, sepia: SEPIA, gryphon: GRYPHON }
 
 const isColor = (v: unknown): v is string => typeof v === 'string' && v.trim().length > 0 && v.length < 80 && !/[;{}]/.test(v)
 const isFont = (v: unknown): v is string => typeof v === 'string' && v.trim().length > 0 && v.length < 300 && !/[;{}]/.test(v)
