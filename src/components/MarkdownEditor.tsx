@@ -55,8 +55,6 @@ interface Props {
    * `markdown`: se ve el texto tal cual. El archivo es el mismo en los dos modos.
    */
   mode: EditorMode
-  /** Formato en vivo: con `false`, texto plano puro (sin formato, realce ni referencias pintadas). */
-  liveFormat: boolean
   /** Cómo queda cada referencia en el texto final, en orden (para el modo `rich`). */
   rendered: RenderedToken[]
   /** Comillas del idioma de las citas: «» o “”. */
@@ -69,7 +67,6 @@ const refresh = StateEffect.define<null>()
 const togglePeek = StateEffect.define<number>()
 const setPeekAll = StateEffect.define<boolean>()
 const setMode = StateEffect.define<EditorMode>()
-const setLive = StateEffect.define<boolean>()
 
 const hidden = Decoration.replace({})
 
@@ -218,7 +215,7 @@ class PeekBlock extends WidgetType {
   ignoreEvent() { return true }
 }
 
-export const MarkdownEditor = forwardRef<MarkdownEditorHandle, Props>(function MarkdownEditor({ initial, ficheros, onChange, describe, peek, peekAll, mode, liveFormat, rendered, quotes, revision }, ref) {
+export const MarkdownEditor = forwardRef<MarkdownEditorHandle, Props>(function MarkdownEditor({ initial, ficheros, onChange, describe, peek, peekAll, mode, rendered, quotes, revision }, ref) {
   const host = useRef<HTMLDivElement>(null)
   const view = useRef<EditorView | null>(null)
   // Lo que usan las extensiones de CodeMirror, siempre al día sin recrear el editor.
@@ -269,11 +266,6 @@ export const MarkdownEditor = forwardRef<MarkdownEditorHandle, Props>(function M
     })
     const isOpen = (state: EditorState, t: Token) => { const { all, flipped } = state.field(peeks); return all !== flipped.includes(t.from) }
 
-    const liveField = StateField.define<boolean>({
-      create: () => liveFormat,
-      update: (value, tr) => tr.effects.reduce((on, e) => (e.is(setLive) ? e.value : on), value),
-    })
-
     const modeField = StateField.define<EditorMode>({
       create: () => mode,
       update: (value, tr) => tr.effects.reduce((m, e) => (e.is(setMode) ? e.value : m), value),
@@ -284,7 +276,7 @@ export const MarkdownEditor = forwardRef<MarkdownEditorHandle, Props>(function M
     const buildBlocks = (state: EditorState): DecorationSet => {
       const out: Range<Decoration>[] = []
       const front = splitFrontMatter(state.doc.sliceString(0, Math.min(state.doc.length, 4000))).offset
-      if (front > 0 && state.field(modeField) === 'rich' && state.field(liveField)) {
+      if (front > 0 && state.field(modeField) === 'rich') {
         const end = Math.max(0, front - 1)
         const sel = state.selection.ranges
         if (!sel.some((r) => r.from <= end && r.to >= 0)) out.push(Decoration.replace({ block: true }).range(0, end))
@@ -297,7 +289,7 @@ export const MarkdownEditor = forwardRef<MarkdownEditorHandle, Props>(function M
     const blocks = StateField.define<DecorationSet>({
       create: buildBlocks,
       update(value, tr) {
-        const effect = tr.effects.some((e) => e.is(refresh) || e.is(togglePeek) || e.is(setPeekAll) || e.is(setMode) || e.is(setLive) || e.is(setFicheros))
+        const effect = tr.effects.some((e) => e.is(refresh) || e.is(togglePeek) || e.is(setPeekAll) || e.is(setMode) || e.is(setFicheros))
         // Fuera de la cabecera, mover el cursor no cambia nada aquí.
         const nearFront = tr.selection !== undefined && (tr.state.selection.main.from < 4000 || tr.startState.selection.main.from < 4000)
         return tr.docChanged || effect || nearFront ? buildBlocks(tr.state) : value
@@ -383,8 +375,6 @@ export const MarkdownEditor = forwardRef<MarkdownEditorHandle, Props>(function M
 
     const buildInline = (view: EditorView): DecorationSet => {
       const { state } = view
-      // Sin formato en vivo, nada: el texto tal cual.
-      if (!state.field(liveField)) return Decoration.none
       const rich = state.field(modeField) === 'rich'
       const all = tokens(state)
       const sel = state.selection.ranges
@@ -417,7 +407,7 @@ export const MarkdownEditor = forwardRef<MarkdownEditorHandle, Props>(function M
       decorations: DecorationSet
       constructor(view: EditorView) { this.decorations = buildInline(view) }
       update(u: ViewUpdate) {
-        const effect = u.transactions.some((tr) => tr.effects.some((e) => e.is(refresh) || e.is(togglePeek) || e.is(setPeekAll) || e.is(setMode) || e.is(setLive) || e.is(setFicheros)))
+        const effect = u.transactions.some((tr) => tr.effects.some((e) => e.is(refresh) || e.is(togglePeek) || e.is(setPeekAll) || e.is(setMode) || e.is(setFicheros)))
         // En modo enriquecido, mover el cursor cambia qué sintaxis se muestra.
         const moved = u.selectionSet && u.state.field(modeField) === 'rich'
         if (u.docChanged || u.viewportChanged || effect || moved ) this.decorations = buildInline(u.view)
@@ -527,13 +517,12 @@ export const MarkdownEditor = forwardRef<MarkdownEditorHandle, Props>(function M
         tokensField.init((state) => ({ ficheros: live.current.ficheros, list: findTokens(state.doc.toString(), live.current.ficheros) })),
         peeks,
         modeField,
-        liveField,
         blocks,
         inline,
         // Prioridad alta: el teclado por defecto de CodeMirror usa Cmd+I para
         // «seleccionar el nodo padre» y, sin esto, gana él.
         Prec.high(keymap.of([{ key: 'Mod-b', run: (v) => wrap(v, '**') }, { key: 'Mod-i', run: (v) => wrap(v, '*') }, { key: 'Enter', run: continueMarkup }])),
-        EditorView.editorAttributes.of((v) => ({ class: !v.state.field(liveField) ? 'cm-mode-markdown cm-mode-plain' : v.state.field(modeField) === 'rich' ? 'cm-mode-rich' : 'cm-mode-markdown' })),
+        EditorView.editorAttributes.of((v) => ({ class: v.state.field(modeField) === 'rich' ? 'cm-mode-rich' : 'cm-mode-markdown' })),
         tooltip,
         EditorView.updateListener.of((u) => { if (u.docChanged) live.current.onChange(u.state.doc.toString()) }),
         EditorView.contentAttributes.of({ spellcheck: 'true', autocorrect: 'on', 'aria-label': 'Texto' }),
@@ -549,7 +538,6 @@ export const MarkdownEditor = forwardRef<MarkdownEditorHandle, Props>(function M
   useEffect(() => { view.current?.dispatch({ effects: setFicheros.of(ficheros) }) }, [ficheros])
   useEffect(() => { view.current?.dispatch({ effects: setPeekAll.of(peekAll) }) }, [peekAll])
   useEffect(() => { view.current?.dispatch({ effects: setMode.of(mode) }) }, [mode])
-  useEffect(() => { view.current?.dispatch({ effects: setLive.of(liveFormat) }) }, [liveFormat])
   // Cuando llega la composición nueva del texto, se repintan las referencias.
   useEffect(() => { view.current?.dispatch({ effects: refresh.of(null) }) }, [rendered])
 
