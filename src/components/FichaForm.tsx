@@ -147,7 +147,7 @@ export function FichaForm({ draft, num, sources, ficheros, lockSource, cite, kno
       </label>
 
       <label>
-        <span>Obra canónica / referencias {source?.canonical ? <span className="muted">(obra canónica: la primera línea es lo que se cita)</span> : <span className="muted">(opcional)</span>}</span>
+        <span>Obra canónica / referencias {source?.canonical ? <span className="muted">(obra canónica: la primera línea se cita en lugar de la página)</span> : <span className="muted">(opcional)</span>}</span>
         <textarea rows={2} value={d.referencia} onChange={(e) => set({ referencia: e.target.value })} placeholder="Ordinatio II, d. 3, p. 1, q. 2, n. 48" />
       </label>
 

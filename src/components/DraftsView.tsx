@@ -211,9 +211,10 @@ export function DraftsView({ project, cite, onSection, onSwitchProject, onOpenFi
   const sourceLabel = useCallback((f: Ficha) => {
     const s = f.sourceId ? sourceById.get(f.sourceId) : undefined
     if (!s) return 'sin fuente'
+    // En una obra canónica, la referencia canónica ocupa el lugar de la página.
     const canonical = canonicalText(canonicalRef(s, f))
-    if (canonical) return canonical
-    return `${[authorsLabel(s.csl), yearLabel(s.csl)].filter(Boolean).join(' ')}${f.pageLabel ? `, p. ${f.pageLabel}` : ''}`
+    const where = canonical || (f.pageLabel ? `p. ${f.pageLabel}` : '')
+    return `${[authorsLabel(s.csl), yearLabel(s.csl)].filter(Boolean).join(' ')}${where ? `, ${where}` : ''}`
   }, [sourceById])
 
   const describe = useCallback((token: Token): TokenInfo => {

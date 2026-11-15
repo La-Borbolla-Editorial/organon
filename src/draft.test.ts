@@ -207,10 +207,11 @@ test('obra canónica: se cita por su referencia canónica', () => {
   }
   const r = resolveDraft('---\nfichero: Secundarias\n---\nA [f. 1]. B [f. 20]. C [f. 1]. D [cf. f. 20; f. 3]. E [f. 21]. F [f. 20, p. 405].\n', c)
   const notes = r.markdown.split('\n').filter((l) => l.startsWith('[^'))
-  expect(notes[1]).toBe('[^2]: Ord. II, d. 3, p. 1, q. 1, n. 29.')
+  // La misma estructura que cualquier cita, con la referencia canónica en lugar de la página.
+  expect(notes[1]).toBe('[^2]: Escoto, «Ordinatio», Ord. II, d. 3, p. 1, q. 1, n. 29.')
   // La nota canónica de en medio impide el «Ibid.».
   expect(notes[2]).not.toMatch(/Ibid/)
-  expect(notes[3]).toMatch(/^\[\^4\]: cf\. Ord\. II, d\. 3, p\. 1, q\. 1, n\. 29; Noone/)
+  expect(notes[3]).toMatch(/^\[\^4\]: cf\. Escoto, «Ordinatio», Ord\. II, d\. 3, p\. 1, q\. 1, n\. 29; Noone/)
   // Sin referencia canónica, la página, con aviso.
   expect(notes[4]).toMatch(/Ordinatio.*410/)
   expect(r.problems.map((p) => p.message)).toEqual(['La ficha f. 21 es de una obra canónica pero no tiene referencia canónica: se cita la página.'])

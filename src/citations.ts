@@ -77,26 +77,33 @@ function register(csl: CslItem) {
   items.set(csl.id, csl)
 }
 
-const locate = (page: string): Record<string, string> => (page.trim() ? { locator: page.trim(), label: 'page' } : {})
-
 /**
  * Referencia canónica tal como se citará: la primera línea del campo de la ficha
- * («Ord. II, d. 3, p. 1, q. 6, n. 188»), que ya nombra la obra. Lo que va debajo son notas.
+ * («Ord. II, d. 3, p. 1, q. 6, n. 188»). Lo que va debajo son notas.
  */
 export const canonicalText = (canonical?: string) => (canonical ?? '').trim().split(/\n/)[0].trim()
 
+/**
+ * Lo que señala el pasaje dentro de la obra. En una obra canónica la referencia canónica
+ * ocupa el lugar de la página, con la misma estructura de cita del estilo («Escoto,
+ * Ordinatio, Ord. II, d. 3»): va detrás de la obra tal cual, sin «p.» ni otra etiqueta.
+ */
+function locate(page: string, canonical?: string): Record<string, string> {
+  const ref = canonicalText(canonical)
+  if (ref) return { suffix: `, ${ref}` }
+  return page.trim() ? { locator: page.trim(), label: 'page' } : {}
+}
+
 /** Cita (HTML) de una fuente con su página (o su referencia canónica), p. ej. «Pini, “Scotus on Individuation”, 69». */
 export function formatCitation(csl: CslItem, page: string, o: CiteOptions, canonical?: string): string {
-  // Una obra canónica se cita por su referencia canónica, sin autor ni edición.
-  if (canonicalText(canonical)) return escapeHtml(canonicalText(canonical))
   try {
     register(csl)
     const e = engine(o)
     e.updateItems([csl.id])
-    return e.makeCitationCluster([{ id: csl.id, ...locate(page) }])
+    return e.makeCitationCluster([{ id: csl.id, ...locate(page, canonical) }])
   } catch (err) {
     console.error('citeproc', err)
-    return escapeHtml([authorsLabel(csl), csl.title, page].filter(Boolean).join(', '))
+    return escapeHtml([authorsLabel(csl), csl.title, canonicalText(canonical) || page].filter(Boolean).join(', '))
   }
 }
 
@@ -145,30 +152,17 @@ let lastSequence: { key: string; result: Sequence } | null = null
 export function formatSequence(clusters: CiteItem[][], o: CiteOptions): Sequence {
   const local = new Map<string, CslItem>()
   for (const cluster of clusters) for (const item of cluster) local.set(item.csl.id, item.csl)
-  // Las obras canónicas no pasan por citeproc: se citan por su referencia canónica, tal cual.
-  const canon = (item: CiteItem) => canonicalText(item.canonical)
-  // Una nota solo canónica también se le pasa a citeproc (sin usar su texto), para que el
-  // «Ibid.» de la nota siguiente no salte por encima de ella.
-  const silent = new Set<string>()
-  const citations = clusters.flatMap((cluster, i) => {
-    let cited = cluster.filter((item) => !canon(item))
-    if (!cited.length && cluster.length) { cited = cluster.map((item) => ({ ...item, page: '', prefix: undefined })); silent.add(`c${i}`) }
-    return cited.length ? [{
-      citationID: `c${i}`,
-      citationItems: cited.map((item) => ({
-        id: item.csl.id,
-        ...locate(item.page),
-        ...(item.prefix ? { prefix: `${item.prefix} ` } : {}),
-      })),
-      properties: { noteIndex: 0 },
-    }] : []
-  })
+  const citations = clusters.flatMap((cluster, i) => cluster.length ? [{
+    citationID: `c${i}`,
+    citationItems: cluster.map((item) => ({
+      id: item.csl.id,
+      ...locate(item.page, item.canonical),
+      ...(item.prefix ? { prefix: `${item.prefix} ` } : {}),
+    })),
+    properties: { noteIndex: 0 },
+  }] : [])
   citations.forEach((c, n) => { c.properties.noteIndex = n + 1 })
-  // Su edición sí va a la bibliografía, aunque no se cite por páginas.
-  const citedIds = new Set(citations.flatMap((c) => c.citationItems.map((it) => it.id)))
-  const uncited = [...new Set(clusters.flat().filter((item) => canon(item) && !citedIds.has(item.csl.id)).map((item) => item.csl.id))]
-  const canonicals = clusters.map((cluster) => cluster.filter(canon).map((item) => escapeHtml(`${item.prefix ? `${item.prefix} ` : ''}${canon(item)}`)))
-  const key = JSON.stringify([o.style, o.locale, clusters.length, citations, uncited, canonicals, [...local.values()]])
+  const key = JSON.stringify([o.style, o.locale, clusters.length, citations, [...local.values()]])
   if (lastSequence?.key === key) return lastSequence.result
 
   const sys = { retrieveLocale: (lang: string) => LOCALE_XML[lang] ?? localeEn, retrieveItem: (id: string) => local.get(id) }
@@ -176,25 +170,11 @@ export function formatSequence(clusters: CiteItem[][], o: CiteOptions): Sequence
   const texts = clusters.map(() => '')
   // Todas las citas de una vez: citeproc las procesa en un solo pase, con sus posiciones
   // (ibid., forma breve…) y la desambiguación. Una a una, el coste crecía al cuadrado.
-  if (citations.length || uncited.length) {
-    const out = e.rebuildProcessorState(citations, 'html', uncited) as [string, number, string][]
-    for (const [id, , text] of out) if (!silent.has(id)) texts[Number(id.slice(1))] = text
+  if (citations.length) {
+    const out = e.rebuildProcessorState(citations, 'html', []) as [string, number, string][]
+    for (const [id, , text] of out) texts[Number(id.slice(1))] = text
   }
   const isNote = e.opt.xclass === 'note'
-  // Junta las referencias canónicas con lo que haya compuesto citeproc en la misma cita.
-  clusters.forEach((cluster, i) => {
-    const refs = canonicals[i]
-    if (!refs.length) return
-    const first = canon(cluster[0]) !== ''
-    if (isNote) {
-      const parts = texts[i] ? [texts[i].replace(/\.$/, '')] : []
-      texts[i] = `${(first ? [...refs, ...parts] : [...parts, ...refs]).join('; ')}.`
-    } else {
-      // Autor-año: dentro del mismo paréntesis.
-      const inner = texts[i] ? [texts[i].replace(/^\(|\)$/g, '')] : []
-      texts[i] = `(${(first ? [...refs, ...inner] : [...inner, ...refs]).join('; ')})`
-    }
-  })
   const bib = local.size ? e.makeBibliography() : null
   const result = { texts, isNote, bibliography: bib ? (bib[1] as string[]).map((entry) => entry.trim()) : [] }
   lastSequence = { key, result }

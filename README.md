@@ -88,8 +88,9 @@ Para Mac con Intel, Windows o Linux hay que compilarla (ver más abajo).
 | `{Escoto f. 3}` | La ficha 3 del fichero «Escoto» |
 
 Si la fuente está marcada como **obra canónica** (en «Editar», en la Biblioteca),
-la nota no lleva la página sino la referencia canónica de la ficha: la primera línea
-de su campo «Obra canónica / referencias» («Ord. II, d. 3, p. 1, q. 6, n. 188»).
+la cita sigue el estilo de siempre, pero con la referencia canónica de la ficha en
+lugar de la página: «Escoto, *Ordinatio*, Ord. II, d. 3, p. 1, q. 6, n. 188». Es la
+primera línea de su campo «Obra canónica / referencias».
 
 El marcador («f.») se define en cada fichero. Si dos ficheros comparten marcador,
 elige el fichero por defecto del texto o escribe el nombre delante.
