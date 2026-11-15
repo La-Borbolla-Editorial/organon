@@ -1,5 +1,10 @@
 # Cambios
 
+## 0.4.1
+
+- PDF: las hojas ya no empiezan con un hueco en blanco arriba. En la app, los márgenes de página no
+  se aplicaban y macOS ponía los suyos.
+
 ## 0.4.0
 
 - **Ajustes** (⚙︎ en la barra superior): apariencia de Organon y ajustes del proyecto.

@@ -476,8 +476,10 @@ sup.cm-rich-mark { font-size: 0.68em; line-height: 0; padding-left: 1px; }
   .print-doc .wk-ficha.bad { border-left-color: #b33; }
   .print-doc .wk-head { font-weight: bold; font-size: 9pt; margin-bottom: 2pt; }
   .print-doc .wk-ficha p { margin: 0 0 3pt; white-space: pre-line; }
-  @page { margin: 2.5cm; }
 }
+/* Fuera de @media print: dentro, WebKit (la app en macOS) no la aplica y pone sus
+   propios márgenes, con un hueco grande arriba de cada hoja. */
+@page { margin: 2.5cm; }
 
 /* El contenido de los paneles se adapta al ancho disponible. */
 .pagination-editor, .ficha-list, .ficha-picker { grid-template-columns: minmax(0, 1fr); }
