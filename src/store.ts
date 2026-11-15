@@ -238,14 +238,14 @@ export async function upsertSources(items: CslItem[]): Promise<{ added: number; 
 }
 
 /** Crea una fuente a mano (sin `id`) o guarda los metadatos editados de una existente. */
-export async function saveSource(csl: Record<string, any>, id?: string): Promise<string> {
+export async function saveSource(csl: Record<string, any>, id?: string, extra: Pick<Source, 'canonical'> = {}): Promise<string> {
   const d = db()
   if (id) {
-    replaceSource(id, { csl: { ...csl, id } })
+    replaceSource(id, { csl: { ...csl, id }, ...extra })
   } else {
     id = newId()
     const citekey = suggestCitekey(csl, new Set(d.sources.map((s) => s.citekey)))
-    d.sources = [...d.sources, { id, citekey, csl: { ...csl, id }, pdfFile: null, pdfPages: null, pagination: DEFAULT_PAGINATION, paginationVerified: false, paginationNote: '' }]
+    d.sources = [...d.sources, { id, citekey, csl: { ...csl, id }, pdfFile: null, pdfPages: null, pagination: DEFAULT_PAGINATION, paginationVerified: false, paginationNote: '', ...extra }]
   }
   await persist('sources')
   return id

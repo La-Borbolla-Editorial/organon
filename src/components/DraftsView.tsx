@@ -3,8 +3,8 @@ import footnote from 'markdown-it-footnote'
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { backend, type ProjectInfo } from '../backend'
-import { authorsLabel, yearLabel, type CiteOptions } from '../citations'
-import { bibliographyHeading, defaultFichero, lookupRef, resolveDraft, setFrontMatter, tokenText, type DraftContext, type RenderedToken, type Token } from '../draft'
+import { authorsLabel, canonicalText, yearLabel, type CiteOptions } from '../citations'
+import { bibliographyHeading, canonicalRef, defaultFichero, lookupRef, resolveDraft, setFrontMatter, tokenText, type DraftContext, type RenderedToken, type Token } from '../draft'
 import { getSettings, listFichas, listFicheros, listSources, setSettings } from '../store'
 import type { Ficha, Fichero, Source } from '../types'
 import { MarkdownEditor, type EditorMode, type Format, type MarkdownEditorHandle, type PeekItem, type TokenInfo } from './MarkdownEditor'
@@ -17,6 +17,8 @@ interface Props {
   cite: CiteOptions
   onSection: (s: Section) => void
   onSwitchProject: () => void
+  /** Abre la ficha en el Fichero. */
+  onOpenFicha: (fichaId: string) => void
 }
 
 const md = new MarkdownIt({ html: false, linkify: true, typographer: false }).use(footnote)
@@ -46,7 +48,7 @@ const Problems = memo(function Problems({ problems, goTo }: { problems: { messag
 
 type SaveState = 'saved' | 'dirty' | 'saving' | 'conflict' | 'error'
 
-export function DraftsView({ project, cite, onSection, onSwitchProject }: Props) {
+export function DraftsView({ project, cite, onSection, onSwitchProject, onOpenFicha }: Props) {
   const [drafts, setDrafts] = useState<string[]>([])
   const [current, setCurrent] = useState<string | null>(null)
   // Lo que se cargó del disco; `version` cambia en cada carga para montar un editor nuevo.
@@ -208,7 +210,10 @@ export function DraftsView({ project, cite, onSection, onSwitchProject }: Props)
   const sourceById = useMemo(() => new Map(sources.map((s) => [s.id, s])), [sources])
   const sourceLabel = useCallback((f: Ficha) => {
     const s = f.sourceId ? sourceById.get(f.sourceId) : undefined
-    return s ? `${[authorsLabel(s.csl), yearLabel(s.csl)].filter(Boolean).join(' ')}${f.pageLabel ? `, p. ${f.pageLabel}` : ''}` : 'sin fuente'
+    if (!s) return 'sin fuente'
+    const canonical = canonicalText(canonicalRef(s, f))
+    if (canonical) return canonical
+    return `${[authorsLabel(s.csl), yearLabel(s.csl)].filter(Boolean).join(' ')}${f.pageLabel ? `, p. ${f.pageLabel}` : ''}`
   }, [sourceById])
 
   const describe = useCallback((token: Token): TokenInfo => {
@@ -476,7 +481,11 @@ export function DraftsView({ project, cite, onSection, onSwitchProject }: Props)
                     <article key={f.id} className={expanded.has(f.id) ? 'ficha-card pick open' : 'ficha-card pick'} data-testid="picker-card">
                       <header>
                         <span className="ficha-num">{ficheroById.get(f.ficheroId)?.marker} {f.num}</span>
-                        <h3>{f.notaPermanente || <em className="muted">Sin nota permanente</em>}</h3>
+                        <h3>
+                          <button className="link ficha-open" onClick={() => onOpenFicha(f.id)} title="Abrir esta ficha en el Fichero" data-testid="pick-open">
+                            {f.notaPermanente || <em className="muted">Sin nota permanente</em>}
+                          </button>
+                        </h3>
                       </header>
                       {f.cita && <blockquote>{f.cita}</blockquote>}
                       {expanded.has(f.id) && (

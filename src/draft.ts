@@ -180,6 +180,11 @@ export interface DraftContext {
   cite: CiteOptions
 }
 
+/** Referencia canónica con la que se cita la ficha, si su fuente es una obra canónica y la tiene. */
+export function canonicalRef(source: Pick<Source, 'canonical'> | null | undefined, ficha: Pick<Ficha, 'referencia'>): string | undefined {
+  return source?.canonical && ficha.referencia.trim() ? ficha.referencia.trim() : undefined
+}
+
 export type Lookup = { ficha: Ficha; source: Source | null } | { error: string }
 
 /** Fichero por defecto del borrador (cabecera `fichero:`), si existe. */
@@ -304,9 +309,13 @@ export function resolveDraft(md: string, ctx: DraftContext, options: { bibliogra
       if (token.kind === 'cite' && ref.fragment) inNote.push(ref.fragment)
       if (ref.fullInNote && full) inNote.push(full)
       if (!found.source) return void warnings.push(`La ficha ${label} no tiene fuente: no se puede citar.`)
+      // En una obra canónica se cita la referencia canónica de la ficha, salvo que se pida
+      // una página concreta ([f. 51, p. 70]).
+      const canonical = ref.page ? undefined : canonicalRef(found.source, ficha)
+      if (found.source.canonical && !ref.page && !canonical) warnings.push(`La ficha ${label} es de una obra canónica pero no tiene referencia canónica: se cita la página.`)
       const page = ref.page ?? ficha.pageLabel
-      if (!page.trim()) warnings.push(`La ficha ${label} no tiene página.`)
-      items.push({ csl: found.source.csl, page, prefix: ref.prefix || undefined })
+      if (!canonical && !page.trim()) warnings.push(`La ficha ${label} no tiene página.`)
+      items.push({ csl: found.source.csl, page, canonical, prefix: ref.prefix || undefined })
     })
     if (token.kind === 'insert' && token.refs.length > 1) warnings.push('Entre llaves solo cabe una ficha: usa una referencia por cita.')
     for (const message of warnings) problems.push({ message, from: offset + token.from })

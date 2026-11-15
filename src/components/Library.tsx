@@ -100,6 +100,7 @@ export function Library({ project, onSwitchProject, onSection, cite, onOpen }: P
                       ) : (
                         <span className="badge muted">Sin PDF</span>
                       )}
+                      {s.canonical && <span className="badge" title="Sus fichas se citan por su referencia canónica, no por la página.">Obra canónica</span>}
                       {counts[s.id] ? <span>{counts[s.id]} ficha(s)</span> : null}
                     </div>
                   </div>

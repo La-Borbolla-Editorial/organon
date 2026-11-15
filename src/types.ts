@@ -13,6 +13,11 @@ export interface Source {
   paginationVerified: boolean
   /** Cómo se obtuvo la paginación actual (conjetura automática, a mano…). */
   paginationNote: string
+  /**
+   * Obra canónica (la Ordinatio, la Metafísica…): sus fichas se citan por su referencia
+   * canónica («II d. 3 n. 29»), no por la página de esta edición.
+   */
+  canonical?: boolean
 }
 
 /** Un extremo de la selección: página del PDF (desde 1) y mitad de la hoja (0 izq., 1 der.). */

@@ -87,6 +87,10 @@ Para Mac con Intel, Windows o Linux hay que compilarla (ver más abajo).
 | `[cf. f. 51; f. 60]` | Una nota con dos fichas y un prefijo |
 | `{Escoto f. 3}` | La ficha 3 del fichero «Escoto» |
 
+Si la fuente está marcada como **obra canónica** (en «Editar», en la Biblioteca),
+la nota no lleva la página sino la referencia canónica de la ficha: la primera línea
+de su campo «Obra canónica / referencias» («Ord. II, d. 3, p. 1, q. 6, n. 188»).
+
 El marcador («f.») se define en cada fichero. Si dos ficheros comparten marcador,
 elige el fichero por defecto del texto o escribe el nombre delante.
 

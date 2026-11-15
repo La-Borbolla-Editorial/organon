@@ -1,8 +1,8 @@
 // Documento de trabajo: el texto tal como se escribió, con las fichas que nombra
 // desplegadas debajo de cada punto (como al asomarlas en el editor), listo para imprimir.
 type Renderer = { render(src: string): string }
-import { authorsLabel } from './citations'
-import { findTokens, lookupRef, splitFrontMatter, type DraftContext, type FichaRef } from './draft'
+import { authorsLabel, canonicalText } from './citations'
+import { canonicalRef, findTokens, lookupRef, splitFrontMatter, type DraftContext, type FichaRef } from './draft'
 import type { Fichero } from './types'
 
 // Marcas que no pueden aparecer en un texto normal: rodean el número de la referencia.
@@ -29,7 +29,9 @@ function cardHead(ref: FichaRef, fallback: Fichero | null, ctx: DraftContext): {
     const title = source.csl.title ? `«${source.csl.title}»` : ''
     parts.push([who, title].filter(Boolean).join(', '))
   }
-  if (ficha.pageLabel) parts.push(`p. ${ficha.pageLabel}`)
+  const canonical = canonicalText(canonicalRef(source, ficha))
+  if (canonical) parts.push(canonical)
+  else if (ficha.pageLabel) parts.push(`p. ${ficha.pageLabel}`)
   const where = parts.filter(Boolean).join(', ')
   return { head: where ? `${label} — ${where}` : label, quote: ficha.cita || ficha.notaPermanente, bad: false }
 }
