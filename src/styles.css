@@ -377,6 +377,14 @@ sup.cm-rich-mark { font-size: 0.68em; line-height: 0; padding-left: 1px; }
   .print-doc .footnotes { font-size: 10pt; }
   .print-doc a { color: #000; }
   .print-doc .footnote-backref { display: none; }
+  /* PDF con fichas: cada ficha nombrada, en un recuadro bajo su punto. */
+  .print-doc .wk-ref { white-space: nowrap; }
+  .print-doc li > p { margin: 0; }
+  .print-doc .wk-fichas { margin: 4pt 0 8pt; }
+  .print-doc .wk-ficha { background: #f2f2f2; border-left: 2pt solid #999; padding: 4pt 8pt; margin: 0 0 4pt; font-size: 10pt; line-height: 1.35; break-inside: avoid-page; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  .print-doc .wk-ficha.bad { border-left-color: #b33; }
+  .print-doc .wk-head { font-weight: bold; font-size: 9pt; margin-bottom: 2pt; }
+  .print-doc .wk-ficha p { margin: 0 0 3pt; white-space: pre-line; }
   @page { margin: 2.5cm; }
 }
 

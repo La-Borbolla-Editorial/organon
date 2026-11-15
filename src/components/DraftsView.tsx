@@ -239,7 +239,7 @@ export function DraftsView({ project, cite, onSection, onSwitchProject }: Props)
   // Lo que se manda a imprimir: el texto compuesto, fuera de la interfaz.
   const [printHtml, setPrintHtml] = useState('')
 
-  const exportAs = async (kind: 'docx' | 'pdf' | 'md') => {
+  const exportAs = async (kind: 'docx' | 'pdf' | 'fichas' | 'md') => {
     if (!current) return
     setError('')
     setExporting(kind)
@@ -253,7 +253,10 @@ export function DraftsView({ project, cite, onSection, onSwitchProject }: Props)
         const bytes = await markdownToDocx(resolved.markdown, { title: current, bibliographyHeading: bibliographyHeading(cite.locale) })
         await backend.saveBinaryFile(`${current}.docx`, bytes, 'application/vnd.openxmlformats-officedocument.wordprocessingml.document')
       } else {
-        setPrintHtml(md.render(resolved.markdown))
+        if (kind === 'fichas') {
+          const { composeWithFichas } = await import('../export-fichas')
+          setPrintHtml(composeWithFichas(disk.current.text, md, fallback, ctx))
+        } else setPrintHtml(md.render(resolved.markdown))
         // Se espera a que el texto esté en la página antes de abrir el diálogo.
         await new Promise((r) => setTimeout(r, 80))
         await backend.print()
@@ -281,6 +284,7 @@ export function DraftsView({ project, cite, onSection, onSwitchProject }: Props)
         <span className="muted small">Exportar:</span>
         <button onClick={() => void exportAs('docx')} disabled={!current || !!exporting} data-testid="export-docx" title="Documento de Word con notas al pie de verdad.">{exporting === 'docx' ? 'Generando…' : 'Word (.docx)'}</button>
         <button onClick={() => void exportAs('pdf')} disabled={!current || !!exporting} data-testid="export-pdf" title="Abre el diálogo de impresión: elige «Guardar como PDF». Las notas van al final del texto.">PDF…</button>
+        <button onClick={() => void exportAs('fichas')} disabled={!current || !!exporting} data-testid="export-fichas" title="Documento de trabajo: el texto tal como lo escribes, con cada ficha nombrada desplegada debajo del punto que la nombra. Abre el diálogo de impresión.">PDF con fichas…</button>
         <button onClick={() => void exportAs('md')} disabled={!current || !!exporting} data-testid="export-md" title="Markdown corriente, con las citas ya resueltas, notas y bibliografía.">Markdown</button>
       </TopNav>
 
