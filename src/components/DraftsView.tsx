@@ -67,6 +67,9 @@ export function DraftsView({ project, cite, onSection, onSwitchProject }: Props)
   // Texto enriquecido o Markdown tal cual: es el mismo archivo, cambia solo cómo se ve.
   const [mode, setModeState] = useState<EditorMode>(() => { try { return localStorage.getItem('organon.modoEditor') === 'markdown' ? 'markdown' : 'rich' } catch { return 'rich' } })
   const setMode = (m: EditorMode) => { setModeState(m); try { localStorage.setItem('organon.modoEditor', m) } catch { /* preferencia no guardada */ } }
+  // Formato en vivo: apagado, el editor muestra texto plano puro.
+  const [live, setLiveState] = useState(() => { try { return localStorage.getItem('organon.formatoVivo') !== '0' } catch { return true } })
+  const setLive = (on: boolean) => { setLiveState(on); try { localStorage.setItem('organon.formatoVivo', on ? '1' : '0') } catch { /* preferencia no guardada */ } }
   const format = (f: Format) => editor.current?.format(f)
   // Asomar en el editor todas las fichas nombradas (se ven, pero no se añaden al texto).
   const [peekAll, setPeekAllState] = useState(() => { try { return localStorage.getItem('organon.asomarFichas') === '1' } catch { return false } })
@@ -397,9 +400,13 @@ export function DraftsView({ project, cite, onSection, onSwitchProject }: Props)
 
               <div className="format-bar">
                 <div className="segmented" role="group" aria-label="Modo del editor">
-                  <button className={mode === 'rich' ? 'current' : ''} onClick={() => setMode('rich')} data-testid="mode-rich" title="Escribe viendo el resultado: títulos, cursivas, citas y números de nota.">Texto</button>
-                  <button className={mode === 'markdown' ? 'current' : ''} onClick={() => setMode('markdown')} data-testid="mode-markdown" title="Ve el texto tal como se guarda, con su sintaxis.">Markdown</button>
+                  <button className={mode === 'rich' ? 'current' : ''} disabled={!live} onClick={() => setMode('rich')} data-testid="mode-rich" title="Escribe viendo el resultado: títulos, cursivas, citas y números de nota.">Texto</button>
+                  <button className={mode === 'markdown' ? 'current' : ''} disabled={!live} onClick={() => setMode('markdown')} data-testid="mode-markdown" title="Ve el texto tal como se guarda, con su sintaxis.">Markdown</button>
                 </div>
+                <label className="check" title="Apagado, el editor muestra texto plano puro: sin formato, sin realce y sin referencias pintadas. Es lo más rápido.">
+                  <input type="checkbox" checked={live} onChange={(e) => setLive(e.target.checked)} data-testid="live-format" />
+                  Formato en vivo
+                </label>
                 <span className="bar-sep" />
                 {([['bold', 'N', 'Negrita (⌘B)'], ['italic', 'C', 'Cursiva (⌘I)'], ['h1', 'T1', 'Título'], ['h2', 'T2', 'Apartado'], ['h3', 'T3', 'Subapartado'], ['list', '•', 'Lista (Tab anida un punto)'], ['numbered', '1.', 'Lista numerada'], ['quote', '”', 'Cita en bloque']] as [Format, string, string][]).map(([f, label, title]) => (
                   <button key={f} className={`fmt fmt-${f}`} title={title} aria-label={title} onMouseDown={(e) => e.preventDefault()} onClick={() => format(f)} data-testid={`fmt-${f}`}>{label}</button>
@@ -417,7 +424,7 @@ export function DraftsView({ project, cite, onSection, onSwitchProject }: Props)
 
               <MarkdownEditor
                 key={loaded.version} ref={editor} initial={loaded.text}
-                ficheros={ficheros} onChange={onChange} describe={describe} peek={peek} peekAll={peekAll} mode={mode} rendered={preview.tokens} quotes={cite.locale === 'es-ES' ? ['«', '»'] : ['“', '”']} revision={ctx}
+                ficheros={ficheros} onChange={onChange} describe={describe} peek={peek} peekAll={peekAll} mode={mode} liveFormat={live} rendered={preview.tokens} quotes={cite.locale === 'es-ES' ? ['«', '»'] : ['“', '”']} revision={ctx}
               />
               <div className="draft-status">
                 {words} palabras · {preview.citations} cita(s) · {preview.sources} fuente(s)
