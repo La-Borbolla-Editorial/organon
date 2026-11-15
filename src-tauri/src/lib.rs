@@ -350,6 +350,80 @@ fn open_url(url: String) -> Result<(), String> {
     std::process::Command::new("open").arg(&url).spawn().map(|_| ()).map_err(err)
 }
 
+// ---- Ajustes de Organon y temas (en la carpeta de configuración de la app) -----
+
+fn config_dir(app: &AppHandle) -> Result<PathBuf, String> {
+    let dir = app.path().app_config_dir().map_err(err)?;
+    fs::create_dir_all(&dir).map_err(err)?;
+    Ok(dir)
+}
+
+fn themes_dir(app: &AppHandle) -> Result<PathBuf, String> {
+    let dir = config_dir(app)?.join("temas");
+    fs::create_dir_all(&dir).map_err(err)?;
+    Ok(dir)
+}
+
+/// `ajustes.json` de Organon (no del proyecto). `None` si aún no existe.
+#[tauri::command]
+fn read_app_settings(app: AppHandle) -> Result<Option<String>, String> {
+    let path = config_dir(&app)?.join("ajustes.json");
+    if !path.exists() {
+        return Ok(None);
+    }
+    fs::read_to_string(path).map(Some).map_err(err)
+}
+
+#[tauri::command]
+fn write_app_settings(app: AppHandle, content: String) -> Result<(), String> {
+    let path = config_dir(&app)?.join("ajustes.json");
+    let tmp = path.with_extension("json.tmp");
+    fs::write(&tmp, content).map_err(err)?;
+    fs::rename(tmp, path).map_err(err)
+}
+
+#[derive(Serialize)]
+struct ThemeFile {
+    file: String,
+    content: String,
+}
+
+/// Los temas del usuario: cada .json de la carpeta `temas/`.
+#[tauri::command]
+fn list_themes(app: AppHandle) -> Result<Vec<ThemeFile>, String> {
+    let mut out = Vec::new();
+    for entry in fs::read_dir(themes_dir(&app)?).map_err(err)? {
+        let path = entry.map_err(err)?.path();
+        let file = path.file_name().map(|n| n.to_string_lossy().into_owned()).unwrap_or_default();
+        if safe_name(&file, ".json").is_err() {
+            continue;
+        }
+        if let Ok(content) = fs::read_to_string(&path) {
+            out.push(ThemeFile { file, content });
+        }
+    }
+    out.sort_by(|a, b| a.file.cmp(&b.file));
+    Ok(out)
+}
+
+#[tauri::command]
+fn write_theme(app: AppHandle, file: String, content: String) -> Result<(), String> {
+    safe_name(&file, ".json")?;
+    fs::write(themes_dir(&app)?.join(file), content).map_err(err)
+}
+
+#[tauri::command]
+fn delete_theme(app: AppHandle, file: String) -> Result<(), String> {
+    safe_name(&file, ".json")?;
+    fs::remove_file(themes_dir(&app)?.join(file)).map_err(err)
+}
+
+/// Abre la carpeta de temas en el Finder.
+#[tauri::command]
+fn reveal_themes_folder(app: AppHandle) -> Result<(), String> {
+    std::process::Command::new("open").arg(themes_dir(&app)?).spawn().map(|_| ()).map_err(err)
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
@@ -357,7 +431,8 @@ pub fn run() {
         .manage(Current::default())
         .invoke_handler(tauri::generate_handler![
             recent_projects, forget_project, current_project, pick_folder, open_project, close_project,
-            read_data, data_stamps, write_data, list_drafts, read_draft, write_draft, rename_draft, trash_draft, save_binary_file, print_page, save_pdf, read_pdf, save_text_file, open_url
+            read_data, data_stamps, write_data, list_drafts, read_draft, write_draft, rename_draft, trash_draft, save_binary_file, print_page, save_pdf, read_pdf, save_text_file, open_url,
+            read_app_settings, write_app_settings, list_themes, write_theme, delete_theme, reveal_themes_folder
         ])
         .run(tauri::generate_context!())
         .expect("error al iniciar Organon");
