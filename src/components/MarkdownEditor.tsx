@@ -5,6 +5,7 @@ import { Decoration, hoverTooltip, keymap, ViewPlugin, WidgetType, type Decorati
 import { EditorView, minimalSetup } from 'codemirror'
 import { forwardRef, useEffect, useImperativeHandle, useRef } from 'react'
 import { findTokens, splitFrontMatter, type RenderedToken, type Token } from '../draft'
+import { renumber, touchesList } from '../lists'
 
 export interface TokenInfo {
   ok: boolean
@@ -104,6 +105,23 @@ const tokensField = StateField.define<{ ficheros: FicheroKey[]; list: Token[] }>
   },
 })
 const tokens = (state: EditorState) => state.field(tokensField).list
+
+/**
+ * Tras lo que escribe la persona (no al cargar ni al deshacer), la lista tocada se
+ * renumera: cada punto lleva el número que le toca en su nivel.
+ */
+const autoNumber = EditorState.transactionFilter.of((tr) => {
+  if (!tr.docChanged || !(tr.isUserEvent('input') || tr.isUserEvent('delete') || tr.isUserEvent('move'))) return tr
+  const doc = tr.newDoc
+  let first = Infinity, last = 0
+  tr.changes.iterChangedRanges((_fa, _ta, fromB, toB) => {
+    first = Math.min(first, doc.lineAt(fromB).number)
+    last = Math.max(last, doc.lineAt(toB).number)
+  })
+  if (!touchesList(doc, first, last)) return tr
+  const changes = renumber(doc, first, last)
+  return changes.length ? [tr, { changes, sequential: true }] : tr
+})
 
 class Bullet extends WidgetType {
   eq() { return true }
@@ -281,12 +299,13 @@ export const MarkdownEditor = forwardRef<MarkdownEditorHandle, Props>(function M
 
     // ---- Lo que va en línea, solo en la parte visible ---------------------------------
     /** Decoraciones del modo enriquecido: oculta la sintaxis de Markdown y le da su aspecto. */
-    const richDecorations = (state: EditorState, from: number, to: number, visible: Token[], out: Range<Decoration>[]) => {
+    const richDecorations = (state: EditorState, from: number, to: number, visible: Token[], out: Range<Decoration>[], hideSyntax: boolean) => {
       const doc = state.doc
       const sel = state.selection.ranges
       const touches = (a: number, b: number) => sel.some((r) => r.from <= b && r.to >= a)
       const onLine = (pos: number) => { const line = doc.lineAt(pos); return touches(line.from, line.to) }
-      const hide = (a: number, b: number) => { if (b > a) out.push(hidden.range(a, b)) }
+      // En modo Markdown la sintaxis se ve siempre: solo se realza (títulos, negritas…).
+      const hide = (a: number, b: number) => { if (hideSyntax && b > a) out.push(hidden.range(a, b)) }
       const lineClass = (a: number, b: number, cls: string) => {
         // Solo las líneas visibles: un bloque largo no se recorre entero.
         for (let pos = Math.max(a, from); pos <= Math.min(b, to); ) {
@@ -322,7 +341,7 @@ export const MarkdownEditor = forwardRef<MarkdownEditorHandle, Props>(function M
         const bullet = /^(\s*)([-*+])\s/.exec(text)
         if (bullet) {
           const a = at + bullet[1].length
-          if (!touches(a, a + 1)) out.push(Decoration.replace({ widget: new Bullet() }).range(a, a + 1))
+          if (hideSyntax && !touches(a, a + 1)) out.push(Decoration.replace({ widget: new Bullet() }).range(a, a + 1))
         }
         // Lo que no se toca: las referencias a fichas y el código en línea.
         const taken: [number, number][] = visible.filter((t) => t.from < line.to && t.to > at).map((t) => [t.from - at, t.to - at])
@@ -367,7 +386,7 @@ export const MarkdownEditor = forwardRef<MarkdownEditorHandle, Props>(function M
         while (lo < hi) { const mid = (lo + hi) >> 1; if (all[mid].to < from) lo = mid + 1; else hi = mid }
         const visible: Token[] = []
         for (let i = lo; i < all.length && all[i].from <= to; i++) visible.push(all[i])
-        if (rich) richDecorations(state, from, to, visible, out)
+        richDecorations(state, from, to, visible, out, rich)
         visible.forEach((t, k) => {
           const index = lo + k
           const shown = rendered[index]
@@ -494,6 +513,7 @@ export const MarkdownEditor = forwardRef<MarkdownEditorHandle, Props>(function M
         indentUnit.of('\t'),
         EditorState.tabSize.of(4),
         EditorView.lineWrapping,
+        autoNumber,
         tokensField.init((state) => ({ ficheros: live.current.ficheros, list: findTokens(state.doc.toString(), live.current.ficheros) })),
         peeks,
         modeField,

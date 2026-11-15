@@ -355,6 +355,10 @@ button.link.bad { color: var(--bad); }
 .cm-mode-rich .cm-rich-link { color: var(--accent); text-decoration: underline; text-underline-offset: 2px; }
 .cm-mode-rich .cm-rich-quote { padding-left: 22px !important; color: #3d3832; font-size: 0.94em; }
 .cm-mode-rich .cm-rich-bullet { color: var(--muted); }
+.cm-mode-markdown .cm-rich-h { font-weight: 700; }
+.cm-mode-markdown .cm-rich-em { font-style: italic; }
+.cm-mode-markdown .cm-rich-strong { font-weight: 700; }
+.cm-mode-markdown .cm-rich-code, .cm-mode-markdown .cm-rich-quote { color: #5d564d; }
 .cm-mode-rich .cm-rich-front { font: 12px ui-monospace, Menlo, monospace; color: var(--muted); }
 .cm-rich-ref { cursor: pointer; border-radius: 3px; }
 .cm-rich-ref:hover { background: #fbf3d6; }
