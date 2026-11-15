@@ -1,0 +1,5 @@
+EB Garamond
+Copyright 2017 The EB Garamond Project Authors (https://github.com/octaviopardo/EBGaramond12)
+
+Esta tipografía se distribuye bajo la SIL Open Font License, versión 1.1:
+https://openfontlicense.org

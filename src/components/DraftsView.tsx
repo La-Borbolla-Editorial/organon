@@ -257,6 +257,8 @@ export function DraftsView({ project, cite, onSection, onSwitchProject }: Props)
           const { composeWithFichas } = await import('../export-fichas')
           setPrintHtml(composeWithFichas(disk.current.text, md, fallback, ctx))
         } else setPrintHtml(md.render(resolved.markdown))
+        // Garamond solo se descarga al usarse: se carga antes para que el PDF no salga con otra.
+        await Promise.all(['12pt', 'italic 12pt', 'bold 12pt'].map((f) => document.fonts.load(`${f} "Organon Garamond"`))).catch(() => {})
         // Se espera a que el texto esté en la página antes de abrir el diálogo.
         await new Promise((r) => setTimeout(r, 80))
         await backend.print()

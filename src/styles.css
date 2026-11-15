@@ -365,11 +365,14 @@ sup.cm-rich-mark { font-size: 0.68em; line-height: 0; padding-left: 1px; }
 .cm-mode-rich .cm-line span[class^="ͼ"] { text-decoration: none; }
 
 /* ---- Imprimir / PDF: solo el texto compuesto ---- */
+/* Tipografía de los PDF: EB Garamond, incluida con la app (SIL Open Font License). */
+@font-face { font-family: 'Organon Garamond'; src: url('./assets/fonts/EBGaramond-VariableFont_wght.ttf') format('truetype'); font-weight: 400 800; font-style: normal; }
+@font-face { font-family: 'Organon Garamond'; src: url('./assets/fonts/EBGaramond-Italic-VariableFont_wght.ttf') format('truetype'); font-weight: 400 800; font-style: italic; }
 .print-doc { display: none; }
 @media print {
   html, body { height: auto; overflow: visible; background: #fff; }
   #root, .stale-bar { display: none !important; }
-  .print-doc { display: block; font: 12pt/1.5 'Times New Roman', Times, serif; color: #000; }
+  .print-doc { display: block; font: 12pt/1.5 'Organon Garamond', 'EB Garamond', Garamond, serif; color: #000; }
   .print-doc h1 { font-size: 18pt; }
   .print-doc h2 { font-size: 15pt; break-after: avoid; }
   .print-doc h3 { font-size: 13pt; break-after: avoid; }
