@@ -1,5 +1,39 @@
 # Cambios
 
+## 0.3.0
+
+Escritura: los textos de la tesis, escritos con las fichas.
+
+- Pestaña **Escritura**: textos en Markdown (`escritura/*.md` dentro del proyecto), con
+  guardado automático y papelera.
+- Referencias a fichas en el texto: `{f. 51}` inserta la cita con su nota; `[f. 51]` deja solo
+  la nota. Variantes: un pedazo de la cita (`{f. 51 «pedazo»}`), la cita completa en la nota
+  (`+`), otra página (`[f. 51, p. 70]`), prefijos (`[cf. f. 51; f. 60]`) y fichero explícito
+  (`{Escoto f. 3}`).
+- Marcador propio por fichero («f.», «e.»…) y fichero por defecto para cada texto.
+- Notas al pie numeradas y bibliografía compuestas con el estilo de cita del proyecto
+  (ibid., formas breves y desambiguación incluidas).
+- Editor con dos modos que se alternan: **Texto** (se ve el resultado: títulos, cursivas, citas
+  y números de nota) y **Markdown** (la sintaxis tal cual). Interruptor **Formato en vivo** para
+  escribir en texto plano.
+- Esquemas: Tab y Mayús+Tab anidan y desanidan; las listas numeradas se numeran solas por nivel
+  y Enter continúa la lista. Cmd+B y Cmd+I para negrita y cursiva.
+- Ver una ficha dentro del editor, debajo de la línea que la nombra, sin añadirla al texto
+  (una a una o todas a la vez). Su texto se puede seleccionar y copiar.
+- Panel lateral con la vista final del texto y un buscador de fichas para insertarlas o
+  referenciarlas (también solo un pedazo seleccionado).
+- Exportación a **Word (.docx)** con notas al pie de verdad, a **PDF** (diálogo de impresión) y
+  a **Markdown** con las citas resueltas. **PDF con fichas**: el texto tal como se escribe, con
+  cada ficha nombrada desplegada debajo de su punto, como documento de trabajo.
+- PDF y Word en EB Garamond (incluida con la app, licencia SIL OFL).
+- Rápido en textos largos: cientos de referencias sin esperas al escribir.
+
+Además:
+
+- El panel lateral se puede ocultar y ya no se desborda en ventanas estrechas.
+- Lector: una cita que cruza de página deja fuera el encabezado y el número de página que
+  quedan en medio, y lo avisa.
+
 ## 0.2.1
 
 - Fichero: columnas de ancho ajustable (se arrastra el borde del encabezado; el ancho se guarda con el fichero).

@@ -1,12 +1,14 @@
 # Organon
 
-Lector de PDF y fichero para escribir una tesis. Marcas un pasaje mientras lees y
-Organon crea una ficha con la cita, la fuente y la **página impresa** correcta,
-enlazada al punto exacto del PDF.
+Lector de PDF, fichero y editor para escribir una tesis. Marcas un pasaje mientras
+lees y Organon crea una ficha con la cita, la fuente y la **página impresa**
+correcta, enlazada al punto exacto del PDF. Luego escribes citando esas fichas, y
+Organon compone las notas al pie y la bibliografía.
 
-*A PDF reader and note-card index for thesis writing. Select a passage and get a
-card with the quote, its source and the correct printed page, linked back to the
-exact spot in the PDF. The interface is in Spanish.*
+*A PDF reader, note-card index and writing editor for thesis work. Select a passage
+and get a card with the quote, its source and the correct printed page, linked back
+to the exact spot in the PDF; then write citing those cards and get footnotes and a
+bibliography. The interface is in Spanish.*
 
 Reúne en una sola herramienta lo que antes pedía tres: Zotero para leer y marcar,
 una hoja de cálculo como fichero y un procesador de textos para citar.
@@ -31,11 +33,15 @@ una hoja de cálculo como fichero y un procesador de textos para citar.
   filtros por tag y por fuente.
 - **CSV de ida y vuelta.** Importa tu hoja de cálculo y la exporta igual, para
   seguir usando Google Sheets en paralelo.
+- **Escritura.** Escribe tus textos en Markdown citando las fichas: `{f. 51}`
+  inserta la cita con su nota al pie y `[f. 51]` deja solo la nota. Organon numera
+  las notas y compone la bibliografía. Puedes ver cualquier ficha dentro del texto
+  sin pegarla, escribir viendo el resultado o la sintaxis, y hacer esquemas con Tab.
+- **Exportación.** Word (.docx) con notas al pie de verdad, PDF y Markdown. Y un
+  «PDF con fichas»: el texto con cada ficha nombrada desplegada debajo, para trabajar.
 - **Citas con formato.** Chicago (notas abreviadas, notas completas, autor-año),
   APA y MLA, en español o en inglés. Cualquier otro estilo CSL se añade con su
   archivo.
-
-Todavía no hay editor de borradores ni exportación a .docx; es lo siguiente.
 
 ## Instalación (macOS, Apple Silicon)
 
@@ -63,6 +69,24 @@ Para Mac con Intel, Windows o Linux hay que compilarla (ver más abajo).
 4. Selecciona un pasaje y pulsa **+ Ficha**.
 5. Para traer tu fichero: en Sheets, *Archivo → Descargar → CSV* (una vez por
    pestaña) y, en la pestaña **Fichero** de Organon, **Importar CSV…**
+6. En **Escritura**, crea un texto y escribe `{f. 1}` o `[f. 1]` para citar la
+   ficha 1. El panel de la derecha muestra cómo queda, y su pestaña **Fichas**
+   busca e inserta fichas por ti.
+
+### Cómo se cita una ficha
+
+| Escribes | Resultado |
+| --- | --- |
+| `{f. 51}` | La cita de la ficha 51 en el texto, con su nota al pie |
+| `[f. 51]` | Solo la nota al pie |
+| `{f. 51 «un pedazo»}` | Solo ese pedazo de la cita, con su nota |
+| `{f. 51 +}` · `[f. 51 +]` | Además, la cita completa dentro de la nota |
+| `[f. 51, p. 70]` | La nota, con otra página |
+| `[cf. f. 51; f. 60]` | Una nota con dos fichas y un prefijo |
+| `{Escoto f. 3}` | La ficha 3 del fichero «Escoto» |
+
+El marcador («f.») se define en cada fichero. Si dos ficheros comparten marcador,
+elige el fichero por defecto del texto o escribe el nombre delante.
 
 Los PDF necesitan capa de texto. Si uno está escaneado sin OCR, Organon lo avisa:
 pásalo antes por una herramienta de OCR.
@@ -77,6 +101,7 @@ Cada proyecto es una carpeta con:
 | `fuentes.json` | Fuentes: metadatos CSL, PDF adjunto y paginación |
 | `fichas.json` | Fichas |
 | `pdfs/` | Los PDF adjuntos |
+| `escritura/` | Tus textos, uno por archivo `.md` (y `.papelera/` con los eliminados) |
 
 Son JSON legibles: puedes abrirlos, copiarlos, versionarlos con git o sincronizar
 la carpeta. Organon no guarda nada más, salvo la lista de proyectos recientes.
@@ -112,10 +137,15 @@ Cómo está hecho:
 - `src/citations.ts`: citas con [citeproc-js](https://github.com/Juris-M/citeproc-js)
   y estilos CSL.
 - `src/fichero-io.ts`: importación y exportación CSV.
+- `src/draft.ts`: referencias a fichas en los textos, notas y bibliografía.
+- `src/export-docx.ts` y `src/export-fichas.ts`: exportación a Word y «PDF con fichas».
 - `src/lookup.ts` y `src/source-form.ts`: fuentes por DOI o ISBN y edición a mano.
-- `src/components/`: biblioteca, lector ([PDF.js](https://mozilla.github.io/pdf.js/)) y fichero.
+- `src/components/`: biblioteca, lector ([PDF.js](https://mozilla.github.io/pdf.js/)),
+  fichero y escritura ([CodeMirror](https://codemirror.net/)).
 
 ## Licencia
 
 [MIT](LICENSE). Los estilos y traducciones de `src/csl/` son del proyecto Citation
-Style Language y se distribuyen bajo CC BY-SA 3.0 (ver `src/csl/README.md`).
+Style Language y se distribuyen bajo CC BY-SA 3.0 (ver `src/csl/README.md`). La
+tipografía EB Garamond (`src/assets/fonts/`) se distribuye bajo la SIL Open Font
+License 1.1.
