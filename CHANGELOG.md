@@ -1,5 +1,14 @@
 # Cambios
 
+## 0.3.3
+
+- **Obras canónicas.** Una fuente se puede marcar como obra canónica (la *Ordinatio*, la
+  *Metafísica*…) desde «Editar» en la Biblioteca. Sus fichas se citan por su referencia canónica
+  (la primera línea de «Obra canónica / referencias», p. ej. «Ord. II, d. 3, p. 1, q. 6, n. 188»)
+  en lugar de la página; la edición sigue en la bibliografía. Sin referencia canónica, se cita la
+  página y se avisa.
+- Escritura: en el panel de fichas, el título de cada ficha la abre en el Fichero.
+
 ## 0.3.2
 
 - Escritura: un solo botón **Exportar**, con las opciones (Word, PDF, PDF con fichas, Markdown)

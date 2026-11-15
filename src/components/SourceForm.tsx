@@ -40,6 +40,7 @@ export function SourceForm({ source, sources, fichaCount, cite, onDone, onCancel
   // PDF elegido en el formulario: se adjunta al guardar.
   const [pdf, setPdf] = useState<File | null>(null)
   const [confirmDelete, setConfirmDelete] = useState(false)
+  const [canonical, setCanonical] = useState(source?.canonical ?? false)
   const pdfInput = useRef<HTMLInputElement>(null)
   const set = (patch: Partial<SourceFields>) => setF((prev) => ({ ...prev, ...patch }))
 
@@ -70,7 +71,7 @@ export function SourceForm({ source, sources, fichaCount, cite, onDone, onCancel
     if (!f.title.trim()) return setError('Falta el título.')
     setSaving(true)
     try {
-      const id = await saveSource(csl, source?.id)
+      const id = await saveSource(csl, source?.id, { canonical })
       if (pdf) {
         const saved = await getSource(id)
         try {
@@ -124,6 +125,17 @@ export function SourceForm({ source, sources, fichaCount, cite, onDone, onCancel
             ref={pdfInput} type="file" accept="application/pdf,.pdf" hidden data-testid="pdf-input"
             onChange={(e) => { const file = e.target.files?.[0]; e.target.value = ''; if (file) setPdf(file) }}
           />
+        </section>
+
+        <section className="canonical-box">
+          <label className="check">
+            <input type="checkbox" checked={canonical} onChange={(e) => setCanonical(e.target.checked)} data-testid="source-canonical" />
+            <span>
+              <strong>Obra canónica</strong> (la <em>Ordinatio</em>, la <em>Metafísica</em>…). Sus fichas se citan por su referencia
+              canónica, la primera línea del campo «Obra canónica / referencias» de cada ficha, en lugar de la página de esta
+              edición. La edición sigue en la bibliografía.
+            </span>
+          </label>
         </section>
 
         <label>

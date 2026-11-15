@@ -192,3 +192,30 @@ test('cómo queda cada referencia, para mostrarla en el editor', () => {
   expect(r.tokens[0].note).toBe('Pini, «Scotus on Individuation», 68.')
   expect(r.tokens[1].from).toBe(34)
 })
+
+test('obra canónica: se cita por su referencia canónica', () => {
+  const ord: Source = { ...source('ord', 'Escoto', 'Ordinatio', 1973), canonical: true }
+  const withRef = (f: Ficha, referencia: string): Ficha => ({ ...f, referencia })
+  const c: DraftContext = {
+    ...ctx,
+    sources: [...ctx.sources, ord],
+    fichas: [
+      ...ctx.fichas.filter((f) => f.ficheroId === 'sec'),
+      withRef(ficha('sec', 20, 'Natura communis.', 'ord', '403'), 'Ord. II, d. 3, p. 1, q. 1, n. 29\n\nCf. Noone'),
+      ficha('sec', 21, 'Sin referencia canónica.', 'ord', '410'),
+    ],
+  }
+  const r = resolveDraft('---\nfichero: Secundarias\n---\nA [f. 1]. B [f. 20]. C [f. 1]. D [cf. f. 20; f. 3]. E [f. 21]. F [f. 20, p. 405].\n', c)
+  const notes = r.markdown.split('\n').filter((l) => l.startsWith('[^'))
+  expect(notes[1]).toBe('[^2]: Ord. II, d. 3, p. 1, q. 1, n. 29.')
+  // La nota canónica de en medio impide el «Ibid.».
+  expect(notes[2]).not.toMatch(/Ibid/)
+  expect(notes[3]).toMatch(/^\[\^4\]: cf\. Ord\. II, d\. 3, p\. 1, q\. 1, n\. 29; Noone/)
+  // Sin referencia canónica, la página, con aviso.
+  expect(notes[4]).toMatch(/Ordinatio.*410/)
+  expect(r.problems.map((p) => p.message)).toEqual(['La ficha f. 21 es de una obra canónica pero no tiene referencia canónica: se cita la página.'])
+  // Con una página pedida a mano, la página.
+  expect(notes[5]).toMatch(/405/)
+  // La edición está en la bibliografía.
+  expect(r.markdown).toMatch(/Escoto, G\. «Ordinatio»/)
+})

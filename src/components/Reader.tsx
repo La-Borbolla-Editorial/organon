@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { backend } from '../backend'
 import { authorsLabel, formatCitation, yearLabel, type CiteOptions } from '../citations'
+import { canonicalRef } from '../draft'
 import { deleteFicha, getFicha, getSettings, getSource, listFichas, listFicheros, listTags, saveFicha, savePagination, setSettings, type FichaDraft } from '../store'
 import { citedPages, sheetLabel, type PageRange } from '../pagination'
 import { EventBus, lacksTextLayer, openPdf, PDFLinkService, PDFViewer, type PDFDocumentProxy } from '../pdf/pdfjs'
@@ -354,7 +355,7 @@ export function Reader({ sourceId, cite, focusFichaId, linkFichaId, backLabel, o
                   </header>
                   <blockquote>{f.cita}</blockquote>
                   {!f.anchor && <button className="link" onClick={(e) => { e.stopPropagation(); setLinking(f) }}>Sin marcar en el PDF: marcar el pasaje…</button>}
-                  <div className="ficha-citation" dangerouslySetInnerHTML={{ __html: formatCitation(source.csl, f.pageLabel, cite) }} />
+                  <div className="ficha-citation" dangerouslySetInnerHTML={{ __html: formatCitation(source.csl, f.pageLabel, cite, canonicalRef(source, f)) }} />
                   {f.tags.length > 0 && <div className="tags">{f.tags.map((t) => <span key={t} className="tag">{t}</span>)}</div>}
                 </article>
               ))}

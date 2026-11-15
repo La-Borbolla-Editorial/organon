@@ -16,6 +16,8 @@ interface Props {
   onSection: (s: Section) => void
   onSwitchProject: () => void
   onOpenPdf: (sourceId: string, ficha: { focusFichaId?: string; linkFichaId?: string }) => void
+  /** Ficha que se abre al entrar (p. ej. desde Escritura). */
+  focusFichaId?: string
 }
 
 const NO_SOURCE = '__none__'
@@ -23,7 +25,7 @@ const MIN_COLUMN = 48
 const DEFAULT_WIDTH: Record<FieldKey, number> = { num: 64, notaPermanente: 230, cita: 400, tags: 150, autor: 120, fuente: 190, pageLabel: 84, referencia: 190, notas: 240, extra: 150 }
 const fold = (s: string) => s.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase()
 
-export function FicheroView({ project, cite, onSection, onSwitchProject, onOpenPdf }: Props) {
+export function FicheroView({ project, cite, onSection, onSwitchProject, onOpenPdf, focusFichaId }: Props) {
   const [ficheros, setFicheros] = useState<Fichero[]>([])
   const [currentId, setCurrentId] = useState('')
   const [all, setAll] = useState<Ficha[]>([])
@@ -53,6 +55,14 @@ export function FicheroView({ project, cite, onSection, onSwitchProject, onOpenP
   useEffect(() => {
     void (async () => {
       const fs = await reload()
+      const focus = focusFichaId ? (await listFichas()).find((f) => f.id === focusFichaId) : undefined
+      if (focus) {
+        // Se abre en su fichero, con la ficha en el editor.
+        setCurrentId(focus.ficheroId)
+        void setSettings({ lastFichero: focus.ficheroId })
+        edit(focus)
+        return
+      }
       const last = (await getSettings()).lastFichero
       setCurrentId(fs.some((f) => f.id === last) ? last : fs[0].id)
     })()

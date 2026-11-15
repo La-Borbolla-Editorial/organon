@@ -10,7 +10,7 @@ import { changedOnDisk, getSettings, loadProject, setConflictHandler, setSetting
 
 type View =
   | { name: 'library' }
-  | { name: 'fichero' }
+  | { name: 'fichero'; focusFichaId?: string }
   | { name: 'drafts' }
   | { name: 'reader'; sourceId: string; from: 'library' | 'fichero'; focusFichaId?: string; linkFichaId?: string }
 
@@ -129,12 +129,18 @@ export function App() {
   } else if (view.name === 'fichero') {
     content = (
       <FicheroView
-        key={`${project.path}:${epoch}`} project={project} cite={cite} onSection={(name) => setView({ name })} onSwitchProject={() => void closeProject()}
+        key={`${project.path}:${epoch}:${view.focusFichaId ?? ''}`} project={project} cite={cite} onSection={(name) => setView({ name })} onSwitchProject={() => void closeProject()}
+        focusFichaId={view.focusFichaId}
         onOpenPdf={(sourceId, ficha) => setView({ name: 'reader', sourceId, from: 'fichero', ...ficha })}
       />
     )
   } else if (view.name === 'drafts') {
-    content = <DraftsView key={`${project.path}:${epoch}`} project={project} cite={cite} onSection={(name) => setView({ name })} onSwitchProject={() => void closeProject()} />
+    content = (
+      <DraftsView
+        key={`${project.path}:${epoch}`} project={project} cite={cite} onSection={(name) => setView({ name })} onSwitchProject={() => void closeProject()}
+        onOpenFicha={(id) => setView({ name: 'fichero', focusFichaId: id })}
+      />
+    )
   } else {
     content = (
       <Library
