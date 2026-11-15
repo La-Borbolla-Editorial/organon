@@ -6,6 +6,7 @@ import { FicheroView } from './components/FicheroView'
 import { Library } from './components/Library'
 import { ProjectPicker } from './components/ProjectPicker'
 import { Reader } from './components/Reader'
+import { Settings, SettingsContext } from './components/Settings'
 import { changedOnDisk, getSettings, loadProject, setConflictHandler, setSettings, unloadProject } from './store'
 
 type View =
@@ -29,6 +30,8 @@ export function App() {
   // Los archivos del proyecto cambiaron fuera de Organon: 'changed' al volver a la ventana, 'conflict' si se rechazó un guardado.
   const [stale, setStale] = useState<'changed' | 'conflict' | null>(null)
   const [epoch, setEpoch] = useState(0)
+  const [settingsOpen, setSettingsOpen] = useState(false)
+  const openSettings = useCallback(() => setSettingsOpen(true), [])
 
   // La vista se refleja en la dirección para que sobreviva a una recarga.
   const setView = useCallback((v: View) => {
@@ -116,7 +119,15 @@ export function App() {
   }, [])
 
   if (!ready) return null
-  if (!project) return <ProjectPicker error={error} onOpen={(path) => void openProject(path)} />
+  const settings = settingsOpen && <Settings project={project} cite={cite} onCiteChange={changeCite} onClose={() => setSettingsOpen(false)} />
+  if (!project) {
+    return (
+      <SettingsContext.Provider value={openSettings}>
+        <ProjectPicker error={error} onOpen={(path) => void openProject(path)} />
+        {settings}
+      </SettingsContext.Provider>
+    )
+  }
   let content
   if (view.name === 'reader') {
     content = (
@@ -138,13 +149,13 @@ export function App() {
   } else {
     content = (
       <Library
-        key={`${project.path}:${epoch}`} project={project} cite={cite} onCiteChange={changeCite} onSection={(name) => setView({ name })}
+        key={`${project.path}:${epoch}`} project={project} cite={cite} onSection={(name) => setView({ name })}
         onOpen={(sourceId) => setView({ name: 'reader', sourceId, from: 'library' })} onSwitchProject={() => void closeProject()}
       />
     )
   }
   return (
-    <>
+    <SettingsContext.Provider value={openSettings}>
       {stale && (
         <div className="stale-bar" role="alert">
           <span>
@@ -157,6 +168,7 @@ export function App() {
         </div>
       )}
       {content}
-    </>
+      {settings}
+    </SettingsContext.Provider>
   )
 }

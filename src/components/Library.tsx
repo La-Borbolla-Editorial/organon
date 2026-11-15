@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import type { ProjectInfo } from '../backend'
-import { authorsLabel, formatBibliographyEntry, LOCALES, parseZoteroExport, STYLES, yearLabel, type CiteOptions, type LocaleId, type StyleId } from '../citations'
+import { authorsLabel, formatBibliographyEntry, parseZoteroExport, yearLabel, type CiteOptions } from '../citations'
 import { countFichasBySource, linkOrphanFichas, listSources, upsertSources } from '../store'
 import { SourceForm } from './SourceForm'
 import { TopNav, type Section } from './TopNav'
@@ -11,11 +11,10 @@ interface Props {
   onSwitchProject: () => void
   onSection: (s: Section) => void
   cite: CiteOptions
-  onCiteChange: (c: CiteOptions) => void
   onOpen: (sourceId: string) => void
 }
 
-export function Library({ project, onSwitchProject, onSection, cite, onCiteChange, onOpen }: Props) {
+export function Library({ project, onSwitchProject, onSection, cite, onOpen }: Props) {
   const [sources, setSources] = useState<Source[]>([])
   const [counts, setCounts] = useState<Record<string, number>>({})
   const [message, setMessage] = useState<{ kind: 'ok' | 'error'; text: string } | null>(null)
@@ -50,22 +49,6 @@ export function Library({ project, onSwitchProject, onSection, cite, onCiteChang
   return (
     <div className="library">
       <TopNav project={project} section="library" onSection={onSection} onSwitchProject={onSwitchProject}>
-        <label className="inline-field">
-          Estilo
-          <select value={cite.style} onChange={(e) => onCiteChange({ ...cite, style: e.target.value as StyleId })}>
-            {Object.entries(STYLES).map(([id, s]) => (
-              <option key={id} value={id}>{s.name}</option>
-            ))}
-          </select>
-        </label>
-        <label className="inline-field">
-          Idioma de las citas
-          <select value={cite.locale} onChange={(e) => onCiteChange({ ...cite, locale: e.target.value as LocaleId })}>
-            {Object.entries(LOCALES).map(([id, name]) => (
-              <option key={id} value={id}>{name}</option>
-            ))}
-          </select>
-        </label>
         <button onClick={() => zoteroInput.current?.click()}>Importar de Zotero…</button>
         <button className="primary" onClick={() => setForm({})} data-testid="add-source">+ Añadir fuente</button>
       </TopNav>

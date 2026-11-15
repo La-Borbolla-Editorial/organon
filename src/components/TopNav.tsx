@@ -1,5 +1,6 @@
 import type { ReactNode } from 'react'
 import type { ProjectInfo } from '../backend'
+import { useOpenSettings } from './Settings'
 
 export type Section = 'library' | 'fichero' | 'drafts'
 
@@ -12,6 +13,7 @@ interface Props {
 }
 
 export function TopNav({ project, section, onSection, onSwitchProject, children }: Props) {
+  const openSettings = useOpenSettings()
   return (
     <header className="topbar">
       <h1>Organon</h1>
@@ -25,6 +27,7 @@ export function TopNav({ project, section, onSection, onSwitchProject, children 
       </nav>
       <div className="spacer" />
       {children}
+      <button className="settings-button" onClick={openSettings} title="Ajustes: apariencia y proyecto" aria-label="Ajustes" data-testid="open-settings">⚙︎</button>
     </header>
   )
 }

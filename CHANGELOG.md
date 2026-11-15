@@ -1,5 +1,13 @@
 # Cambios
 
+## 0.4.0 (en curso)
+
+- **Ajustes** (⚙︎ en la barra superior): apariencia de Organon y ajustes del proyecto.
+- **Temas**: colores y tipografía de la interfaz definidos en archivos de tema. Vienen
+  Organon, Noche (oscuro) y Sepia; cualquiera se puede personalizar con vista previa en vivo y
+  guardar como tema propio (`temas/*.json` en la configuración de Organon).
+- El estilo de cita y el idioma pasan de la Biblioteca a Ajustes → Este proyecto.
+
 ## 0.3.2
 
 - Escritura: un solo botón **Exportar**, con las opciones (Word, PDF, PDF con fichas, Markdown)

@@ -1,7 +1,7 @@
 // Sustituto del núcleo nativo para desarrollar en el navegador (`npm run dev`).
 // Implementa los mismos comandos que src-tauri/src/lib.rs. La lista de
 // proyectos recientes se guarda en .dev-state/.
-import { existsSync, mkdirSync, readdirSync, readFileSync, renameSync, statSync, writeFileSync } from 'node:fs'
+import { existsSync, mkdirSync, readdirSync, readFileSync, renameSync, statSync, unlinkSync, writeFileSync } from 'node:fs'
 import type { IncomingMessage } from 'node:http'
 import { basename, isAbsolute, join, resolve } from 'node:path'
 import type { Plugin } from 'vite'
@@ -45,7 +45,17 @@ export function devBackend(): Plugin {
         return join(project(), 'escritura', `${name}.md`)
       }
 
+      const themesDir = join(stateDir, 'temas')
+      mkdirSync(themesDir, { recursive: true })
+      const settingsFile = join(stateDir, 'ajustes.json')
+
       const commands: Record<string, (args: any) => unknown> = {
+        read_app_settings: () => (existsSync(settingsFile) ? readFileSync(settingsFile, 'utf8') : null),
+        write_app_settings: ({ content }) => writeFileSync(settingsFile, content),
+        list_themes: () => readdirSync(themesDir).filter((f) => /^[A-Za-z0-9_-][A-Za-z0-9_.-]*\.json$/.test(f)).sort().map((file) => ({ file, content: readFileSync(join(themesDir, file), 'utf8') })),
+        write_theme: ({ file, content }) => writeFileSync(join(themesDir, safe(file, '.json')), content),
+        delete_theme: ({ file }) => unlinkSync(join(themesDir, safe(file, '.json'))),
+        reveal_themes_folder: () => null, // en el navegador no hay Finder
         list_drafts: () => {
           const dir = join(project(), 'escritura')
           if (!existsSync(dir)) return []

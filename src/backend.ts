@@ -35,6 +35,14 @@ export const backend = {
   openProject: (path: string) => call<ProjectInfo>('open_project', { path }),
   closeProject: () => call<void>('close_project'),
 
+  // ---- Ajustes de Organon y temas (carpeta de configuración de la app) ----
+  readAppSettings: () => call<string | null>('read_app_settings'),
+  writeAppSettings: (content: string) => call<void>('write_app_settings', { content }),
+  listThemes: () => call<{ file: string; content: string }[]>('list_themes'),
+  writeTheme: (file: string, content: string) => call<void>('write_theme', { file, content }),
+  deleteTheme: (file: string) => call<void>('delete_theme', { file }),
+  revealThemesFolder: () => call<void>('reveal_themes_folder'),
+
   // ---- Archivos del proyecto abierto ----
   /** Lee un .json de la raíz del proyecto; `null` si no existe. */
   readData: (name: string) => call<string | null>('read_data', { name }),

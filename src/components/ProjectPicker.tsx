@@ -1,3 +1,4 @@
+import { useOpenSettings } from './Settings'
 import { useEffect, useState } from 'react'
 import { backend, isNative, type ProjectInfo } from '../backend'
 
@@ -7,6 +8,7 @@ interface Props {
 }
 
 export function ProjectPicker({ error, onOpen }: Props) {
+  const openSettings = useOpenSettings()
   const [recents, setRecents] = useState<ProjectInfo[]>([])
   const [path, setPath] = useState('')
 
@@ -20,6 +22,7 @@ export function ProjectPicker({ error, onOpen }: Props) {
 
   return (
     <div className="picker">
+      <button className="settings-button picker-settings" onClick={openSettings} title="Ajustes: apariencia" aria-label="Ajustes" data-testid="open-settings">⚙︎</button>
       <div className="picker-card">
         <h1>Organon</h1>
         <p className="muted">
