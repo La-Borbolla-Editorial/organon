@@ -8,6 +8,7 @@ import { bibliographyHeading, defaultFichero, lookupRef, resolveDraft, setFrontM
 import { getSettings, listFichas, listFicheros, listSources, setSettings } from '../store'
 import type { Ficha, Fichero, Source } from '../types'
 import { MarkdownEditor, type EditorMode, type Format, type MarkdownEditorHandle, type PeekItem, type TokenInfo } from './MarkdownEditor'
+import { ExportMenu, type ExportKind } from './ExportMenu'
 import { SidePanel } from './SidePanel'
 import { TopNav, type Section } from './TopNav'
 
@@ -271,11 +272,11 @@ export function DraftsView({ project, cite, onSection, onSwitchProject }: Props)
   }, [previewText, ctx, current, panel])
 
   // ---- Exportar ---------------------------------------------------------------------
-  const [exporting, setExporting] = useState('')
+  const [exporting, setExporting] = useState<ExportKind | ''>('')
   // Lo que se manda a imprimir: el texto compuesto, fuera de la interfaz.
   const [printHtml, setPrintHtml] = useState('')
 
-  const exportAs = async (kind: 'docx' | 'pdf' | 'fichas' | 'md') => {
+  const exportAs = async (kind: ExportKind) => {
     if (!current) return
     setError('')
     setExporting(kind)
@@ -319,11 +320,7 @@ export function DraftsView({ project, cite, onSection, onSwitchProject }: Props)
   return (
     <div className="drafts">
       <TopNav project={project} section="drafts" onSection={onSection} onSwitchProject={onSwitchProject}>
-        <span className="muted small">Exportar:</span>
-        <button onClick={() => void exportAs('docx')} disabled={!current || !!exporting} data-testid="export-docx" title="Documento de Word con notas al pie de verdad.">{exporting === 'docx' ? 'Generando…' : 'Word (.docx)'}</button>
-        <button onClick={() => void exportAs('pdf')} disabled={!current || !!exporting} data-testid="export-pdf" title="Abre el diálogo de impresión: elige «Guardar como PDF». Las notas van al final del texto.">PDF…</button>
-        <button onClick={() => void exportAs('fichas')} disabled={!current || !!exporting} data-testid="export-fichas" title="Documento de trabajo: el texto tal como lo escribes, con cada ficha nombrada desplegada debajo del punto que la nombra. Abre el diálogo de impresión.">PDF con fichas…</button>
-        <button onClick={() => void exportAs('md')} disabled={!current || !!exporting} data-testid="export-md" title="Markdown corriente, con las citas ya resueltas, notas y bibliografía.">Markdown</button>
+        <ExportMenu disabled={!current} busy={exporting} onExport={(k) => void exportAs(k)} />
       </TopNav>
 
       <div className="drafts-body">

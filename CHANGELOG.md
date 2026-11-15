@@ -1,5 +1,10 @@
 # Cambios
 
+## 0.3.2
+
+- Escritura: un solo botón **Exportar**, con las opciones (Word, PDF, PDF con fichas, Markdown)
+  en un menú, cada una con lo que hace.
+
 ## 0.3.1
 
 - Tutorial de cinco minutos, con capturas: [TUTORIAL.md](TUTORIAL.md).
