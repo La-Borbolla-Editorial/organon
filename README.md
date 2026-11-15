@@ -13,6 +13,8 @@ bibliography. The interface is in Spanish.*
 Reúne en una sola herramienta lo que antes pedía tres: Zotero para leer y marcar,
 una hoja de cálculo como fichero y un procesador de textos para citar.
 
+**¿Primera vez? Lee el [tutorial de cinco minutos](TUTORIAL.md).**
+
 ## Qué hace
 
 - **Proyectos en carpetas tuyas.** Un proyecto es una carpeta cualquiera (la de la

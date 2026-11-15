@@ -1,5 +1,9 @@
 # Cambios
 
+## 0.3.1
+
+- Tutorial de cinco minutos, con capturas: [TUTORIAL.md](TUTORIAL.md).
+
 ## 0.3.0
 
 Escritura: los textos de la tesis, escritos con las fichas.
