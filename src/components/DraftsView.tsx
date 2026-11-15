@@ -246,11 +246,21 @@ export function DraftsView({ project, cite, onSection, onSwitchProject }: Props)
   }
 
   // ---- Vista final --------------------------------------------------------------------
+  // En vivo, la vista sigue al texto mientras se escribe. Apagada, solo se compone al abrir
+  // un texto o al pulsar «Actualizar»: escribir no espera por ella.
+  const [livePreview, setLivePreviewState] = useState(() => { try { return localStorage.getItem('organon.vistaEnVivo') !== '0' } catch { return true } })
+  const setLivePreview = (on: boolean) => { setLivePreviewState(on); try { localStorage.setItem('organon.vistaEnVivo', on ? '1' : '0') } catch { /* preferencia no guardada */ } }
+  const [previewText, setPreviewText] = useState('')
+  useEffect(() => { if (livePreview) setPreviewText(text) }, [text, livePreview])
+  useEffect(() => { if (loaded) setPreviewText(loaded.text) }, [loaded])
+  const updatePreview = () => setPreviewText(disk.current.text)
+  const previewStale = !livePreview && previewText !== text
+
   useEffect(() => {
     if (!current) return
     const timer = setTimeout(() => {
       try {
-        const r = resolveDraft(text, ctx)
+        const r = resolveDraft(previewText, ctx)
         // Con la pestaña Fichas abierta, la vista final no se ve: no se compone su HTML.
         setPreview({ html: panel === 'preview' ? md.render(r.markdown) : '', tokens: r.tokens, problems: r.problems, citations: r.citations, sources: r.sources })
       } catch (e) {
@@ -258,7 +268,7 @@ export function DraftsView({ project, cite, onSection, onSwitchProject }: Props)
       }
     }, 250)
     return () => clearTimeout(timer)
-  }, [text, ctx, current, panel])
+  }, [previewText, ctx, current, panel])
 
   // ---- Exportar ---------------------------------------------------------------------
   const [exporting, setExporting] = useState('')
@@ -433,6 +443,18 @@ export function DraftsView({ project, cite, onSection, onSwitchProject }: Props)
 
               {panel === 'preview' ? (
                 <>
+                  <div className="preview-bar">
+                    <label className="check" title="Encendida, la vista final se pone al día mientras escribes. Apagada, solo al pulsar «Actualizar» (más rápido en textos largos).">
+                      <input type="checkbox" checked={livePreview} onChange={(e) => setLivePreview(e.target.checked)} data-testid="live-preview" />
+                      En vivo
+                    </label>
+                    {!livePreview && (
+                      <>
+                        <button onClick={updatePreview} disabled={!previewStale} data-testid="update-preview">Actualizar</button>
+                        {previewStale && <span className="muted small">El texto cambió desde la última vista.</span>}
+                      </>
+                    )}
+                  </div>
                   <Problems problems={preview.problems} goTo={goTo} />
                   <Html className="draft-preview" testId="draft-preview" html={preview.html} />
                 </>

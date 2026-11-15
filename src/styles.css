@@ -290,6 +290,7 @@ button.link.bad { color: var(--bad); }
 
 .panel-tabs { display: flex; gap: 2px; margin-bottom: 14px; border-bottom: 1px solid var(--line); }
 .panel-tabs button { border: 0; border-bottom: 2px solid transparent; border-radius: 0; background: none; color: var(--muted); padding: 6px 10px; }
+.preview-bar { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; margin: -6px 0 12px; }
 .panel-tabs button.current { color: var(--ink); font-weight: 600; border-bottom-color: var(--accent); }
 .problems { margin: 0 0 14px; padding: 10px 12px 10px 28px; background: var(--bad-bg); border-radius: 8px; display: grid; gap: 4px; }
 .problems .link { color: var(--bad); text-align: left; white-space: normal; }

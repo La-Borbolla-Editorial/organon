@@ -14,14 +14,14 @@ Escritura: los textos de la tesis, escritos con las fichas.
 - Notas al pie numeradas y bibliografía compuestas con el estilo de cita del proyecto
   (ibid., formas breves y desambiguación incluidas).
 - Editor con dos modos que se alternan: **Texto** (se ve el resultado: títulos, cursivas, citas
-  y números de nota) y **Markdown** (la sintaxis tal cual). Interruptor **Formato en vivo** para
-  escribir en texto plano.
+  y números de nota) y **Markdown** (la sintaxis tal cual).
 - Esquemas: Tab y Mayús+Tab anidan y desanidan; las listas numeradas se numeran solas por nivel
   y Enter continúa la lista. Cmd+B y Cmd+I para negrita y cursiva.
 - Ver una ficha dentro del editor, debajo de la línea que la nombra, sin añadirla al texto
   (una a una o todas a la vez). Su texto se puede seleccionar y copiar.
 - Panel lateral con la vista final del texto y un buscador de fichas para insertarlas o
-  referenciarlas (también solo un pedazo seleccionado).
+  referenciarlas (también solo un pedazo seleccionado). La vista final puede ir **en vivo** o
+  ponerse al día solo al pulsar «Actualizar».
 - Exportación a **Word (.docx)** con notas al pie de verdad, a **PDF** (diálogo de impresión) y
   a **Markdown** con las citas resueltas. **PDF con fichas**: el texto tal como se escribe, con
   cada ficha nombrada desplegada debajo de su punto, como documento de trabajo.
