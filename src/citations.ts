@@ -129,31 +129,38 @@ export interface Sequence {
  * `formatCitation`, aquí el estilo sabe qué se citó antes: primera cita
  * completa y siguientes abreviadas, «ibid.», etc., según lo que mande el estilo.
  */
+// Lo último compuesto: al escribir texto corriente las citas no cambian y no se recalculan.
+let lastSequence: { key: string; result: Sequence } | null = null
+
 export function formatSequence(clusters: CiteItem[][], o: CiteOptions): Sequence {
   const local = new Map<string, CslItem>()
   for (const cluster of clusters) for (const item of cluster) local.set(item.csl.id, item.csl)
+  const citations = clusters.flatMap((cluster, i) => cluster.length ? [{
+    citationID: `c${i}`,
+    citationItems: cluster.map((item) => ({
+      id: item.csl.id,
+      ...(item.page.trim() ? { locator: item.page.trim(), label: 'page' } : {}),
+      ...(item.prefix ? { prefix: `${item.prefix} ` } : {}),
+    })),
+    properties: { noteIndex: 0 },
+  }] : [])
+  citations.forEach((c, n) => { c.properties.noteIndex = n + 1 })
+  const key = JSON.stringify([o.style, o.locale, clusters.length, citations, [...local.values()]])
+  if (lastSequence?.key === key) return lastSequence.result
+
   const sys = { retrieveLocale: (lang: string) => LOCALE_XML[lang] ?? localeEn, retrieveItem: (id: string) => local.get(id) }
   const e = new CSL.Engine(sys, STYLES[o.style].xml, o.locale, true)
   const texts = clusters.map(() => '')
-  const pre: [string, number][] = []
-  clusters.forEach((cluster, i) => {
-    if (!cluster.length) return
-    const citation = {
-      citationID: `c${i}`,
-      citationItems: cluster.map((item) => ({
-        id: item.csl.id,
-        ...(item.page.trim() ? { locator: item.page.trim(), label: 'page' } : {}),
-        ...(item.prefix ? { prefix: `${item.prefix} ` } : {}),
-      })),
-      properties: { noteIndex: pre.length + 1 },
-    }
-    const [, updates] = e.processCitationCluster(citation, pre, [])
-    // Una cita nueva puede cambiar el texto de las anteriores (desambiguación).
-    for (const [, text, id] of updates as [number, string, string][]) texts[Number(id.slice(1))] = text
-    pre.push([citation.citationID, citation.properties.noteIndex])
-  })
+  // Todas las citas de una vez: citeproc las procesa en un solo pase, con sus posiciones
+  // (ibid., forma breve…) y la desambiguación. Una a una, el coste crecía al cuadrado.
+  if (citations.length) {
+    const out = e.rebuildProcessorState(citations, 'html', []) as [string, number, string][]
+    for (const [id, , text] of out) texts[Number(id.slice(1))] = text
+  }
   const bib = local.size ? e.makeBibliography() : null
-  return { texts, isNote: e.opt.xclass === 'note', bibliography: bib ? (bib[1] as string[]).map((entry) => entry.trim()) : [] }
+  const result = { texts, isNote: e.opt.xclass === 'note', bibliography: bib ? (bib[1] as string[]).map((entry) => entry.trim()) : [] }
+  lastSequence = { key, result }
+  return result
 }
 
 // ---- Etiquetas breves para la interfaz -----------------------------------

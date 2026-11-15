@@ -1,8 +1,7 @@
 import { indentWithTab } from '@codemirror/commands'
-import { markdown } from '@codemirror/lang-markdown'
-import { ensureSyntaxTree, indentUnit, syntaxTree } from '@codemirror/language'
+import { indentUnit } from '@codemirror/language'
 import { EditorSelection, EditorState, Prec, StateEffect, StateField, type Range } from '@codemirror/state'
-import { Decoration, hoverTooltip, keymap, WidgetType, type DecorationSet } from '@codemirror/view'
+import { Decoration, hoverTooltip, keymap, ViewPlugin, WidgetType, type DecorationSet, type ViewUpdate } from '@codemirror/view'
 import { EditorView, minimalSetup } from 'codemirror'
 import { forwardRef, useEffect, useImperativeHandle, useRef } from 'react'
 import { findTokens, splitFrontMatter, type RenderedToken, type Token } from '../draft'
@@ -70,6 +69,42 @@ const setMode = StateEffect.define<EditorMode>()
 
 const hidden = Decoration.replace({})
 
+type FicheroKey = { name: string; marker: string }
+/** Cambian los ficheros (sus marcadores): hay que volver a buscar las referencias. */
+const setFicheros = StateEffect.define<FicheroKey[]>()
+/** Las referencias del texto, buscadas una vez por cambio y compartidas por todo el editor. */
+const tokensField = StateField.define<{ ficheros: FicheroKey[]; list: Token[] }>({
+  create: () => ({ ficheros: [], list: [] }),
+  update(value, tr) {
+    let { ficheros } = value
+    for (const e of tr.effects) if (e.is(setFicheros)) ficheros = e.value
+    if (!tr.docChanged && ficheros === value.ficheros) return value
+    if (ficheros !== value.ficheros) return { ficheros, list: findTokens(tr.state.doc.toString(), ficheros) }
+    // Una referencia nunca cruza de línea: solo se buscan de nuevo las líneas tocadas,
+    // y las demás se desplazan con el cambio.
+    const doc = tr.state.doc
+    const touched: [number, number][] = []
+    tr.changes.iterChangedRanges((_fa, _ta, fromB, toB) => {
+      const a = doc.lineAt(fromB).from, b = doc.lineAt(toB).to
+      const last = touched[touched.length - 1]
+      if (last && a <= last[1] + 1) last[1] = Math.max(last[1], b)
+      else touched.push([a, b])
+    })
+    const inTouched = (from: number, to: number) => touched.some(([a, b]) => from <= b && to >= a)
+    const list: Token[] = []
+    for (const t of value.list) {
+      const from = tr.changes.mapPos(t.from, 1), to = tr.changes.mapPos(t.to, -1)
+      if (to > from && !inTouched(from, to)) list.push({ ...t, from, to })
+    }
+    for (const [a, b] of touched) {
+      for (const t of findTokens(doc.sliceString(a, b), ficheros)) list.push({ ...t, from: t.from + a, to: t.to + a })
+    }
+    list.sort((x, y) => x.from - y.from)
+    return { ficheros, list }
+  },
+})
+const tokens = (state: EditorState) => state.field(tokensField).list
+
 class Bullet extends WidgetType {
   eq() { return true }
   toDOM() {
@@ -85,7 +120,7 @@ class RenderedRef extends WidgetType {
   constructor(readonly t: RenderedToken, readonly quotes: [string, string], readonly isNote: boolean) { super() }
   eq(other: RenderedRef) {
     const a = this.t, b = other.t
-    return a.raw === b.raw && a.inText === b.inText && a.block === b.block && a.mark === b.mark && a.note === b.note && a.failed === b.failed && a.from === b.from
+    return a.raw === b.raw && a.inText === b.inText && a.block === b.block && a.mark === b.mark && a.note === b.note && a.failed === b.failed && this.isNote === other.isNote && this.quotes === other.quotes
   }
   toDOM(view: EditorView) {
     const { t } = this
@@ -103,7 +138,8 @@ class RenderedRef extends WidgetType {
     // Un clic deja el cursor dentro de la referencia, que entonces se muestra tal cual.
     el.onmousedown = (e) => {
       e.preventDefault()
-      view.dispatch({ selection: { anchor: Math.min(t.from + 1, view.state.doc.length) } })
+      // La posición se pregunta al pulsar: el mismo dibujo sirve aunque el texto se desplace.
+      view.dispatch({ selection: { anchor: Math.min(view.posAtDOM(el) + 1, view.state.doc.length) } })
       view.focus()
     }
     return el
@@ -113,8 +149,8 @@ class RenderedRef extends WidgetType {
 
 /** Botoncito tras cada referencia: abre o cierra su ficha. */
 class PeekToggle extends WidgetType {
-  constructor(readonly from: number, readonly open: boolean) { super() }
-  eq(other: PeekToggle) { return other.from === this.from && other.open === this.open }
+  constructor(readonly open: boolean) { super() }
+  eq(other: PeekToggle) { return other.open === this.open }
   toDOM(view: EditorView) {
     const b = document.createElement('button')
     b.className = `cm-peek-toggle${this.open ? ' open' : ''}`
@@ -124,7 +160,10 @@ class PeekToggle extends WidgetType {
     b.setAttribute('aria-label', b.title)
     b.onmousedown = (e) => {
       e.preventDefault()
-      view.dispatch({ effects: togglePeek.of(this.from) })
+      // El botón va justo detrás de su referencia: se busca la que acaba ahí.
+      const at = view.posAtDOM(b)
+      const token = view.state.field(tokensField).list.find((t) => t.to === at)
+      if (token) view.dispatch({ effects: togglePeek.of(token.from) })
     }
     return b
   }
@@ -167,8 +206,32 @@ export const MarkdownEditor = forwardRef<MarkdownEditorHandle, Props>(function M
   live.current = { ficheros, onChange, describe, peek, rendered, quotes }
 
   useEffect(() => {
-    const tokensOf = (state: EditorState) => findTokens(state.doc.toString(), live.current.ficheros)
-    const tokensIn = (v: EditorView) => tokensOf(v.state)
+    // Lo que se sabe de cada referencia (por su texto) se recuerda hasta que cambian las
+    // fichas: así escribir no vuelve a buscar cada ficha en cada tecla.
+    const memo = { describe: live.current.describe, peek: live.current.peek, info: new Map<string, TokenInfo>(), items: new Map<string, PeekItem[]>() }
+    const fresh = () => {
+      if (memo.describe !== live.current.describe || memo.peek !== live.current.peek) {
+        memo.describe = live.current.describe
+        memo.peek = live.current.peek
+        memo.info.clear()
+        memo.items.clear()
+      }
+    }
+    const raw = (state: EditorState, t: Token) => state.doc.sliceString(t.from, t.to)
+    const describeOf = (state: EditorState, t: Token) => {
+      fresh()
+      const key = raw(state, t)
+      let info = memo.info.get(key)
+      if (!info) memo.info.set(key, (info = live.current.describe(t)))
+      return info
+    }
+    const peekOf = (state: EditorState, t: Token) => {
+      fresh()
+      const key = raw(state, t)
+      let items = memo.items.get(key)
+      if (!items) memo.items.set(key, (items = live.current.peek(t)))
+      return items
+    }
 
     // Qué fichas están asomadas. Con `all`, todas menos las de `flipped`; sin él, solo esas.
     const peeks = StateField.define<{ all: boolean; flipped: number[] }>({
@@ -183,109 +246,156 @@ export const MarkdownEditor = forwardRef<MarkdownEditorHandle, Props>(function M
         return { all, flipped }
       },
     })
+    const isOpen = (state: EditorState, t: Token) => { const { all, flipped } = state.field(peeks); return all !== flipped.includes(t.from) }
 
     const modeField = StateField.define<EditorMode>({
       create: () => mode,
       update: (value, tr) => tr.effects.reduce((m, e) => (e.is(setMode) ? e.value : m), value),
     })
 
+    // ---- Lo que va en bloque (fichas asomadas, cabecera plegada) ----------------------
+    // CodeMirror solo admite bloques que vengan de un campo de estado, y estos cubren todo el texto.
+    const buildBlocks = (state: EditorState): DecorationSet => {
+      const out: Range<Decoration>[] = []
+      const front = splitFrontMatter(state.doc.sliceString(0, Math.min(state.doc.length, 4000))).offset
+      if (front > 0 && state.field(modeField) === 'rich') {
+        const end = Math.max(0, front - 1)
+        const sel = state.selection.ranges
+        if (!sel.some((r) => r.from <= end && r.to >= 0)) out.push(Decoration.replace({ block: true }).range(0, end))
+      }
+      for (const t of tokens(state)) {
+        if (isOpen(state, t)) out.push(Decoration.widget({ widget: new PeekBlock(peekOf(state, t)), block: true, side: 2 }).range(state.doc.lineAt(t.to).to))
+      }
+      return Decoration.set(out, true)
+    }
+    const blocks = StateField.define<DecorationSet>({
+      create: buildBlocks,
+      update(value, tr) {
+        const effect = tr.effects.some((e) => e.is(refresh) || e.is(togglePeek) || e.is(setPeekAll) || e.is(setMode) || e.is(setFicheros))
+        // Fuera de la cabecera, mover el cursor no cambia nada aquí.
+        const nearFront = tr.selection !== undefined && (tr.state.selection.main.from < 4000 || tr.startState.selection.main.from < 4000)
+        return tr.docChanged || effect || nearFront ? buildBlocks(tr.state) : value
+      },
+      provide: (field) => EditorView.decorations.from(field),
+    })
+
+    // ---- Lo que va en línea, solo en la parte visible ---------------------------------
     /** Decoraciones del modo enriquecido: oculta la sintaxis de Markdown y le da su aspecto. */
-    const richDecorations = (state: EditorState, tokens: Token[], out: Range<Decoration>[]) => {
+    const richDecorations = (state: EditorState, from: number, to: number, visible: Token[], out: Range<Decoration>[]) => {
       const doc = state.doc
       const sel = state.selection.ranges
-      const touches = (from: number, to: number) => sel.some((r) => r.from <= to && r.to >= from)
+      const touches = (a: number, b: number) => sel.some((r) => r.from <= b && r.to >= a)
       const onLine = (pos: number) => { const line = doc.lineAt(pos); return touches(line.from, line.to) }
-      const hide = (from: number, to: number) => { if (to > from) out.push(hidden.range(from, to)) }
-      const lineClass = (from: number, to: number, cls: string) => {
-        for (let pos = from; pos <= to; ) {
+      const hide = (a: number, b: number) => { if (b > a) out.push(hidden.range(a, b)) }
+      const lineClass = (a: number, b: number, cls: string) => {
+        // Solo las líneas visibles: un bloque largo no se recorre entero.
+        for (let pos = Math.max(a, from); pos <= Math.min(b, to); ) {
           const line = doc.lineAt(pos)
           out.push(Decoration.line({ class: cls }).range(line.from))
           pos = line.to + 1
         }
       }
+      const front = splitFrontMatter(doc.sliceString(0, Math.min(doc.length, 4000))).offset
+      if (front > 0 && from < front && touches(0, Math.max(0, front - 1))) lineClass(0, Math.max(0, front - 1), 'cm-rich-front')
 
-      // La cabecera (--- fichero: X ---) se pliega mientras no se esté editando.
-      const front = splitFrontMatter(doc.toString()).offset
-      if (front > 0) {
-        const end = Math.max(0, front - 1)
-        if (touches(0, end)) lineClass(0, end, 'cm-rich-front')
-        else out.push(Decoration.replace({ block: true }).range(0, end))
-      }
-
-      const tree = ensureSyntaxTree(state, doc.length, 80) ?? syntaxTree(state)
-      tree.iterate({
-        enter(node) {
-          if (node.to <= front) return false
-          const { name, from, to } = node
-          const heading = /^ATXHeading(\d)$/.exec(name)
-          if (heading) lineClass(from, from, `cm-rich-h cm-rich-h${heading[1]}`)
-          else if (name === 'HeaderMark') {
-            // «## » se oculta salvo en la línea donde está el cursor.
-            if (!onLine(from)) hide(from, doc.sliceString(to, to + 1) === ' ' ? to + 1 : to)
-          } else if (name === 'Blockquote') lineClass(from, to, 'cm-rich-quote')
-          else if (name === 'QuoteMark') {
-            if (!onLine(from)) hide(from, doc.sliceString(to, to + 1) === ' ' ? to + 1 : to)
-          } else if (name === 'ListMark') {
-            if (/^[-*+]$/.test(doc.sliceString(from, to)) && !touches(from, to)) out.push(Decoration.replace({ widget: new Bullet() }).range(from, to))
-          } else if (name === 'Emphasis') out.push(Decoration.mark({ class: 'cm-rich-em' }).range(from, to))
-          else if (name === 'StrongEmphasis') out.push(Decoration.mark({ class: 'cm-rich-strong' }).range(from, to))
-          else if (name === 'InlineCode') out.push(Decoration.mark({ class: 'cm-rich-code' }).range(from, to))
-          else if (name === 'EmphasisMark' || name === 'CodeMark') {
-            const parent = node.node.parent
-            if (parent && parent.name !== 'FencedCode' && !touches(parent.from, parent.to)) hide(from, to)
-          } else if (name === 'Link') {
-            // Una referencia a ficha ([f. 51]) no es un enlace: de ella se ocupa quien pinta las referencias.
-            if (tokens.some((t) => t.from < to && t.to > from)) return false
-            // [texto](url): solo se ve el texto, salvo con el cursor dentro.
-            const close = node.node.getChildren('LinkMark')[1]
-            if (close && !touches(from, to)) {
-              hide(from, from + 1)
-              hide(close.from, to)
-              out.push(Decoration.mark({ class: 'cm-rich-link' }).range(from + 1, close.from))
-            }
-            return false
+      // Línea a línea, con expresiones sencillas: un analizador de Markdown completo volvía
+      // a leer el esquema entero (una sola lista larguísima) en cada tecla.
+      let fenced = false
+      for (let pos = Math.max(from, front); pos <= to; ) {
+        const line = doc.lineAt(pos)
+        pos = line.to + 1
+        const text = line.text
+        if (/^\s*(```|~~~)/.test(text)) { fenced = !fenced; continue }
+        if (fenced) continue
+        const at = line.from
+        const heading = /^(#{1,6})(\s+|$)/.exec(text)
+        if (heading) {
+          out.push(Decoration.line({ class: `cm-rich-h cm-rich-h${heading[1].length}` }).range(at))
+          // «## » se oculta salvo en la línea donde está el cursor.
+          if (!onLine(at)) hide(at, at + heading[0].length)
+        }
+        const quote = /^(\s*)>\s?/.exec(text)
+        if (quote) {
+          out.push(Decoration.line({ class: 'cm-rich-quote' }).range(at))
+          if (!onLine(at)) hide(at + quote[1].length, at + quote[0].length)
+        }
+        const bullet = /^(\s*)([-*+])\s/.exec(text)
+        if (bullet) {
+          const a = at + bullet[1].length
+          if (!touches(a, a + 1)) out.push(Decoration.replace({ widget: new Bullet() }).range(a, a + 1))
+        }
+        // Lo que no se toca: las referencias a fichas y el código en línea.
+        const taken: [number, number][] = visible.filter((t) => t.from < line.to && t.to > at).map((t) => [t.from - at, t.to - at])
+        const free = (a: number, b: number) => !taken.some(([x, y]) => a < y && b > x)
+        const inline = (re: RegExp, open: number, close: number, cls: string, exclusive = true) => {
+          for (const m of text.matchAll(re)) {
+            const a = m.index!, b = a + m[0].length
+            if (!free(a, b)) continue
+            if (exclusive) taken.push([a, b])
+            out.push(Decoration.mark({ class: cls }).range(at + a, at + b))
+            if (!touches(at + a, at + b)) { hide(at + a, at + a + open); hide(at + b - close, at + b) }
           }
-          return true
-        },
-      })
+        }
+        inline(/`[^`\n]+`/g, 1, 1, 'cm-rich-code')
+        for (const m of text.matchAll(/\[([^\]\n]+)\]\(([^)\n]*)\)/g)) {
+          const a = m.index!, b = a + m[0].length
+          if (!free(a, b)) continue
+          taken.push([a, b])
+          // [texto](url): solo se ve el texto, salvo con el cursor dentro.
+          if (!touches(at + a, at + b)) {
+            const close = a + 1 + m[1].length
+            hide(at + a, at + a + 1)
+            hide(at + close, at + b)
+            out.push(Decoration.mark({ class: 'cm-rich-link' }).range(at + a + 1, at + close))
+          }
+        }
+        inline(/\*\*(?=\S)(.+?)(?<=\S)\*\*(?!\*)|__(?=\S)(.+?)(?<=\S)__(?!_)/g, 2, 2, 'cm-rich-strong', false)
+        inline(/(?<![*\w])\*(?![*\s])(.+?)(?<![\s*])\*(?=\*\*(?!\*)|[^*]|$)|(?<![_\w])_(?![_\s])(.+?)(?<![\s_])_(?![_\w])/g, 1, 1, 'cm-rich-em')
+      }
     }
 
-    const build = (state: EditorState): DecorationSet => {
-      const { all, flipped } = state.field(peeks)
+    const buildInline = (view: EditorView): DecorationSet => {
+      const { state } = view
       const rich = state.field(modeField) === 'rich'
-      const out: Range<Decoration>[] = []
-      const tokens = tokensOf(state)
-      if (rich) richDecorations(state, tokens, out)
+      const all = tokens(state)
       const sel = state.selection.ranges
-      const { quotes } = live.current
-      tokens.forEach((t, index) => {
-        const info = live.current.describe(t)
-        const open = all !== flipped.includes(t.from)
-        // En modo enriquecido la referencia se ve como quedará, salvo que el cursor esté en ella.
-        const shown = live.current.rendered[index]
-        const raw = state.doc.sliceString(t.from, t.to)
-        if (rich && shown && shown.raw === raw && !sel.some((r) => r.from <= t.to && r.to >= t.from)) {
-          out.push(Decoration.replace({ widget: new RenderedRef({ ...shown, from: t.from }, quotes, /^\d+$/.test(shown.mark)) }).range(t.from, t.to))
-          if (shown.block && shown.inText) out.push(Decoration.line({ class: 'cm-rich-quote' }).range(state.doc.lineAt(t.from).from))
-        } else {
-          out.push(Decoration.mark({ class: `cm-ficha cm-ficha-${t.kind}${info.ok ? '' : ' cm-ficha-bad'}` }).range(t.from, t.to))
-        }
-        out.push(Decoration.widget({ widget: new PeekToggle(t.from, open), side: 1 }).range(t.to))
-        if (open) out.push(Decoration.widget({ widget: new PeekBlock(live.current.peek(t)), block: true, side: 2 }).range(state.doc.lineAt(t.to).to))
-      })
+      const { quotes, rendered } = live.current
+      const out: Range<Decoration>[] = []
+      for (const { from, to } of view.visibleRanges) {
+        // Primera referencia visible, por búsqueda binaria; su índice es el de la composición.
+        let lo = 0, hi = all.length
+        while (lo < hi) { const mid = (lo + hi) >> 1; if (all[mid].to < from) lo = mid + 1; else hi = mid }
+        const visible: Token[] = []
+        for (let i = lo; i < all.length && all[i].from <= to; i++) visible.push(all[i])
+        if (rich) richDecorations(state, from, to, visible, out)
+        visible.forEach((t, k) => {
+          const index = lo + k
+          const shown = rendered[index]
+          if (rich && shown && shown.raw === raw(state, t) && !sel.some((r) => r.from <= t.to && r.to >= t.from)) {
+            out.push(Decoration.replace({ widget: new RenderedRef({ ...shown, from: t.from }, quotes, /^\d+$/.test(shown.mark)) }).range(t.from, t.to))
+            if (shown.block && shown.inText) out.push(Decoration.line({ class: 'cm-rich-quote' }).range(state.doc.lineAt(t.from).from))
+          } else {
+            const info = describeOf(state, t)
+            out.push(Decoration.mark({ class: `cm-ficha cm-ficha-${t.kind}${info.ok ? '' : ' cm-ficha-bad'}` }).range(t.from, t.to))
+          }
+          out.push(Decoration.widget({ widget: new PeekToggle(isOpen(state, t)), side: 1 }).range(t.to))
+        })
+      }
       return Decoration.set(out, true)
     }
 
-    // Los bloques (las fichas asomadas) solo pueden venir de un campo de estado.
-    const highlight = StateField.define<DecorationSet>({
-      create: build,
-      update(value, tr) {
-        const effect = tr.effects.some((e) => e.is(refresh) || e.is(togglePeek) || e.is(setPeekAll) || e.is(setMode))
+    const inline = ViewPlugin.fromClass(class {
+      decorations: DecorationSet
+      constructor(view: EditorView) { this.decorations = buildInline(view) }
+      update(u: ViewUpdate) {
+        const effect = u.transactions.some((tr) => tr.effects.some((e) => e.is(refresh) || e.is(togglePeek) || e.is(setPeekAll) || e.is(setMode) || e.is(setFicheros)))
         // En modo enriquecido, mover el cursor cambia qué sintaxis se muestra.
-        const moved = tr.selection !== undefined && tr.state.field(modeField) === 'rich'
-        return tr.docChanged || effect || moved ? build(tr.state) : value
-      },
-      provide: (field) => [EditorView.decorations.from(field), EditorView.atomicRanges.of((v) => v.state.field(field).update({ filter: (_f, _t, d) => d.spec.widget instanceof RenderedRef }))],
+        const moved = u.selectionSet && u.state.field(modeField) === 'rich'
+        if (u.docChanged || u.viewportChanged || effect || moved ) this.decorations = buildInline(u.view)
+      }
+    }, {
+      decorations: (p) => p.decorations,
+      provide: (p) => EditorView.atomicRanges.of((v) => (v.plugin(p)?.decorations ?? Decoration.none).update({ filter: (_f, _t, d) => d.spec.widget instanceof RenderedRef })),
     })
 
     // ---- Formato --------------------------------------------------------------------
@@ -307,6 +417,25 @@ export const MarkdownEditor = forwardRef<MarkdownEditorHandle, Props>(function M
       v.focus()
       return true
     }
+    // Enter en un punto de lista sigue la lista (el número siguiente, la misma viñeta);
+    // en un punto vacío, la termina. Igual con las citas en bloque.
+    const continueMarkup = (v: EditorView) => {
+      const { state } = v
+      if (state.selection.ranges.length !== 1 || !state.selection.main.empty) return false
+      const head = state.selection.main.head
+      const line = state.doc.lineAt(head)
+      const m = /^(\s*)(?:(\d+)([.)])|([-*+])|(>))(\s+)/.exec(line.text)
+      if (!m || head < line.from + m[0].length) return false
+      if (line.text.slice(m[0].length).trim() === '' && head === line.to) {
+        v.dispatch({ changes: { from: line.from, to: line.to, insert: '' }, userEvent: 'delete' })
+        return true
+      }
+      const marker = m[2] ? `${Number(m[2]) + 1}${m[3]}` : (m[4] ?? m[5])
+      const insert = `\n${m[1]}${marker}${m[6]}`
+      v.dispatch({ changes: { from: head, to: head, insert }, selection: { anchor: head + insert.length }, scrollIntoView: true, userEvent: 'input' })
+      return true
+    }
+
     const PREFIX = /^(\s*)(#{1,6} |> |[-*+] |\d+[.)] )?/
     const prefix = (v: EditorView, want: string) => {
       const changes: { from: number; to: number; insert: string }[] = []
@@ -336,14 +465,14 @@ export const MarkdownEditor = forwardRef<MarkdownEditorHandle, Props>(function M
     }
 
     const tooltip = hoverTooltip((v, pos) => {
-      const t = tokensIn(v).find((x) => pos >= x.from && pos <= x.to)
+      const t = tokens(v.state).find((x) => pos >= x.from && pos <= x.to)
       if (!t) return null
       return {
         pos: t.from,
         end: t.to,
         above: true,
         create() {
-          const info = live.current.describe(t)
+          const info = describeOf(v.state, t)
           const dom = document.createElement('div')
           dom.className = `cm-ficha-tip${info.ok ? '' : ' bad'}`
           const title = dom.appendChild(document.createElement('strong'))
@@ -359,19 +488,20 @@ export const MarkdownEditor = forwardRef<MarkdownEditorHandle, Props>(function M
       doc: initial,
       extensions: [
         minimalSetup,
-        markdown(),
         // Tab sangra la línea (o las seleccionadas) y Mayús+Tab la desangra: así se
         // anidan los puntos de un esquema. Esc y luego Tab saca el foco del editor.
         keymap.of([indentWithTab]),
         indentUnit.of('\t'),
         EditorState.tabSize.of(4),
         EditorView.lineWrapping,
+        tokensField.init((state) => ({ ficheros: live.current.ficheros, list: findTokens(state.doc.toString(), live.current.ficheros) })),
         peeks,
         modeField,
-        highlight,
+        blocks,
+        inline,
         // Prioridad alta: el teclado por defecto de CodeMirror usa Cmd+I para
         // «seleccionar el nodo padre» y, sin esto, gana él.
-        Prec.high(keymap.of([{ key: 'Mod-b', run: (v) => wrap(v, '**') }, { key: 'Mod-i', run: (v) => wrap(v, '*') }])),
+        Prec.high(keymap.of([{ key: 'Mod-b', run: (v) => wrap(v, '**') }, { key: 'Mod-i', run: (v) => wrap(v, '*') }, { key: 'Enter', run: continueMarkup }])),
         EditorView.editorAttributes.of((v) => ({ class: v.state.field(modeField) === 'rich' ? 'cm-mode-rich' : 'cm-mode-markdown' })),
         tooltip,
         EditorView.updateListener.of((u) => { if (u.docChanged) live.current.onChange(u.state.doc.toString()) }),
@@ -385,6 +515,7 @@ export const MarkdownEditor = forwardRef<MarkdownEditorHandle, Props>(function M
   }, [])
 
   useEffect(() => { view.current?.dispatch({ effects: refresh.of(null) }) }, [revision])
+  useEffect(() => { view.current?.dispatch({ effects: setFicheros.of(ficheros) }) }, [ficheros])
   useEffect(() => { view.current?.dispatch({ effects: setPeekAll.of(peekAll) }) }, [peekAll])
   useEffect(() => { view.current?.dispatch({ effects: setMode.of(mode) }) }, [mode])
   // Cuando llega la composición nueva del texto, se repintan las referencias.

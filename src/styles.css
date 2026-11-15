@@ -411,3 +411,7 @@ sup.cm-rich-mark { font-size: 0.68em; line-height: 0; padding-left: 1px; }
 .cm-peek { cursor: text; }
 .draft-toolbar .check { white-space: nowrap; }
 .draft-main { min-width: 300px; }
+
+/* Vista final larga: solo se maqueta lo que está a la vista (escribir no espera por ella). */
+.draft-preview > *, .draft-preview .footnotes-list > li { content-visibility: auto; contain-intrinsic-size: auto 1.6em; }
+@media print { .print-doc > *, .print-doc .footnotes-list > li { content-visibility: visible; } }

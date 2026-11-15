@@ -1,6 +1,6 @@
 import MarkdownIt from 'markdown-it'
 import footnote from 'markdown-it-footnote'
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { backend, type ProjectInfo } from '../backend'
 import { authorsLabel, yearLabel, type CiteOptions } from '../citations'
@@ -23,6 +23,25 @@ const md = new MarkdownIt({ html: false, linkify: true, typographer: false }).us
 md.disable('code')
 const fold = (s: string) => s.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase()
 const clip = (s: string, n: number) => (s.length > n ? `${s.slice(0, n - 1)}…` : s)
+
+/** HTML compuesto (vista final, impresión). Aparte, para que React no lo revise en cada cambio de la pantalla. */
+const Html = memo(function Html({ html, className, testId }: { html: string; className: string; testId?: string }) {
+  return <article className={className} data-testid={testId} dangerouslySetInnerHTML={{ __html: html }} />
+})
+
+const SHOWN_PROBLEMS = 50
+/** Las referencias con problemas, cada una con un enlace a su sitio en el texto. */
+const Problems = memo(function Problems({ problems, goTo }: { problems: { message: string; from: number }[]; goTo: (pos: number) => void }) {
+  if (!problems.length) return null
+  return (
+    <ul className="problems" data-testid="problems">
+      {problems.slice(0, SHOWN_PROBLEMS).map((p, i) => (
+        <li key={i}><button className="link" onClick={() => goTo(p.from)}>{p.message}</button></li>
+      ))}
+      {problems.length > SHOWN_PROBLEMS && <li className="muted">… y {problems.length - SHOWN_PROBLEMS} más.</li>}
+    </ul>
+  )
+})
 
 type SaveState = 'saved' | 'dirty' | 'saving' | 'conflict' | 'error'
 
@@ -57,6 +76,7 @@ export function DraftsView({ project, cite, onSection, onSwitchProject }: Props)
   const toggle = (id: string) => setExpanded((prev) => { const next = new Set(prev); if (next.has(id)) next.delete(id); else next.add(id); return next })
 
   const editor = useRef<MarkdownEditorHandle>(null)
+  const goTo = useCallback((pos: number) => editor.current?.goTo(pos), [])
   // Estado del guardado, fuera de React para que los temporizadores vean lo último.
   const disk = useRef<{ name: string; stamp: string | null; text: string; timer: number | null }>({ name: '', stamp: null, text: '', timer: null })
 
@@ -81,8 +101,13 @@ export function DraftsView({ project, cite, onSection, onSwitchProject }: Props)
     }
   }, [])
 
+  // El resto de la pantalla (vista final, recuento, fichero por defecto) se pone al día
+  // cuando se deja de teclear un momento: redibujarla en cada tecla hacía lento escribir.
+  const textTimer = useRef<number | null>(null)
+  useEffect(() => () => { if (textTimer.current) clearTimeout(textTimer.current) }, [])
   const onChange = useCallback((next: string) => {
-    setText(next)
+    if (textTimer.current) clearTimeout(textTimer.current)
+    textTimer.current = window.setTimeout(() => { textTimer.current = null; setText(disk.current.text) }, 300)
     const d = disk.current
     d.text = next
     setSave((s) => (s === 'conflict' ? s : 'dirty'))
@@ -226,13 +251,14 @@ export function DraftsView({ project, cite, onSection, onSwitchProject }: Props)
     const timer = setTimeout(() => {
       try {
         const r = resolveDraft(text, ctx)
-        setPreview({ html: md.render(r.markdown), tokens: r.tokens, problems: r.problems, citations: r.citations, sources: r.sources })
+        // Con la pestaña Fichas abierta, la vista final no se ve: no se compone su HTML.
+        setPreview({ html: panel === 'preview' ? md.render(r.markdown) : '', tokens: r.tokens, problems: r.problems, citations: r.citations, sources: r.sources })
       } catch (e) {
         setPreview({ html: '', tokens: [], problems: [{ message: `No se pudo componer la vista: ${e instanceof Error ? e.message : e}`, from: 0 }], citations: 0, sources: 0 })
       }
     }, 250)
     return () => clearTimeout(timer)
-  }, [text, ctx, current])
+  }, [text, ctx, current, panel])
 
   // ---- Exportar ---------------------------------------------------------------------
   const [exporting, setExporting] = useState('')
@@ -407,14 +433,8 @@ export function DraftsView({ project, cite, onSection, onSwitchProject }: Props)
 
               {panel === 'preview' ? (
                 <>
-                  {preview.problems.length > 0 && (
-                    <ul className="problems" data-testid="problems">
-                      {preview.problems.map((p, i) => (
-                        <li key={i}><button className="link" onClick={() => editor.current?.goTo(p.from)}>{p.message}</button></li>
-                      ))}
-                    </ul>
-                  )}
-                  <article className="draft-preview" data-testid="draft-preview" dangerouslySetInnerHTML={{ __html: preview.html }} />
+                  <Problems problems={preview.problems} goTo={goTo} />
+                  <Html className="draft-preview" testId="draft-preview" html={preview.html} />
                 </>
               ) : (
                 <div className="ficha-picker">
@@ -463,7 +483,7 @@ export function DraftsView({ project, cite, onSection, onSwitchProject }: Props)
           </>
         )}
       </div>
-      {createPortal(<article className="print-doc draft-preview" dangerouslySetInnerHTML={{ __html: printHtml }} />, document.body)}
+      {createPortal(<Html className="print-doc draft-preview" html={printHtml} />, document.body)}
     </div>
   )
 }
