@@ -40,6 +40,7 @@ export const COLOR_TOKENS: ColorToken[] = [
   { key: 'textoSuave', css: '--ink-soft', label: 'Texto de citas', group: 'Texto' },
   { key: 'textoTenue', css: '--muted', label: 'Texto secundario', group: 'Texto' },
   { key: 'seleccion', css: '--selection', label: 'Selección', group: 'Texto' },
+  { key: 'cursor', css: '--caret', label: 'Cursor de escritura', group: 'Texto' },
 
   { key: 'acento', css: '--accent', label: 'Acento (botones, enlaces)', group: 'Acento' },
   { key: 'textoSobreAcento', css: '--accent-ink', label: 'Texto sobre el acento', group: 'Acento' },
@@ -102,7 +103,7 @@ export const ORGANON: Theme = {
   colores: {
     fondo: '#f6f4ef', panel: '#ffffff', papel: '#ffffff', campos: '#ffffff', suave: '#efebe3', hover: '#f5f2ec',
     lineas: '#e2ddd3', lineasFuertes: '#c9c2b4', fondoPdf: '#d9d5cc', sombra: 'rgb(60 45 20 / 0.16)', velo: 'rgb(0 0 0 / 0.35)',
-    texto: '#23201c', textoSuave: '#45403a', textoTenue: '#7b746a', seleccion: '#e7dcc8',
+    texto: '#23201c', textoSuave: '#45403a', textoTenue: '#7b746a', seleccion: '#e7dcc8', cursor: '#7a2e2e',
     acento: '#7a2e2e', textoSobreAcento: '#ffffff',
     ok: '#2f6b3f', okFondo: '#e5f1e7', okLinea: '#b9d8bf',
     aviso: '#8a5a00', avisoFondo: '#fdf1d3', avisoLinea: '#ecd596',
@@ -120,7 +121,7 @@ export const NOCHE: Theme = {
   colores: {
     fondo: '#1c1a17', panel: '#24211d', papel: '#22201c', campos: '#2d2a25', suave: '#34302a', hover: '#2f2b26',
     lineas: '#3d3832', lineasFuertes: '#5a5249', fondoPdf: '#141210', sombra: 'rgb(0 0 0 / 0.45)', velo: 'rgb(0 0 0 / 0.55)',
-    texto: '#ece6dc', textoSuave: '#d6cfc3', textoTenue: '#a0978a', seleccion: '#4d4234',
+    texto: '#ece6dc', textoSuave: '#d6cfc3', textoTenue: '#a0978a', seleccion: '#4d4234', cursor: '#e0907d',
     acento: '#e0907d', textoSobreAcento: '#1c1a17',
     ok: '#8fc79c', okFondo: '#1f3326', okLinea: '#2f5a3c',
     aviso: '#e5b85c', avisoFondo: '#3a2f15', avisoLinea: '#6b5420',
@@ -139,7 +140,7 @@ export const SEPIA: Theme = {
     ...ORGANON.colores,
     fondo: '#efe6d4', panel: '#f8f1e3', papel: '#fbf5e9', campos: '#fffaf0', suave: '#e6dbc6', hover: '#f1e8d6',
     lineas: '#d9ccb3', lineasFuertes: '#bfae8e', fondoPdf: '#cfc2a8',
-    texto: '#3b2f22', textoSuave: '#4f4132', textoTenue: '#85745c', seleccion: '#e3cfa6',
+    texto: '#3b2f22', textoSuave: '#4f4132', textoTenue: '#85745c', seleccion: '#e3cfa6', cursor: '#8b4513',
     acento: '#8b4513', fichaAsomadaFondo: '#f6ecd6',
   },
   tipografia: { ...ORGANON.tipografia, texto: GARAMOND, editor: GARAMOND, tamanoEditor: 19 },
@@ -152,7 +153,7 @@ export const GRYPHON: Theme = {
   colores: {
     fondo: '#0b1017', panel: '#11161d', papel: '#0b1017', campos: '#1c222a', suave: '#1c222a', hover: '#161c24',
     lineas: '#232b35', lineasFuertes: '#36414f', fondoPdf: '#070a0f', sombra: 'rgb(0 0 0 / 0.5)', velo: 'rgb(0 0 0 / 0.6)',
-    texto: '#cfdce9', textoSuave: '#b2ccd6', textoTenue: '#7d8794', seleccion: '#093669',
+    texto: '#cfdce9', textoSuave: '#b2ccd6', textoTenue: '#7d8794', seleccion: '#093669', cursor: '#79b0ff',
     acento: '#316dca', textoSobreAcento: '#cfdce9',
     ok: '#57ab5a', okFondo: '#0f2418', okLinea: '#1f4d2c',
     aviso: '#ffb61e', avisoFondo: '#2a2110', avisoLinea: '#5c4614',
