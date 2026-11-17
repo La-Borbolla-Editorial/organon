@@ -152,6 +152,7 @@ textarea { resize: vertical; width: 100%; }
 
 .ficha-list { display: grid; gap: 10px; }
 .ficha-card { border: 1px solid var(--line); border-radius: 8px; padding: 10px 12px; display: grid; gap: 7px; cursor: pointer; }
+.ficha-list .ficha-card { content-visibility: auto; contain-intrinsic-size: auto 150px; }
 .ficha-card:hover { border-color: var(--line-strong); }
 .ficha-card.active { border-color: var(--mark); background: var(--mark-bg); }
 .ficha-card header { display: flex; gap: 8px; align-items: baseline; }
@@ -248,6 +249,7 @@ table.fichas th { position: sticky; top: 0; z-index: 1; background: var(--subtle
 .col-resizer:hover::after, table.fichas.resizing .col-resizer:hover::after { background: var(--accent); }
 table.fichas td { padding: 7px 8px; border-bottom: 1px solid var(--line); vertical-align: top; overflow: hidden; overflow-wrap: anywhere; }
 table.fichas tbody tr { cursor: pointer; }
+.list-more { text-align: center; padding: 14px; }
 table.fichas tbody tr:hover { background: var(--hover); }
 table.fichas tbody tr.current { background: var(--mark-bg); box-shadow: inset 3px 0 0 var(--mark); }
 .clamp { display: -webkit-box; -webkit-line-clamp: 4; -webkit-box-orient: vertical; overflow: hidden; white-space: pre-line; }

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { backend } from '../backend'
 import { authorsLabel, formatCitation, yearLabel, type CiteOptions } from '../citations'
 import { canonicalRef } from '../draft'
@@ -10,6 +10,7 @@ import type { Anchor, Ficha, Fichero, Source } from '../types'
 import { FichaForm } from './FichaForm'
 import { SidePanel } from './SidePanel'
 import { PaginationEditor } from './PaginationEditor'
+import { useGrowing } from '../useGrowing'
 
 const OCR_URL = 'https://www.ilovepdf.com/ocr-pdf'
 
@@ -207,11 +208,11 @@ export function Reader({ sourceId, cite, focusFichaId, linkFichaId, backLabel, o
     setActiveId(null)
   }
 
-  const editFicha = (f: Ficha) => {
+  const editFicha = useCallback((f: Ficha) => {
     setActiveId(f.id)
     const { num, createdAt: _c, updatedAt: _u, ...draft } = f
     setPanel({ kind: 'form', num, draft })
-  }
+  }, [])
 
   // Clic sobre un resaltado: abre su ficha.
   const onClick = (e: React.MouseEvent) => {
@@ -343,26 +344,64 @@ export function Reader({ sourceId, cite, focusFichaId, linkFichaId, backLabel, o
           )}
 
           {source && panel.kind === 'list' && (
-            <div className="ficha-list">
-              <h2>Fichas de esta fuente <span className="muted">{fichas.length}</span></h2>
-              {fichas.length === 0 && <p className="muted">Selecciona un pasaje en el PDF y pulsa <strong>+ Ficha</strong>.</p>}
-              {fichas.map((f) => (
-                <article key={f.id} className={f.id === activeId ? 'ficha-card active' : 'ficha-card'} onClick={() => jumpTo(f)} data-testid="ficha-card">
-                  <header>
-                    <span className="ficha-num">{f.num}</span>
-                    <h3>{f.notaPermanente || <em className="muted">Sin nota permanente</em>}</h3>
-                    <button className="link" onClick={(e) => { e.stopPropagation(); editFicha(f) }}>Editar</button>
-                  </header>
-                  <blockquote>{f.cita}</blockquote>
-                  {!f.anchor && <button className="link" onClick={(e) => { e.stopPropagation(); setLinking(f) }}>Sin marcar en el PDF: marcar el pasaje…</button>}
-                  <div className="ficha-citation" dangerouslySetInnerHTML={{ __html: formatCitation(source.csl, f.pageLabel, cite, canonicalRef(source, f)) }} />
-                  {f.tags.length > 0 && <div className="tags">{f.tags.map((t) => <span key={t} className="tag">{t}</span>)}</div>}
-                </article>
-              ))}
-            </div>
+            <FichaList fichas={fichas} source={source} cite={cite} activeId={activeId} onJump={jumpTo} onEdit={editFicha} onLink={setLinking} />
           )}
         </SidePanel>
       </div>
     </div>
   )
 }
+
+interface ListProps {
+  fichas: Ficha[]
+  source: Source
+  cite: CiteOptions
+  activeId: string | null
+  onJump: (f: Ficha) => void
+  onEdit: (f: Ficha) => void
+  onLink: (f: Ficha) => void
+}
+
+// La lista no se vuelve a pintar al pasar de hoja: solo cuando cambian sus fichas o la activa.
+const FichaList = memo(function FichaList({ fichas, source, cite, activeId, onJump, onEdit, onLink }: ListProps) {
+  const { limit, sentinel, reveal } = useGrowing(fichas.length, null, 40)
+  // La ficha activa (p. ej. al pulsar su resaltado en el PDF) siempre está pintada.
+  const activeIndex = activeId ? fichas.findIndex((f) => f.id === activeId) : -1
+  useEffect(() => { if (activeIndex >= limit) reveal(activeIndex) }, [activeIndex, limit, reveal])
+  return (
+    <div className="ficha-list">
+      <h2>Fichas de esta fuente <span className="muted">{fichas.length}</span></h2>
+      {fichas.length === 0 && <p className="muted">Selecciona un pasaje en el PDF y pulsa <strong>+ Ficha</strong>.</p>}
+      {fichas.slice(0, limit).map((f) => (
+        <FichaCard key={f.id} ficha={f} source={source} cite={cite} active={f.id === activeId} onJump={onJump} onEdit={onEdit} onLink={onLink} />
+      ))}
+      {limit < fichas.length && <div ref={sentinel} className="list-more muted small">…</div>}
+    </div>
+  )
+})
+
+interface CardProps {
+  ficha: Ficha
+  source: Source
+  cite: CiteOptions
+  active: boolean
+  onJump: (f: Ficha) => void
+  onEdit: (f: Ficha) => void
+  onLink: (f: Ficha) => void
+}
+
+const FichaCard = memo(function FichaCard({ ficha: f, source, cite, active, onJump, onEdit, onLink }: CardProps) {
+  return (
+    <article className={active ? 'ficha-card active' : 'ficha-card'} onClick={() => onJump(f)} data-testid="ficha-card">
+      <header>
+        <span className="ficha-num">{f.num}</span>
+        <h3>{f.notaPermanente || <em className="muted">Sin nota permanente</em>}</h3>
+        <button className="link" onClick={(e) => { e.stopPropagation(); onEdit(f) }}>Editar</button>
+      </header>
+      <blockquote>{f.cita}</blockquote>
+      {!f.anchor && <button className="link" onClick={(e) => { e.stopPropagation(); onLink(f) }}>Sin marcar en el PDF: marcar el pasaje…</button>}
+      <div className="ficha-citation" dangerouslySetInnerHTML={{ __html: formatCitation(source.csl, f.pageLabel, cite, canonicalRef(source, f)) }} />
+      {f.tags.length > 0 && <div className="tags">{f.tags.map((t) => <span key={t} className="tag">{t}</span>)}</div>}
+    </article>
+  )
+})

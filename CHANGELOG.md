@@ -1,5 +1,16 @@
 # Cambios
 
+## 0.5.0 (en curso)
+
+- **Rendimiento con proyectos grandes** (probado con 300 fuentes, 4000 fichas y un PDF de 500 hojas):
+  - Fichero: buscar ya no traba el campo (de hasta 1,6 s por tecla a menos de 70 ms); abrir una
+    ficha pasa de casi 1 s a menos de 0,1 s. Las filas se pintan a medida que se baja.
+  - Lector: pasar de hoja ya no congela la lista de fichas (antes, 0,3–0,6 s en cada cambio de hoja);
+    abrir un PDF con cientos de fichas tarda menos de la mitad.
+  - Biblioteca: las fuentes se pintan a medida que se baja y las referencias formateadas se guardan,
+    así que volver a ella es instantáneo.
+- El cursor de escritura toma el color del tema («Cursor de escritura» en Personalizar → Texto).
+
 ## 0.4.1
 
 - PDF: las hojas ya no empiezan con un hueco en blanco arriba. En la app, los márgenes de página no

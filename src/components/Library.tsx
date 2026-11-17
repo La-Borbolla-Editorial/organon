@@ -1,9 +1,10 @@
-import { useEffect, useRef, useState } from 'react'
+import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import type { ProjectInfo } from '../backend'
 import { authorsLabel, formatBibliographyEntry, parseZoteroExport, yearLabel, type CiteOptions } from '../citations'
 import { countFichasBySource, linkOrphanFichas, listSources, upsertSources } from '../store'
 import { SourceForm } from './SourceForm'
 import { TopNav, type Section } from './TopNav'
+import { useGrowing } from '../useGrowing'
 import type { Source } from '../types'
 
 interface Props {
@@ -44,7 +45,22 @@ export function Library({ project, onSwitchProject, onSection, cite, onOpen }: P
   }
 
   const q = query.trim().toLowerCase()
-  const shown = q ? sources.filter((s) => `${authorsLabel(s.csl)} ${s.csl.title ?? ''} ${yearLabel(s.csl)} ${s.citekey}`.toLowerCase().includes(q)) : sources
+  const haystack = useMemo(() => new Map(sources.map((s) => [s.id, `${authorsLabel(s.csl)} ${s.csl.title ?? ''} ${yearLabel(s.csl)} ${s.citekey}`.toLowerCase()])), [sources])
+  const shown = useMemo(() => (q ? sources.filter((s) => haystack.get(s.id)!.includes(q)) : sources), [sources, haystack, q])
+  const { limit, sentinel } = useGrowing(shown.length, q, 40)
+  // Mientras no se hace nada, se van formateando las entradas que aún no se ven: al bajar ya están listas.
+  useEffect(() => {
+    let i = 0
+    let timer = 0
+    const step = () => {
+      const until = performance.now() + 8
+      while (i < sources.length && performance.now() < until) formatBibliographyEntry(sources[i++].csl, cite)
+      if (i < sources.length) timer = window.setTimeout(step, 30)
+    }
+    timer = window.setTimeout(step, 300)
+    return () => clearTimeout(timer)
+  }, [sources, cite])
+  const editSource = useCallback((source: Source) => setForm({ source }), [])
 
   return (
     <div className="library">
@@ -84,33 +100,11 @@ export function Library({ project, onSwitchProject, onSection, cite, onOpen }: P
           <>
             <input className="search" placeholder="Buscar por autor, título o clave…" value={query} onChange={(e) => setQuery(e.target.value)} />
             <ul className="source-list">
-              {shown.map((s) => (
-                <li key={s.id} className="source-row">
-                  <div className="source-info">
-                    <div className="source-bib" dangerouslySetInnerHTML={{ __html: formatBibliographyEntry(s.csl, cite) }} />
-                    <div className="source-meta">
-                      <code>{s.citekey}</code>
-                      {s.pdfFile ? (
-                        <>
-                          <span>{s.pdfPages} hojas</span>
-                          <span className={s.paginationVerified ? 'badge ok' : 'badge warn'}>
-                            {s.paginationVerified ? 'Paginación verificada' : 'Paginación sin verificar'}
-                          </span>
-                        </>
-                      ) : (
-                        <span className="badge muted">Sin PDF</span>
-                      )}
-                      {s.canonical && <span className="badge" title="Sus fichas se citan por su referencia canónica, no por la página.">Obra canónica</span>}
-                      {counts[s.id] ? <span>{counts[s.id]} ficha(s)</span> : null}
-                    </div>
-                  </div>
-                  <div className="source-actions">
-                    {s.pdfFile && <button className="primary" onClick={() => onOpen(s.id)}>Abrir</button>}
-                    <button onClick={() => setForm({ source: s })} data-testid={`edit-${s.citekey}`}>Editar</button>
-                  </div>
-                </li>
+              {shown.slice(0, limit).map((s) => (
+                <SourceRow key={s.id} source={s} cite={cite} count={counts[s.id] ?? 0} onOpen={onOpen} onEdit={editSource} />
               ))}
             </ul>
+            {limit < shown.length && <div ref={sentinel} className="list-more muted small">…</div>}
           </>
         )}
       </main>
@@ -133,3 +127,41 @@ export function Library({ project, onSwitchProject, onSection, cite, onOpen }: P
     </div>
   )
 }
+
+interface RowProps {
+  source: Source
+  cite: CiteOptions
+  count: number
+  onOpen: (sourceId: string) => void
+  onEdit: (source: Source) => void
+}
+
+// Una fila solo se vuelve a pintar si cambia su fuente o su número de fichas.
+const SourceRow = memo(function SourceRow({ source: s, cite, count, onOpen, onEdit }: RowProps) {
+  return (
+    <li className="source-row">
+      <div className="source-info">
+        <div className="source-bib" dangerouslySetInnerHTML={{ __html: formatBibliographyEntry(s.csl, cite) }} />
+        <div className="source-meta">
+          <code>{s.citekey}</code>
+          {s.pdfFile ? (
+            <>
+              <span>{s.pdfPages} hojas</span>
+              <span className={s.paginationVerified ? 'badge ok' : 'badge warn'}>
+                {s.paginationVerified ? 'Paginación verificada' : 'Paginación sin verificar'}
+              </span>
+            </>
+          ) : (
+            <span className="badge muted">Sin PDF</span>
+          )}
+          {s.canonical && <span className="badge" title="Sus fichas se citan por su referencia canónica, no por la página.">Obra canónica</span>}
+          {count ? <span>{count} ficha(s)</span> : null}
+        </div>
+      </div>
+      <div className="source-actions">
+        {s.pdfFile && <button className="primary" onClick={() => onOpen(s.id)}>Abrir</button>}
+        <button onClick={() => onEdit(s)} data-testid={`edit-${s.citekey}`}>Editar</button>
+      </div>
+    </li>
+  )
+})
