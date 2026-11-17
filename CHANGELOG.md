@@ -1,6 +1,6 @@
 # Cambios
 
-## 0.5.0 (en curso)
+## 0.5.0
 
 - **Rendimiento con proyectos grandes** (probado con 300 fuentes, 4000 fichas y un PDF de 500 hojas):
   - Fichero: buscar ya no traba el campo (de hasta 1,6 s por tecla a menos de 70 ms); abrir una
