@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { memo, useCallback, useDeferredValue, useEffect, useMemo, useRef, useState } from 'react'
 import { backend, type ProjectInfo } from '../backend'
 import type { CiteOptions } from '../citations'
 import { markerProblem, suggestMarker } from '../draft'
@@ -9,6 +9,7 @@ import { FichaForm } from './FichaForm'
 import { SidePanel } from './SidePanel'
 import { ImportDialog } from './ImportDialog'
 import { TopNav, type Section } from './TopNav'
+import { useGrowing } from '../useGrowing'
 
 interface Props {
   project: ProjectInfo
@@ -83,17 +84,31 @@ export function FicheroView({ project, cite, onSection, onSwitchProject, onOpenP
   const tagsHere = useMemo(() => [...new Set(fichas.flatMap((f) => f.tags))].sort((a, b) => a.localeCompare(b, 'es')), [fichas])
   const sourcesHere = useMemo(() => sources.filter((s) => fichas.some((f) => f.sourceId === s.id)), [sources, fichas])
 
-  const columns: Column[] = fichero?.columns ?? []
-  const shown = useMemo(() => {
-    const q = fold(query.trim())
-    return fichas.filter((f) => {
-      if (tag && !f.tags.includes(tag)) return false
-      if (sourceFilter === NO_SOURCE ? f.sourceId : sourceFilter && f.sourceId !== sourceFilter) return false
-      if (!q) return true
-      const source = f.sourceId ? sourceById.get(f.sourceId) : undefined
-      return fold(columns.map((c) => cellText(f, c, source)).join(' \n ')).includes(q)
-    })
-  }, [fichas, query, tag, sourceFilter, columns, sourceById])
+  const countByFichero = useMemo(() => {
+    const n = new Map<string, number>()
+    for (const f of all) n.set(f.ficheroId, (n.get(f.ficheroId) ?? 0) + 1)
+    return n
+  }, [all])
+
+  const columns: Column[] = useMemo(() => fichero?.columns ?? [], [fichero])
+  // El texto en que se busca, ya normalizado, se prepara una vez por ficha y no en cada tecla.
+  // (A la primera búsqueda, no al abrir el fichero.)
+  const searchText = useMemo(() => {
+    const m = new WeakMap<Ficha, string>() // una ficha editada es otro objeto: nunca queda texto viejo
+    return (f: Ficha) => {
+      let t = m.get(f)
+      if (t === undefined) m.set(f, (t = fold(columns.map((c) => cellText(f, c, f.sourceId ? sourceById.get(f.sourceId) : undefined)).join(' \n '))))
+      return t
+    }
+  }, [columns, sourceById])
+  // La búsqueda va un paso por detrás de lo que se escribe: el campo nunca se traba.
+  const q = fold(useDeferredValue(query).trim())
+  const shown = useMemo(() => fichas.filter((f) => {
+    if (tag && !f.tags.includes(tag)) return false
+    if (sourceFilter === NO_SOURCE ? f.sourceId : sourceFilter && f.sourceId !== sourceFilter) return false
+    return !q || searchText(f).includes(q)
+  }), [fichas, q, tag, sourceFilter, searchText])
+  const { limit, sentinel, reveal } = useGrowing(shown.length, `${currentId}|${q}|${tag}|${sourceFilter}`)
 
   const widthOf = (c: Column, i: number) => (resizing?.index === i ? resizing.width : (c.width ?? DEFAULT_WIDTH[c.field]))
 
@@ -124,19 +139,25 @@ export function FicheroView({ project, cite, onSection, onSwitchProject, onOpenP
     window.addEventListener('pointerup', stop)
   }
 
-  // El editor se cierra con Esc y la fila que se edita queda siempre a la vista.
+  // El editor se cierra con Esc y la fila que se edita queda siempre a la vista (pintándola si aún no lo estaba).
+  const editingId = editing?.draft.id
+  const editingIndex = editingId ? shown.findIndex((f) => f.id === editingId) : -1
   useEffect(() => {
     if (!editing) return
     const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') setEditing(null) }
     window.addEventListener('keydown', onKey)
-    document.querySelector('table.fichas tr.current')?.scrollIntoView({ block: 'nearest' })
     return () => window.removeEventListener('keydown', onKey)
   }, [editing])
+  useEffect(() => {
+    if (editingIndex >= limit) reveal(editingIndex)
+    else document.querySelector('table.fichas tr.current')?.scrollIntoView({ block: 'nearest' })
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [editingId, editingIndex >= limit])
 
-  const edit = (f: Ficha) => {
+  const edit = useCallback((f: Ficha) => {
     const { num, createdAt: _c, updatedAt: _u, ...draft } = f
     setEditing({ draft, num })
-  }
+  }, [])
 
   const exportCsv = async () => {
     if (!fichero) return
@@ -187,7 +208,7 @@ export function FicheroView({ project, cite, onSection, onSwitchProject, onOpenP
       <div className="fichero-tabs">
         {ficheros.map((f) => (
           <button key={f.id} className={f.id === currentId ? 'tab current' : 'tab'} onClick={() => select(f.id)}>
-            {f.name} <span className="muted">{all.filter((x) => x.ficheroId === f.id).length}</span> <code title="Marcador de este fichero al escribir">{f.marker}</code>
+            {f.name} <span className="muted">{countByFichero.get(f.id) ?? 0}</span> <code title="Marcador de este fichero al escribir">{f.marker}</code>
           </button>
         ))}
         {naming ? (
@@ -275,30 +296,13 @@ export function FicheroView({ project, cite, onSection, onSwitchProject, onOpenP
                 </tr>
               </thead>
               <tbody>
-                {shown.map((f) => {
-                  const source = f.sourceId ? sourceById.get(f.sourceId) : undefined
-                  return (
-                    <tr key={f.id} className={editing?.draft.id === f.id ? 'current' : ''} onClick={() => edit(f)} data-testid="ficha-row">
-                      {columns.map((c, i) => (
-                        <td key={i} className={`col-${c.field}`}>
-                          {c.field === 'tags' ? (
-                            <div className="tags">{f.tags.map((t) => <span key={t} className="tag">{t}</span>)}</div>
-                          ) : c.field === 'num' ? (
-                            <>
-                              {cellText(f, c, source)}
-                              {f.anchor ? <span className="dot linked" title="Pasaje marcado en el PDF" /> : !f.sourceId ? <span className="dot orphan" title="Sin fuente vinculada" /> : null}
-                            </>
-                          ) : (
-                            <div className="clamp">{cellText(f, c, source)}</div>
-                          )}
-                        </td>
-                      ))}
-                    </tr>
-                  )
-                })}
+                {shown.slice(0, limit).map((f) => (
+                  <FichaRow key={f.id} ficha={f} columns={columns} source={f.sourceId ? sourceById.get(f.sourceId) : undefined} current={editingId === f.id} onEdit={edit} />
+                ))}
               </tbody>
             </table>
           )}
+          {limit < shown.length && <div ref={sentinel} className="list-more muted small">…</div>}
         </div>
 
         {editing && (
@@ -324,3 +328,33 @@ export function FicheroView({ project, cite, onSection, onSwitchProject, onOpenP
     </div>
   )
 }
+
+interface RowProps {
+  ficha: Ficha
+  columns: Column[]
+  source: Source | undefined
+  current: boolean
+  onEdit: (f: Ficha) => void
+}
+
+// Con miles de fichas, abrir una o cambiar un ancho no vuelve a pintar las demás filas.
+const FichaRow = memo(function FichaRow({ ficha: f, columns, source, current, onEdit }: RowProps) {
+  return (
+    <tr className={current ? 'current' : ''} onClick={() => onEdit(f)} data-testid="ficha-row">
+      {columns.map((c, i) => (
+        <td key={i} className={`col-${c.field}`}>
+          {c.field === 'tags' ? (
+            <div className="tags">{f.tags.map((t) => <span key={t} className="tag">{t}</span>)}</div>
+          ) : c.field === 'num' ? (
+            <>
+              {cellText(f, c, source)}
+              {f.anchor ? <span className="dot linked" title="Pasaje marcado en el PDF" /> : !f.sourceId ? <span className="dot orphan" title="Sin fuente vinculada" /> : null}
+            </>
+          ) : (
+            <div className="clamp">{cellText(f, c, source)}</div>
+          )}
+        </td>
+      ))}
+    </tr>
+  )
+})

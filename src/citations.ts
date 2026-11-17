@@ -73,8 +73,20 @@ function engine(o: CiteOptions) {
 
 function register(csl: CslItem) {
   const prev = items.get(csl.id)
+  if (prev === csl) return
   if (prev && JSON.stringify(prev) !== JSON.stringify(csl)) engines.clear() // citeproc guarda copia de los ítems
   items.set(csl.id, csl)
+}
+
+// Lo ya formateado, por ítem: citeproc tarda milisegundos por cita y las listas tienen cientos.
+// El almacén sustituye el objeto CSL al editar una fuente, así que lo cacheado nunca queda viejo.
+const formatted = new WeakMap<CslItem, Map<string, string>>()
+function memo(csl: CslItem, key: string, make: () => string): string {
+  let m = formatted.get(csl)
+  if (!m) formatted.set(csl, (m = new Map()))
+  let v = m.get(key)
+  if (v === undefined) m.set(key, (v = make()))
+  return v
 }
 
 /**
@@ -96,6 +108,10 @@ function locate(page: string, canonical?: string): Record<string, string> {
 
 /** Cita (HTML) de una fuente con su página (o su referencia canónica), p. ej. «Pini, “Scotus on Individuation”, 69». */
 export function formatCitation(csl: CslItem, page: string, o: CiteOptions, canonical?: string): string {
+  return memo(csl, `c|${o.style}|${o.locale}|${page}|${canonical ?? ''}`, () => citationNow(csl, page, o, canonical))
+}
+
+function citationNow(csl: CslItem, page: string, o: CiteOptions, canonical?: string): string {
   try {
     register(csl)
     const e = engine(o)
@@ -109,6 +125,10 @@ export function formatCitation(csl: CslItem, page: string, o: CiteOptions, canon
 
 /** Entrada de bibliografía (HTML) de una fuente. */
 export function formatBibliographyEntry(csl: CslItem, o: CiteOptions): string {
+  return memo(csl, `b|${o.style}|${o.locale}`, () => bibliographyNow(csl, o))
+}
+
+function bibliographyNow(csl: CslItem, o: CiteOptions): string {
   try {
     register(csl)
     const e = engine(o)

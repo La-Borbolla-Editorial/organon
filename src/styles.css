@@ -15,6 +15,7 @@
   --accent: #7a2e2e;
   --accent-ink: #ffffff;
   --selection: #e7dcc8;
+  --caret: #7a2e2e;
   --ok: #2f6b3f;
   --ok-bg: #e5f1e7;
   --ok-line: #b9d8bf;
@@ -51,6 +52,8 @@
 }
 * { box-sizing: border-box; }
 ::selection { background: var(--selection); }
+input, textarea, [contenteditable] { caret-color: var(--caret); }
+.cm-editor .cm-cursorLayer .cm-cursor, .cm-editor .cm-dropCursor { border-left-color: var(--caret); }
 .md-editor .cm-selectionBackground, .md-editor .cm-focused .cm-selectionBackground, .md-editor .cm-content ::selection { background: var(--selection) !important; }
 html, body, #root { height: 100%; margin: 0; }
 body { background: var(--bg); overflow: hidden; }
@@ -149,6 +152,7 @@ textarea { resize: vertical; width: 100%; }
 
 .ficha-list { display: grid; gap: 10px; }
 .ficha-card { border: 1px solid var(--line); border-radius: 8px; padding: 10px 12px; display: grid; gap: 7px; cursor: pointer; }
+.ficha-list .ficha-card { content-visibility: auto; contain-intrinsic-size: auto 150px; }
 .ficha-card:hover { border-color: var(--line-strong); }
 .ficha-card.active { border-color: var(--mark); background: var(--mark-bg); }
 .ficha-card header { display: flex; gap: 8px; align-items: baseline; }
@@ -245,6 +249,7 @@ table.fichas th { position: sticky; top: 0; z-index: 1; background: var(--subtle
 .col-resizer:hover::after, table.fichas.resizing .col-resizer:hover::after { background: var(--accent); }
 table.fichas td { padding: 7px 8px; border-bottom: 1px solid var(--line); vertical-align: top; overflow: hidden; overflow-wrap: anywhere; }
 table.fichas tbody tr { cursor: pointer; }
+.list-more { text-align: center; padding: 14px; }
 table.fichas tbody tr:hover { background: var(--hover); }
 table.fichas tbody tr.current { background: var(--mark-bg); box-shadow: inset 3px 0 0 var(--mark); }
 .clamp { display: -webkit-box; -webkit-line-clamp: 4; -webkit-box-orient: vertical; overflow: hidden; white-space: pre-line; }
@@ -312,7 +317,7 @@ button.link.bad { color: var(--bad); }
 .md-editor .cm-editor { height: 100%; }
 .md-editor .cm-editor.cm-focused { outline: none; }
 .md-editor .cm-scroller { font: var(--size-editor)/1.65 var(--font-editor); padding: 28px 0 40vh; }
-.md-editor .cm-content { max-width: 720px; margin: 0 auto; padding: 0 28px; caret-color: var(--accent); }
+.md-editor .cm-content { max-width: 720px; margin: 0 auto; padding: 0 28px; caret-color: var(--caret); }
 .md-editor .cm-line { padding: 0; }
 .cm-ficha { border-radius: 4px; padding: 1px 2px; font-family: var(--font-ui); font-size: 0.82em; }
 .cm-ficha-insert { background: var(--ref-insert-bg); color: var(--ref-insert-ink); }
