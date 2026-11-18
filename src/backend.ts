@@ -5,6 +5,9 @@ import { invoke } from '@tauri-apps/api/core'
 /** true dentro de la app nativa; false en el navegador de desarrollo. */
 export const isNative = '__TAURI_INTERNALS__' in window
 
+/** Tecla de los atajos tal como se nombra en este sistema: «⌘» en macOS, «Ctrl+» en Windows. */
+export const MOD_KEY = /Mac|iPhone|iPad/.test(navigator.userAgent) ? '⌘' : 'Ctrl+'
+
 async function dev(cmd: string, init: RequestInit): Promise<Response> {
   const res = await fetch(`/__dev/invoke/${cmd}`, { method: 'POST', ...init })
   if (!res.ok) throw new Error(await res.text())

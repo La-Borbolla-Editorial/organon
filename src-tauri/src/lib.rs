@@ -400,13 +400,31 @@ fn print_page(window: tauri::WebviewWindow) -> Result<(), String> {
     window.print().map_err(err)
 }
 
+/// Abre un enlace o una carpeta con la aplicación del sistema (navegador, Finder, Explorador).
+fn open_with_system(target: &std::ffi::OsStr) -> Result<(), String> {
+    #[cfg(target_os = "macos")]
+    let mut cmd = std::process::Command::new("open");
+    #[cfg(target_os = "windows")]
+    let mut cmd = if target.to_string_lossy().starts_with("https://") {
+        // Sin pasar por cmd.exe: así un «&» en la dirección no se interpreta.
+        let mut c = std::process::Command::new("rundll32");
+        c.arg("url.dll,FileProtocolHandler");
+        c
+    } else {
+        std::process::Command::new("explorer")
+    };
+    #[cfg(not(any(target_os = "macos", target_os = "windows")))]
+    let mut cmd = std::process::Command::new("xdg-open");
+    cmd.arg(target).spawn().map(|_| ()).map_err(err)
+}
+
 /// Abre un enlace web en el navegador del sistema.
 #[tauri::command]
 fn open_url(url: String) -> Result<(), String> {
     if !url.starts_with("https://") {
         return Err("Solo se abren enlaces https".into());
     }
-    std::process::Command::new("open").arg(&url).spawn().map(|_| ()).map_err(err)
+    open_with_system(url.as_ref())
 }
 
 // ---- Ajustes de Organon y temas (en la carpeta de configuración de la app) -----
@@ -477,10 +495,10 @@ fn delete_theme(app: AppHandle, file: String) -> Result<(), String> {
     fs::remove_file(themes_dir(&app)?.join(file)).map_err(err)
 }
 
-/// Abre la carpeta de temas en el Finder.
+/// Abre la carpeta de temas en el Finder (o el Explorador de Windows).
 #[tauri::command]
 fn reveal_themes_folder(app: AppHandle) -> Result<(), String> {
-    std::process::Command::new("open").arg(themes_dir(&app)?).spawn().map(|_| ()).map_err(err)
+    open_with_system(themes_dir(&app)?.as_os_str())
 }
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]

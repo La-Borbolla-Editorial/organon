@@ -1,0 +1,147 @@
+# Compila Organon para macOS (Apple Silicon e Intel) y Windows y sube los
+# instaladores al release de GitHub.
+#
+# Se lanza solo al subir una etiqueta de versión (git push origin v0.5.2), o a
+# mano desde la pestaña Actions → Release → Run workflow:
+#   - con una etiqueta que ya exista: añade los instaladores a ese release;
+#   - sin etiqueta: compilación de prueba de la rama elegida. Los archivos quedan
+#     en la página de esa ejecución (Artifacts), no se publica nada.
+#
+# Si el release no existe, se crea como borrador con las notas del CHANGELOG y
+# se publica cuando las tres compilaciones terminan bien. Si ya existe, solo se
+# le añaden (o reemplazan) los archivos.
+name: Release
+
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Etiqueta del release (p. ej. v0.5.1). Vacío: solo compilación de prueba.'
+        required: false
+        default: ''
+
+permissions:
+  contents: write
+
+env:
+  # Vacío en una compilación de prueba.
+  TAG: ${{ github.event_name == 'push' && github.ref_name || inputs.tag }}
+
+jobs:
+  prepare:
+    if: github.event_name == 'push' || inputs.tag != ''
+    runs-on: ubuntu-latest
+    outputs:
+      created: ${{ steps.release.outputs.created }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ env.TAG }}
+      - name: Crear el release si no existe
+        id: release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            echo "created=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          VERSION="${TAG#v}"
+          awk -v v="$VERSION" '$0 == "## " v {f=1; next} /^## /{if (f) exit} f' CHANGELOG.md > notes.md
+          {
+            echo
+            echo "### Descargas"
+            echo "- **macOS, Apple Silicon (M1 o posterior):** \`Organon-$VERSION-macos-arm64.zip\`"
+            echo "- **macOS, Intel:** \`Organon-$VERSION-macos-x64.zip\`"
+            echo "- **Windows:** \`Organon-$VERSION-windows-x64-setup.exe\`"
+            echo
+            echo "La app no está firmada. En macOS, la primera vez: clic derecho → Abrir."
+            echo "En Windows, si aparece «Windows protegió tu PC»: Más información → Ejecutar de todas formas."
+          } >> notes.md
+          gh release create "$TAG" --draft --verify-tag --title "$TAG" --notes-file notes.md
+          echo "created=true" >> "$GITHUB_OUTPUT"
+
+  build:
+    needs: prepare
+    # También cuando `prepare` se salta (compilación de prueba).
+    if: ${{ !failure() && !cancelled() }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: macos-latest
+            target: aarch64-apple-darwin
+            asset: macos-arm64
+          - os: macos-latest
+            target: x86_64-apple-darwin
+            asset: macos-x64
+          - os: windows-latest
+            target: x86_64-pc-windows-msvc
+            asset: windows-x64
+    runs-on: ${{ matrix.os }}
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ env.TAG || github.ref }}
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.target }}
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri
+          key: ${{ matrix.target }}
+      - run: npm ci
+      - run: npm test
+      - name: Nombre de los archivos
+        run: |
+          if [ -n "$TAG" ]; then echo "VERSION=${TAG#v}" >> "$GITHUB_ENV"
+          else echo "VERSION=prueba-${GITHUB_SHA::7}" >> "$GITHUB_ENV"; fi
+
+      - name: Compilar (macOS)
+        if: runner.os == 'macOS'
+        run: |
+          npx tauri build --bundles app --target ${{ matrix.target }}
+          FILE="Organon-$VERSION-${{ matrix.asset }}.zip"
+          ditto -c -k --sequesterRsrc --keepParent "src-tauri/target/${{ matrix.target }}/release/bundle/macos/Organon.app" "$FILE"
+          echo "ASSET=$FILE" >> "$GITHUB_ENV"
+
+      - name: Compilar (Windows)
+        if: runner.os == 'Windows'
+        run: |
+          npx tauri build --bundles nsis --target ${{ matrix.target }}
+          FILE="Organon-$VERSION-${{ matrix.asset }}-setup.exe"
+          cp src-tauri/target/${{ matrix.target }}/release/bundle/nsis/*-setup.exe "$FILE"
+          echo "ASSET=$FILE" >> "$GITHUB_ENV"
+
+      - name: Subir al release
+        if: env.TAG != ''
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release upload "$TAG" "$ASSET" --clobber
+      - name: Guardar la compilación de prueba
+        if: env.TAG == ''
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ env.ASSET }}
+          path: ${{ env.ASSET }}
+          retention-days: 14
+
+  publish:
+    needs: [prepare, build]
+    if: needs.prepare.outputs.created == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Publicar el release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: gh release edit "$TAG" --draft=false --latest

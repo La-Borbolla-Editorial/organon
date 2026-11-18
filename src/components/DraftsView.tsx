@@ -2,7 +2,7 @@ import MarkdownIt from 'markdown-it'
 import footnote from 'markdown-it-footnote'
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
-import { backend, type ProjectInfo } from '../backend'
+import { backend, MOD_KEY, type ProjectInfo } from '../backend'
 import { authorsLabel, canonicalText, yearLabel, type CiteOptions } from '../citations'
 import { bibliographyHeading, canonicalRef, defaultFichero, lookupRef, resolveDraft, setFrontMatter, tokenText, type DraftContext, type RenderedToken, type Token } from '../draft'
 import { getSettings, listFichas, listFicheros, listSources, setSettings } from '../store'
@@ -414,7 +414,7 @@ export function DraftsView({ project, cite, onSection, onSwitchProject, onOpenFi
                   <button className={mode === 'markdown' ? 'current' : ''} onClick={() => setMode('markdown')} data-testid="mode-markdown" title="Ve el texto tal como se guarda, con su sintaxis.">Markdown</button>
                 </div>
                 <span className="bar-sep" />
-                {([['bold', 'N', 'Negrita (⌘B)'], ['italic', 'C', 'Cursiva (⌘I)'], ['h1', 'T1', 'Título'], ['h2', 'T2', 'Apartado'], ['h3', 'T3', 'Subapartado'], ['list', '•', 'Lista (Tab anida un punto)'], ['numbered', '1.', 'Lista numerada'], ['quote', '”', 'Cita en bloque']] as [Format, string, string][]).map(([f, label, title]) => (
+                {([['bold', 'N', `Negrita (${MOD_KEY}B)`], ['italic', 'C', `Cursiva (${MOD_KEY}I)`], ['h1', 'T1', 'Título'], ['h2', 'T2', 'Apartado'], ['h3', 'T3', 'Subapartado'], ['list', '•', 'Lista (Tab anida un punto)'], ['numbered', '1.', 'Lista numerada'], ['quote', '”', 'Cita en bloque']] as [Format, string, string][]).map(([f, label, title]) => (
                   <button key={f} className={`fmt fmt-${f}`} title={title} aria-label={title} onMouseDown={(e) => e.preventDefault()} onClick={() => format(f)} data-testid={`fmt-${f}`}>{label}</button>
                 ))}
               </div>
