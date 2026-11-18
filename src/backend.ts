@@ -25,6 +25,9 @@ export interface ProjectInfo {
 
 export type Stamps = Record<string, string | null>
 
+export type TrashName = 'pdfs' | 'escritura'
+export type TrashInfo = Record<TrashName, { count: number; bytes: number }>
+
 export const backend = {
   // ---- Proyectos ----
   recentProjects: () => call<ProjectInfo[]>('recent_projects'),
@@ -79,6 +82,12 @@ export const backend = {
     if (isNative) await invoke('save_pdf', bytes, { headers: { 'x-name': name } })
     else await dev('save_pdf', { body: bytes as BodyInit, headers: { 'x-name': name } })
   },
+  /** Cuántos archivos (y bytes) hay en cada papelera del proyecto. */
+  trashInfo: () => call<TrashInfo>('trash_info'),
+  /** Borra de verdad el contenido de una papelera. No se puede deshacer. */
+  emptyTrash: (which: TrashName) => call<void>('empty_trash', { which }),
+  /** Mueve el PDF a `pdfs/.papelera/`. */
+  trashPdf: (name: string) => call<void>('trash_pdf', { name }),
   async readPdf(name: string): Promise<Uint8Array> {
     if (isNative) return new Uint8Array(await invoke<ArrayBuffer>('read_pdf', { name }))
     return new Uint8Array(await (await dev('read_pdf', { body: JSON.stringify({ name }) })).arrayBuffer())

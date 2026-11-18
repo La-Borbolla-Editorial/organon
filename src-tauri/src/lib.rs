@@ -320,6 +320,65 @@ fn save_pdf(state: State<'_, Current>, request: tauri::ipc::Request<'_>) -> Resu
     }
 }
 
+/// No borra: mueve el PDF a `pdfs/.papelera/` (la fuente se queda sin PDF).
+#[tauri::command]
+fn trash_pdf(state: State<'_, Current>, name: String) -> Result<(), String> {
+    safe_name(&name, ".pdf")?;
+    let pdfs = current(&state)?.join("pdfs");
+    let trash = pdfs.join(".papelera");
+    fs::create_dir_all(&trash).map_err(err)?;
+    let when = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).map_err(err)?.as_secs();
+    let stem = name.trim_end_matches(".pdf");
+    fs::rename(pdfs.join(&name), trash.join(format!("{stem} ({when}).pdf"))).map_err(err)
+}
+
+/// Lo que hay en una papelera del proyecto.
+#[derive(Serialize)]
+struct TrashBin {
+    count: usize,
+    bytes: u64,
+}
+
+#[derive(Serialize)]
+struct TrashInfo {
+    pdfs: TrashBin,
+    escritura: TrashBin,
+}
+
+fn trash_dir(dir: &Path, which: &str) -> Result<PathBuf, String> {
+    match which {
+        "pdfs" | "escritura" => Ok(dir.join(which).join(".papelera")),
+        _ => Err(format!("Papelera desconocida: {which}")),
+    }
+}
+
+fn trash_files(trash: &Path) -> Vec<fs::DirEntry> {
+    fs::read_dir(trash)
+        .map(|rd| rd.filter_map(Result::ok).filter(|e| e.file_type().map(|t| t.is_file()).unwrap_or(false)).collect())
+        .unwrap_or_default()
+}
+
+fn trash_bin(trash: &Path) -> TrashBin {
+    let files = trash_files(trash);
+    TrashBin { count: files.len(), bytes: files.iter().filter_map(|e| e.metadata().ok()).map(|m| m.len()).sum() }
+}
+
+#[tauri::command]
+fn trash_info(state: State<'_, Current>) -> Result<TrashInfo, String> {
+    let dir = current(&state)?;
+    Ok(TrashInfo { pdfs: trash_bin(&trash_dir(&dir, "pdfs")?), escritura: trash_bin(&trash_dir(&dir, "escritura")?) })
+}
+
+/// Borra de verdad lo que hay en una papelera del proyecto (`pdfs` o `escritura`).
+#[tauri::command]
+fn empty_trash(state: State<'_, Current>, which: String) -> Result<(), String> {
+    let trash = trash_dir(&current(&state)?, &which)?;
+    for e in trash_files(&trash) {
+        fs::remove_file(e.path()).map_err(err)?;
+    }
+    Ok(())
+}
+
 #[tauri::command]
 fn read_pdf(state: State<'_, Current>, name: String) -> Result<tauri::ipc::Response, String> {
     safe_name(&name, ".pdf")?;
@@ -431,7 +490,7 @@ pub fn run() {
         .manage(Current::default())
         .invoke_handler(tauri::generate_handler![
             recent_projects, forget_project, current_project, pick_folder, open_project, close_project,
-            read_data, data_stamps, write_data, list_drafts, read_draft, write_draft, rename_draft, trash_draft, save_binary_file, print_page, save_pdf, read_pdf, save_text_file, open_url,
+            read_data, data_stamps, write_data, list_drafts, read_draft, write_draft, rename_draft, trash_draft, save_binary_file, print_page, save_pdf, read_pdf, trash_pdf, trash_info, empty_trash, save_text_file, open_url,
             read_app_settings, write_app_settings, list_themes, write_theme, delete_theme, reveal_themes_folder
         ])
         .run(tauri::generate_context!())

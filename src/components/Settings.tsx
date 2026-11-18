@@ -1,6 +1,6 @@
 import { createContext, useContext, useEffect, useMemo, useState } from 'react'
 import { appSettings, loadThemes, saveAppSettings, type ThemeEntry } from '../appearance'
-import { backend, isNative, type ProjectInfo } from '../backend'
+import { backend, isNative, type ProjectInfo, type TrashInfo, type TrashName } from '../backend'
 import { LOCALES, STYLES, type CiteOptions, type LocaleId, type StyleId } from '../citations'
 import { applyTheme, COLOR_TOKENS, FONT_PRESETS, ORGANON, themeFileName, themeToJson, TYPE_TOKENS, type Theme } from '../theme'
 
@@ -169,10 +169,68 @@ export function Settings({ project, cite, onCiteChange, onClose }: Props) {
                 {Object.entries(LOCALES).map(([id, name]) => <option key={id} value={id}>{name}</option>)}
               </select>
             </label>
+            <ProjectTrash />
           </div>
         )}
       </div>
     </div>
+  )
+}
+
+const TRASH: { which: TrashName; label: string; noun: string; where: string }[] = [
+  { which: 'pdfs', label: 'PDF quitados de sus fuentes', noun: 'PDF', where: 'pdfs/.papelera/' },
+  { which: 'escritura', label: 'Textos eliminados de Escritura', noun: 'texto(s)', where: 'escritura/.papelera/' },
+]
+
+const size = (bytes: number) => (bytes < 1024 * 1024 ? `${Math.max(1, Math.round(bytes / 1024))} KB` : `${(bytes / 1024 / 1024).toFixed(1)} MB`)
+
+/** Las papeleras del proyecto: lo quitado no se borra hasta vaciarlas aquí. */
+function ProjectTrash() {
+  const [info, setInfo] = useState<TrashInfo | null>(null)
+  const [confirm, setConfirm] = useState<TrashName | null>(null)
+  const [error, setError] = useState('')
+  const load = () => backend.trashInfo().then(setInfo).catch((e) => setError(`No se pudo leer la papelera: ${e}`))
+  useEffect(() => { void load() }, [])
+
+  const empty = async (which: TrashName) => {
+    setError('')
+    try {
+      await backend.emptyTrash(which)
+    } catch (e) {
+      setError(`No se pudo vaciar la papelera: ${e instanceof Error ? e.message : e}`)
+    }
+    setConfirm(null)
+    await load()
+  }
+
+  return (
+    <section className="trash" data-testid="project-trash">
+      <h3>Papelera</h3>
+      <p className="muted small">Al quitar un PDF o eliminar un texto, el archivo no se borra: queda en la papelera del proyecto. Vaciarla lo borra para siempre.</p>
+      {error && <div className="banner error">{error}</div>}
+      {TRASH.map(({ which, label, noun, where }) => {
+        const bin = info?.[which]
+        return (
+          <div key={which} className="trash-row page-row">
+            <span>
+              {label} <code className="muted small">{where}</code>
+              <br />
+              <span className="muted small" data-testid={`trash-${which}`}>{!bin ? '…' : bin.count ? `${bin.count} ${noun} · ${size(bin.bytes)}` : 'Vacía'}</span>
+            </span>
+            <div className="spacer" />
+            {confirm === which ? (
+              <div className="trash-confirm">
+                <span className="muted small">¿Borrar {bin?.count} {noun} para siempre? No se puede deshacer.</span>
+                <button className="danger" onClick={() => void empty(which)} data-testid={`trash-${which}-confirm`}>Borrar para siempre</button>
+                <button onClick={() => setConfirm(null)}>No</button>
+              </div>
+            ) : (
+              <button onClick={() => setConfirm(which)} disabled={!bin?.count} data-testid={`trash-${which}-empty`}>Vaciar…</button>
+            )}
+          </div>
+        )
+      })}
+    </section>
   )
 }
 

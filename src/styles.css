@@ -249,6 +249,9 @@ table.fichas th { position: sticky; top: 0; z-index: 1; background: var(--subtle
 .col-resizer:hover::after, table.fichas.resizing .col-resizer:hover::after { background: var(--accent); }
 table.fichas td { padding: 7px 8px; border-bottom: 1px solid var(--line); vertical-align: top; overflow: hidden; overflow-wrap: anywhere; }
 table.fichas tbody tr { cursor: pointer; }
+.trash { margin-top: 18px; border-top: 1px solid var(--line); padding-top: 14px; display: grid; gap: 10px; }
+.trash-row { align-items: center; flex-wrap: wrap; }
+.trash-confirm { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; justify-content: flex-end; }
 .list-more { text-align: center; padding: 14px; }
 table.fichas tbody tr:hover { background: var(--hover); }
 table.fichas tbody tr.current { background: var(--mark-bg); box-shadow: inset 3px 0 0 var(--mark); }

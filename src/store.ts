@@ -257,6 +257,19 @@ export async function setSourcePdf(id: string, pdfFile: string, pdfPages: number
 }
 
 /**
+ * Quita el PDF de una fuente: la fuente y sus fichas se quedan (con su texto, su
+ * página y su posición en el PDF, por si se vuelve a adjuntar el mismo). El archivo
+ * se mueve a `pdfs/.papelera/`.
+ */
+export async function removeSourcePdf(id: string): Promise<void> {
+  const file = db().sources.find((s) => s.id === id)?.pdfFile
+  if (!file) return
+  replaceSource(id, { pdfFile: null, pdfPages: null, paginationVerified: false })
+  await persist('sources')
+  await backend.trashPdf(file).catch(() => {}) // si no se puede mover, solo queda un archivo suelto en pdfs/
+}
+
+/**
  * Guarda la paginación de una fuente y, a la vez, las páginas recalculadas de
  * las fichas que el usuario aceptó cambiar (los dos archivos o ninguno).
  */

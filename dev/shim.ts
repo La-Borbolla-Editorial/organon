@@ -78,6 +78,24 @@ export function devBackend(): Plugin {
           if (existsSync(draft(to))) throw new Error(`Ya existe un texto llamado «${to}»`)
           renameSync(draft(from), draft(to))
         },
+        trash_info: () => {
+          const bin = (which: string) => {
+            const dir = join(project(), which, '.papelera')
+            const files = existsSync(dir) ? readdirSync(dir).map((f) => join(dir, f)).filter((f) => statSync(f).isFile()) : []
+            return { count: files.length, bytes: files.reduce((n, f) => n + statSync(f).size, 0) }
+          }
+          return { pdfs: bin('pdfs'), escritura: bin('escritura') }
+        },
+        empty_trash: ({ which }) => {
+          if (which !== 'pdfs' && which !== 'escritura') throw new Error(`Papelera desconocida: ${which}`)
+          const dir = join(project(), which, '.papelera')
+          if (existsSync(dir)) for (const f of readdirSync(dir)) if (statSync(join(dir, f)).isFile()) unlinkSync(join(dir, f))
+        },
+        trash_pdf: ({ name }) => {
+          const pdfs = join(project(), 'pdfs')
+          mkdirSync(join(pdfs, '.papelera'), { recursive: true })
+          renameSync(join(pdfs, safe(name, '.pdf')), join(pdfs, '.papelera', `${name.replace(/\.pdf$/, '')} (${Math.floor(Date.now() / 1000)}).pdf`))
+        },
         trash_draft: ({ name }) => {
           const trash = join(project(), 'escritura', '.papelera')
           mkdirSync(trash, { recursive: true })

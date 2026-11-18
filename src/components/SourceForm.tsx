@@ -3,7 +3,7 @@ import { formatBibliographyEntry, type CiteOptions } from '../citations'
 import { lookup, parseIdentifier } from '../lookup'
 import { applyFields, EMPTY_FIELDS, fieldsFor, fieldsFromCsl, findDuplicate, SOURCE_TYPES, type SourceFields } from '../source-form'
 import { attachPdf } from '../pdf/attach'
-import { deleteSource, getSource, saveSource } from '../store'
+import { deleteSource, getSource, removeSourcePdf, saveSource } from '../store'
 import type { Source } from '../types'
 
 interface Props {
@@ -39,6 +39,8 @@ export function SourceForm({ source, sources, fichaCount, cite, onDone, onCancel
   const [saving, setSaving] = useState(false)
   // PDF elegido en el formulario: se adjunta al guardar.
   const [pdf, setPdf] = useState<File | null>(null)
+  // Quitar el PDF actual (se aplica al guardar).
+  const [removePdf, setRemovePdf] = useState(false)
   const [confirmDelete, setConfirmDelete] = useState(false)
   const [canonical, setCanonical] = useState(source?.canonical ?? false)
   const pdfInput = useRef<HTMLInputElement>(null)
@@ -72,6 +74,7 @@ export function SourceForm({ source, sources, fichaCount, cite, onDone, onCancel
     setSaving(true)
     try {
       const id = await saveSource(csl, source?.id, { canonical })
+      if (removePdf && !pdf) await removeSourcePdf(id)
       if (pdf) {
         const saved = await getSource(id)
         try {
@@ -109,12 +112,22 @@ export function SourceForm({ source, sources, fichaCount, cite, onDone, onCancel
           <h3>PDF</h3>
           <div className="page-row">
             <span data-testid="source-pdf-state">
-              {pdf ? <>Se adjuntará <strong>{pdf.name}</strong> al guardar.</> : source?.pdfFile ? `${source.pdfPages} hojas · paginación ${source.paginationVerified ? 'verificada' : 'sin verificar'}` : 'Sin PDF adjunto.'}
+              {pdf ? <>Se adjuntará <strong>{pdf.name}</strong> al guardar.</>
+                : removePdf ? <>Se quitará el PDF al guardar.</>
+                : source?.pdfFile ? `${source.pdfPages} hojas · paginación ${source.paginationVerified ? 'verificada' : 'sin verificar'}` : 'Sin PDF adjunto.'}
             </span>
             <div className="spacer" />
             {pdf && <button type="button" className="link" onClick={() => setPdf(null)}>Quitar</button>}
-            <button type="button" onClick={() => pdfInput.current?.click()} data-testid="source-pdf-button">{source?.pdfFile || pdf ? 'Cambiar PDF…' : 'Adjuntar PDF…'}</button>
+            {removePdf && <button type="button" className="link" onClick={() => setRemovePdf(false)} data-testid="source-pdf-keep">No quitarlo</button>}
+            {source?.pdfFile && !pdf && !removePdf && <button type="button" className="link subtle" onClick={() => setRemovePdf(true)} data-testid="source-pdf-remove">Quitar el PDF</button>}
+            <button type="button" onClick={() => { setRemovePdf(false); pdfInput.current?.click() }} data-testid="source-pdf-button">{source?.pdfFile || pdf ? 'Cambiar PDF…' : 'Adjuntar PDF…'}</button>
           </div>
+          {removePdf && (
+            <p className="page-warning" data-testid="source-pdf-remove-note">
+              La fuente se queda en la biblioteca, sin PDF. El archivo pasa a <code>pdfs/.papelera/</code>.
+              {fichaCount > 0 && ` Sus ${fichaCount} ficha(s) conservan su texto y su página; si vuelves a adjuntar el mismo PDF, recuperan sus marcas.`}
+            </p>
+          )}
           {pdf && source?.pdfFile && (
             <p className="page-warning">
               Sustituirá al PDF actual y habrá que verificar otra vez la paginación.

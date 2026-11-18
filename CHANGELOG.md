@@ -1,5 +1,13 @@
 # Cambios
 
+## 0.5.1
+
+- Se puede **quitar el PDF de una fuente** (Biblioteca → Editar → «Quitar el PDF»). La fuente y sus
+  fichas se quedan; el archivo pasa a `pdfs/.papelera/` en la carpeta del proyecto. Las fichas
+  conservan su texto, su página y su marca en el PDF, por si se vuelve a adjuntar el mismo.
+- **Papelera del proyecto** en Ajustes → Este proyecto: muestra lo que hay en la papelera de PDF y
+  en la de textos de Escritura, y permite vaciarlas (se borra para siempre, con confirmación).
+
 ## 0.5.0
 
 - **Rendimiento con proyectos grandes** (probado con 300 fuentes, 4000 fichas y un PDF de 500 hojas):
