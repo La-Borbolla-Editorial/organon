@@ -1,0 +1,49 @@
+---
+title: Organon
+description: Lector de PDF, fichero y editor para escribir una tesis, con la cita y la página impresa correctas.
+template: splash
+hero:
+  tagline: Lees y marcas un pasaje, y Organon crea la ficha con la cita, la fuente y la página impresa correcta. Escribes citando esas fichas, y Organon compone las notas al pie y la bibliografía.
+  actions:
+    - text: Empezar en cinco minutos
+      link: /organon/empezar/tutorial/
+      icon: right-arrow
+    - text: Descargar
+      link: https://github.com/La-Borbolla-Editorial/organon/releases/latest
+      icon: external
+      variant: minimal
+---
+
+import { Card, CardGrid, LinkCard } from '@astrojs/starlight/components'
+
+Organon reúne en una sola herramienta lo que antes pedía tres: un gestor de referencias para leer y marcar, una hoja de cálculo como fichero y un procesador de textos para citar.
+
+<CardGrid>
+  <Card title="Biblioteca" icon="open-book">
+    Fuentes a mano, por DOI o ISBN, o importadas desde Zotero. Cada una con su PDF.
+  </Card>
+  <Card title="Lector" icon="document">
+    Seleccionas un pasaje, pulsas **+ Ficha** y la cita queda enlazada al punto exacto del PDF.
+  </Card>
+  <Card title="La página correcta" icon="approve-check">
+    Organon deduce la página impresa que hay que citar, aunque no coincida con la hoja del PDF.
+  </Card>
+  <Card title="Fichero" icon="list-format">
+    Tus fichas en una tabla con tus columnas, con ida y vuelta a Google Sheets por CSV.
+  </Card>
+  <Card title="Escritura" icon="pencil">
+    Markdown con `{f. 51}` y `[f. 51]`: notas al pie numeradas y bibliografía compuestas solas.
+  </Card>
+  <Card title="Exportación" icon="download">
+    Word con notas al pie de verdad, PDF, Markdown y un «PDF con fichas» para trabajar.
+  </Card>
+</CardGrid>
+
+## Por dónde seguir
+
+<CardGrid>
+  <LinkCard title="Instalación" description="macOS (Apple Silicon e Intel) y Windows." href="/organon/empezar/instalacion/" />
+  <LinkCard title="El flujo de trabajo completo" description="De la bibliografía al capítulo entregado, paso a paso." href="/organon/guias/de-la-lectura-al-capitulo/" />
+  <LinkCard title="Sintaxis de las citas" description="Todas las formas de citar una ficha, con el resultado de cada una." href="/organon/referencia/sintaxis-de-citas/" />
+  <LinkCard title="La página impresa" description="Por qué la hoja del PDF no es la página que se cita, y cómo lo resuelve Organon." href="/organon/conceptos/pagina-impresa/" />
+</CardGrid>

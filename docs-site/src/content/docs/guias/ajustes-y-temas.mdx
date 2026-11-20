@@ -1,0 +1,85 @@
+---
+title: Ajustes y temas
+description: El estilo de cita y el idioma del proyecto, la papelera, y la apariencia de Organon con temas propios.
+sidebar:
+  order: 11
+---
+
+import { Steps, Aside } from '@astrojs/starlight/components'
+
+**Ajustes** se abre con ⚙︎ en la barra superior. Tiene dos pestañas: **Apariencia**, que es de Organon y se mantiene al cambiar de proyecto, y **Este proyecto**, que se guarda dentro de la carpeta del proyecto.
+
+## Este proyecto
+
+### Estilo de cita e idioma
+
+- **Estilo de cita:** Chicago (notas abreviadas y bibliografía), Chicago (notas completas y bibliografía), Chicago (autor-año), APA 7.ª o MLA 9.ª. Ver [Estilos de cita](/organon/referencia/estilos-de-cita/) para un ejemplo de cada uno.
+- **Idioma de las citas:** Español o English. Cambia los términos («editado por» / «edited by», «vol.», «en» / «in»), las comillas («» o “”) y el encabezado de la bibliografía.
+
+El cambio se aplica al instante a todo el proyecto: la Biblioteca, las citas de las fichas, la Vista final y las exportaciones. Tus textos no cambian, porque citan fichas y no textos ya formateados. Puedes pasar un capítulo entero de Chicago a APA con un clic.
+
+### Papelera del proyecto
+
+Organon no borra archivos cuando quitas un PDF de una fuente o eliminas un texto de Escritura: los mueve a la papelera del proyecto.
+
+| Papelera | Carpeta |
+| --- | --- |
+| PDF quitados de sus fuentes | `pdfs/.papelera/` |
+| Textos eliminados de Escritura | `escritura/.papelera/` |
+
+Ajustes muestra cuántos archivos hay en cada una y cuánto ocupan. **Vaciar…** las borra para siempre, después de confirmar.
+
+Para **recuperar** un archivo antes de vaciar la papelera:
+
+- **Un texto:** mueve el `.md` de `escritura/.papelera/` a `escritura/` con el Finder o el Explorador. Aparecerá en la lista de Textos.
+- **Un PDF:** adjúntalo de nuevo a su fuente con **Editar → Adjuntar PDF…** eligiendo el archivo de `pdfs/.papelera/`. Las fichas recuperan sus resaltados.
+
+## Apariencia
+
+### Elegir un tema
+
+Organon trae cuatro temas:
+
+| Tema | Esquema |
+| --- | --- |
+| **Organon** | Claro, papel cálido y acento granate |
+| **Sepia** | Claro, en tonos sepia |
+| **Noche** | Oscuro |
+| **Gryphon** | Oscuro, basado en Gryphon Code Dark |
+
+Haz clic en uno para aplicarlo.
+
+### Personalizar un tema
+
+<Steps>
+
+1. Elige el tema del que quieres partir y pulsa **Personalizar «Organon»…**
+
+2. Cambia lo que quieras. Los cambios se ven aplicados en vivo mientras editas:
+   - **Colores**, agrupados en *Superficies*, *Texto*, *Acento*, *Avisos* y *Fichas y referencias*. Entre estos últimos están el color de los resaltados en el PDF y el de las referencias `{f. N}` y `[f. N]` en el editor.
+   - **Tipografía**: la de la interfaz, la de las citas y la vista final, la del editor de Escritura y la de código, y los tamaños de la interfaz y del editor. Puedes elegir una de la lista o escribir **Otra…** cualquier tipografía instalada.
+
+3. Guarda:
+   - **Guardar como tema mío**, si partiste de un tema incluido. El incluido no cambia.
+   - **Guardar**, si partiste de un tema tuyo.
+   - **Guardar como tema nuevo**, para tener una variante.
+   - **Descartar cambios** vuelve a como estaba.
+
+</Steps>
+
+Para un tema propio también aparece **Eliminar este tema**.
+
+### Temas como archivos
+
+Cada tema propio es un archivo `.json` en la carpeta de configuración de Organon. **Abrir la carpeta de temas** la abre en el Finder o el Explorador:
+
+| Sistema | Carpeta |
+| --- | --- |
+| macOS | `~/Library/Application Support/app.organon.desktop/temas/` |
+| Windows | `%APPDATA%\app.organon.desktop\temas\` |
+
+Puedes copiar un tema a otro equipo, compartirlo o editarlo a mano. El formato está en [Formato de los temas](/organon/referencia/formato-de-tema/). Si un archivo de tema tiene un error, Ajustes lo avisa («No se pudieron leer estos temas (¿JSON mal formado?)») y lo ignora.
+
+<Aside type="tip">
+Un tema solo necesita los valores que cambian. Lo que falta se toma del tema Organon (o de Noche, si el tema es oscuro). Un tema de tres líneas que solo cambia el acento es perfectamente válido.
+</Aside>

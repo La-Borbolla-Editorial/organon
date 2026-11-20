@@ -1,0 +1,63 @@
+---
+title: Obras canónicas
+description: Citar obras clásicas por su referencia canónica (libro, distinción, cuestión, número) en lugar de la página de la edición.
+sidebar:
+  order: 9
+---
+
+import { Steps, Aside } from '@astrojs/starlight/components'
+
+Algunas obras no se citan por la página de la edición que usas, sino por su estructura interna: la *Ordinatio* de Escoto por libro, distinción, parte, cuestión y número; Aristóteles por las páginas de Bekker; la *Summa* por parte, cuestión y artículo; Kant por la paginación de la Akademie-Ausgabe. Organon llama a estas fuentes **obras canónicas**.
+
+## Cómo se cita una obra canónica
+
+La cita tiene la misma estructura que manda el estilo para cualquier fuente, pero con la **referencia canónica en el lugar de la página**:
+
+| Fuente normal | Obra canónica |
+| --- | --- |
+| Pini, «Scotus on Individuation», 69. | Escoto, *Ordinatio*, vol. 7, Ord. II, d. 3, p. 1, q. 6, n. 188. |
+
+La edición sigue apareciendo completa en la bibliografía.
+
+## Configurarla
+
+<Steps>
+
+1. En **Biblioteca**, pulsa **Editar** en la fuente (por ejemplo, la *Ordinatio* en la edición Vaticana).
+
+2. Marca **Obra canónica**.
+
+3. Pulsa **Guardar cambios**. La fuente lleva ahora la etiqueta *Obra canónica* en la lista.
+
+</Steps>
+
+## Escribir la referencia de cada ficha
+
+En cada ficha de esa fuente, el campo **Obra canónica / referencias** dice *(obra canónica: la primera línea se cita en lugar de la página)*. Escribe ahí la referencia exactamente como quieres que aparezca en la nota:
+
+```text
+Ord. II, d. 3, p. 1, q. 6, n. 188
+```
+
+Solo se cita **la primera línea**. Lo que escribas debajo son notas para ti y no sale en ninguna cita:
+
+```text
+Ord. II, d. 3, p. 1, q. 6, n. 188
+Cf. Lectura II, d. 3, n. 170; la ed. Wadding numera distinto.
+```
+
+La página de la edición se sigue calculando y guardando como en cualquier ficha, por si la necesitas.
+
+<Aside type="tip">
+Decide un formato de referencia y úsalo en todas las fichas (`Ord. II, d. 3, q. 6, n. 188` o `II d. 3 q. 6 n. 188`, pero no los dos). Organon cita lo que escribes, tal cual.
+</Aside>
+
+## Casos especiales
+
+- **Una ficha sin referencia canónica** se cita por la página, y la Vista final avisa: «La ficha e. 3 es de una obra canónica pero no tiene referencia canónica: se cita la página».
+- **Citar la página a propósito:** si escribes una página en la referencia (`[e. 3, p. 245]`), se cita esa página y no la referencia canónica. Útil para remitir a una introducción o un aparato crítico.
+- **Estilos autor-año:** la referencia canónica va dentro del paréntesis: (Escoto 1973, Ord. II, d. 3, p. 1, q. 6, n. 188).
+
+## Un fichero para la obra
+
+Si trabajas mucho con una obra canónica, crea un fichero solo para ella (*Escoto*, con el marcador `e.`). Así sus fichas tienen numeración propia y en tus textos se distinguen de un vistazo: `[e. 3]` es Escoto; `[f. 51]`, la literatura secundaria.

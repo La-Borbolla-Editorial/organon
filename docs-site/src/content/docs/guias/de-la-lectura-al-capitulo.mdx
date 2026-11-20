@@ -1,0 +1,122 @@
+---
+title: De la lectura al capítulo
+description: El flujo de trabajo completo de Organon con un caso real, del primer PDF al capítulo entregado.
+sidebar:
+  order: 1
+---
+
+import { Steps, Aside } from '@astrojs/starlight/components'
+
+Esta guía sigue un caso completo: una doctoranda que escribe un capítulo sobre la individuación en Duns Escoto. Cada paso enlaza a la guía que lo explica en detalle.
+
+## El punto de partida
+
+Ana tiene:
+
+- Una colección en Zotero con 40 referencias.
+- Una carpeta con los PDF de la mitad de ellas.
+- Una hoja de Google Sheets con 300 fichas que ha ido llenando a mano durante dos años, en dos pestañas: *General* y *Escoto*.
+- Un director que le pide el capítulo en Word, con notas al pie en Chicago.
+
+## 1. Montar el proyecto
+
+<Steps>
+
+1. Crea una carpeta `Tesis` (dentro de Dropbox, para tenerla en sus dos equipos) y la abre en Organon.
+2. En **Ajustes → Este proyecto**, elige **Chicago (notas abreviadas y bibliografía)** y **Español**.
+3. En Zotero, selecciona la colección y la exporta en BibTeX. En Organon, **Importar de Zotero…** Ahora tiene 40 fuentes en la Biblioteca.
+
+</Steps>
+
+→ [Importar desde Zotero](/organon/guias/importar-desde-zotero/) · [Sincronizar y respaldar](/organon/guias/sincronizar-y-respaldar/)
+
+## 2. Traer el fichero que ya tenía
+
+<Steps>
+
+1. En Google Sheets descarga cada pestaña como CSV (*Archivo → Descargar → Valores separados por comas*): `Fichero - General.csv` y `Fichero - Escoto.csv`.
+2. En la pestaña **Fichero** de Organon, **Importar CSV…** con el primero. Organon reconoce las columnas *ID*, *Nota permanente*, *Cita*, *Tags*, *Autor*, *Paper/Texto* y *Página*, y propone crear un fichero llamado *General*.
+3. Repite con el segundo. Organon propone el nombre *Escoto* y el marcador `e.`.
+4. Organon vincula cada ficha con su fuente por el autor y el título. Las que no reconoce se quedan sin fuente y se vinculan solas en cuanto importe esas referencias desde Zotero.
+
+</Steps>
+
+Las 300 fichas conservan su número. Las que en la hoja eran la 51 del fichero General siguen siendo la `f. 51`.
+
+→ [Fichero y Google Sheets](/organon/guias/fichero-y-google-sheets/)
+
+## 3. Adjuntar los PDF y verificar la paginación
+
+Para cada fuente con PDF:
+
+<Steps>
+
+1. **Editar** → **Adjuntar PDF…** → **Guardar cambios**. Se abre el lector con el panel de paginación.
+2. Comprueba tres hojas de muestra. En el artículo de Pini, Organon acertó (p. 50 en la hoja 1). En el *Cambridge Companion*, escaneado a doble página, Organon propuso hojas dobles y también acertó. En un libro con preliminares en romanos tuvo que añadir un tramo.
+3. **Los números coinciden: confirmar paginación**.
+
+</Steps>
+
+→ [Verificar la paginación](/organon/guias/verificar-la-paginacion/)
+
+## 4. Leer y fichar
+
+A partir de aquí, el trabajo diario de Ana es leer en Organon:
+
+<Steps>
+
+1. **Abrir** una fuente en la Biblioteca.
+2. Seleccionar un pasaje → **+ Ficha · p. 112**.
+3. Escribir la nota permanente, poner dos o tres tags, **Guardar ficha**.
+
+</Steps>
+
+Las fichas que importó de la hoja no tienen posición en el PDF. Cuando se topa con uno de esos pasajes al leer, pulsa en la ficha **Sin marcar en el PDF: marcar el pasaje…**, lo selecciona y queda enlazada.
+
+→ [Leer y marcar](/organon/guias/leer-y-marcar/)
+
+## 5. Ordenar el material
+
+Antes de escribir, Ana repasa el fichero:
+
+- Filtra por el tag `naturaleza común` y por la fuente *Noone 2003* para ver qué tiene sobre ese punto.
+- Busca «haecceitas» en todas las columnas.
+- Corrige notas permanentes que ya no le convencen.
+
+## 6. Escribir
+
+En **Escritura** crea un texto `Capítulo 2`. Elige *General* como **fichero por defecto** del texto y escribe en Markdown:
+
+```md
+## 2.1 El problema
+
+Pini resume las dos opciones de la escolástica tardía:
+
+{f. 51}
+
+Escoto rechaza ambas[f. 52] y busca un principio que sea positivo
+sin ser una forma más[cf. f. 60; f. 61]. La tesis central es breve:
+{e. 3 «natura non est de se haec»}.
+```
+
+La **Vista final** de la derecha le muestra el resultado con las notas numeradas, y la pestaña **Fichas** del mismo panel le deja buscar «haecceitas» e insertar la ficha sin salir del texto.
+
+→ [Escribir con fichas](/organon/guias/escribir-con-fichas/) · [Sintaxis de las citas](/organon/referencia/sintaxis-de-citas/)
+
+## 7. Revisar con el director
+
+Antes de la reunión exporta un **PDF con fichas**: su texto tal como lo escribió, con cada ficha citada desplegada debajo. El director ve a la vez el argumento y el material en que se apoya.
+
+## 8. Entregar
+
+**Exportar → Word (.docx)**. El documento lleva notas al pie de verdad, numeradas por Word, y la bibliografía al final con las fuentes citadas, en EB Garamond.
+
+→ [Exportar](/organon/guias/exportar/)
+
+## 9. Mantener la hoja de cálculo al día (opcional)
+
+Su grupo de investigación sigue mirando la hoja de Google Sheets. Cada semana, en **Fichero**, Ana usa **Exportar CSV** en cada fichero y lo importa en Sheets reemplazando la pestaña. Las columnas salen con los mismos nombres y en el mismo orden que tenía.
+
+<Aside type="tip">
+Organon no edita la hoja de Google directamente. El CSV va en las dos direcciones sin perder columnas, pero conviene decidir dónde se edita cada cosa: si se editan fichas en los dos lados a la vez, al reimportar gana el CSV.
+</Aside>

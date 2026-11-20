@@ -1,0 +1,83 @@
+---
+title: Instalación
+description: Cómo instalar Organon en macOS y Windows, y cómo compilarlo en otras plataformas.
+sidebar:
+  order: 1
+---
+
+import { Tabs, TabItem, Steps, Aside } from '@astrojs/starlight/components'
+
+Organon es una aplicación de escritorio. Cada versión se publica en la página de [Releases](https://github.com/La-Borbolla-Editorial/organon/releases/latest) de GitHub con tres instaladores:
+
+| Sistema | Archivo |
+| --- | --- |
+| macOS, Apple Silicon (M1 o posterior) | `Organon-<versión>-macos-arm64.zip` |
+| macOS, Intel | `Organon-<versión>-macos-x64.zip` |
+| Windows (64 bits) | `Organon-<versión>-windows-x64-setup.exe` |
+
+<Tabs syncKey="os">
+<TabItem label="macOS">
+
+<Steps>
+
+1. Descarga el `.zip` que corresponde a tu Mac. Si no sabes cuál es, abre  → *Acerca de este Mac*: si dice «Chip Apple M…», es Apple Silicon; si dice «Procesador Intel…», es Intel.
+
+2. Descomprímelo (doble clic) y mueve `Organon.app` a **Aplicaciones**.
+
+3. La app no está firmada con una cuenta de desarrollador de Apple, así que la primera vez macOS la bloquea con un aviso de que «no se puede abrir» o «está dañada». Para quitar ese bloqueo, abre la **Terminal** y ejecuta:
+
+   ```bash
+   xattr -dr com.apple.quarantine /Applications/Organon.app
+   ```
+
+   El comando no cambia nada de la app: solo le quita la marca de «descargado de internet» que pone macOS.
+
+4. Abre Organon desde Aplicaciones o con Spotlight.
+
+</Steps>
+
+</TabItem>
+<TabItem label="Windows">
+
+<Steps>
+
+1. Descarga `Organon-<versión>-windows-x64-setup.exe`.
+
+2. Ábrelo. Como el instalador no está firmado, Windows SmartScreen puede mostrar «Windows protegió tu PC». Pulsa **Más información** y luego **Ejecutar de todas formas**.
+
+3. Sigue el instalador. Organon queda en el menú Inicio.
+
+</Steps>
+
+En Windows los atajos de teclado usan **Ctrl** donde en macOS se usa **⌘** (por ejemplo, Ctrl+B para negrita).
+
+</TabItem>
+</Tabs>
+
+## Actualizar
+
+Descarga la versión nueva e instálala encima de la anterior: en macOS, reemplaza `Organon.app` en Aplicaciones (y repite el paso de `xattr`); en Windows, ejecuta el instalador nuevo.
+
+Tus proyectos no se tocan: viven en sus propias carpetas, fuera de la app. Los ajustes de Organon (tema, proyectos recientes) también se conservan. Consulta qué cambió en el [registro de cambios](https://github.com/La-Borbolla-Editorial/organon/blob/main/CHANGELOG.md).
+
+## Qué necesita Organon
+
+- **Conexión a internet:** solo para buscar una fuente por DOI o ISBN. Todo lo demás funciona sin conexión.
+- **PDF con capa de texto:** para poder seleccionar pasajes. Si un PDF es un escaneo sin OCR, Organon lo avisa (ver [Problemas frecuentes](/organon/problemas-frecuentes/#el-pdf-no-deja-seleccionar-texto)).
+
+## Compilar desde el código
+
+Para Linux, o para probar una versión en desarrollo, se puede compilar Organon. Hace falta [Node](https://nodejs.org/) 22 o posterior y [Rust](https://rustup.rs/).
+
+```bash
+git clone https://github.com/La-Borbolla-Editorial/organon.git
+cd organon
+npm install
+npm run app:build
+```
+
+La app queda en `src-tauri/target/release/bundle/`. Para Linux, Tauri tiene además sus [requisitos de sistema](https://tauri.app/start/prerequisites/#linux) (WebKitGTK y otras bibliotecas).
+
+<Aside type="note">
+Linux no tiene instalador oficial y no se prueba en cada versión. Si lo compilas y algo falla, abre un *issue* en GitHub.
+</Aside>

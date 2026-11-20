@@ -1,0 +1,103 @@
+---
+title: Sincronizar y respaldar
+description: Tener un proyecto en varios equipos con Dropbox, iCloud u OneDrive, versionarlo con git y hacer copias de seguridad.
+sidebar:
+  order: 10
+---
+
+import { Steps, Aside, Tabs, TabItem } from '@astrojs/starlight/components'
+
+Un proyecto de Organon es una carpeta de archivos normales, así que se sincroniza, se versiona y se respalda como cualquier carpeta. No hace falta ninguna cuenta ni servicio de Organon.
+
+## En varios equipos
+
+Pon la carpeta del proyecto dentro de una carpeta sincronizada (Dropbox, iCloud Drive, OneDrive, Google Drive para escritorio, Syncthing) y ábrela en Organon en cada equipo.
+
+<Aside type="caution">
+**Ten el proyecto abierto en un solo equipo a la vez.** Organon guarda cada cambio en el momento, y si dos equipos escriben a la vez en `fichas.json`, el servicio de sincronización tendrá que elegir una versión o crear una «copia en conflicto».
+</Aside>
+
+Organon está preparado para lo que pase igualmente:
+
+- Antes de guardar, comprueba si los archivos del proyecto cambiaron en el disco desde que los leyó. Si cambiaron (porque llegó una sincronización), **no sobrescribe**: avisa y te ofrece recargar el proyecto. El último cambio que hiciste no se guarda, y tendrás que repetirlo después de recargar.
+- Hace la misma comprobación cada vez que vuelves a su ventana.
+- En Escritura, si el texto abierto cambió en el disco, te deja elegir entre **Cargar la versión del disco** y **Guardar la mía encima**.
+
+Una rutina segura:
+
+<Steps>
+
+1. Al terminar en un equipo, vuelve a la pantalla de proyectos (pulsa el nombre del proyecto) o cierra Organon.
+2. Espera a que el servicio termine de sincronizar (el icono de Dropbox o iCloud deja de girar).
+3. Abre el proyecto en el otro equipo.
+
+</Steps>
+
+### iCloud Drive y «Optimizar almacenamiento»
+
+Si macOS tiene activado *Optimizar almacenamiento del Mac*, puede quitar del disco los PDF que no usas y dejar solo un marcador. Organon no podrá abrirlos hasta que se descarguen. Para evitarlo, en el Finder haz clic derecho en la carpeta del proyecto y elige **Mantener descargado**.
+
+## Con git
+
+Los archivos JSON de Organon están pensados para git: se escriben con sangría, una propiedad por línea y con las coordenadas redondeadas, así que un cambio en una ficha produce un *diff* pequeño y legible.
+
+```bash
+cd ~/Tesis
+git init
+git add .
+git commit -m "Proyecto inicial"
+```
+
+Algunas recomendaciones:
+
+- **Decide qué hacer con los PDF.** Pueden ocupar cientos de megas. Puedes versionarlos con [Git LFS](https://git-lfs.com/) o excluirlos y respaldarlos aparte:
+
+  ```text title=".gitignore"
+  pdfs/
+  ```
+
+  Si los excluyes, las fichas siguen funcionando en otro equipo en cuanto copies los PDF a `pdfs/` con el mismo nombre.
+
+- **Excluye las papeleras** si no quieres guardarlas:
+
+  ```text title=".gitignore"
+  pdfs/.papelera/
+  escritura/.papelera/
+  ```
+
+- **Haz commit con Organon en la pantalla de proyectos** o cerrado, para no capturar un guardado a medias.
+
+- Si al hacer `git pull` llegan cambios con el proyecto abierto, Organon lo detecta y te ofrece recargar.
+
+Para ver qué fichas cambiaron entre dos versiones:
+
+```bash
+git diff HEAD~1 -- fichas.json
+```
+
+## Copias de seguridad
+
+Basta con copiar la carpeta. Algunas formas:
+
+<Tabs syncKey="os">
+<TabItem label="macOS">
+
+**Time Machine** respalda la carpeta del proyecto si está dentro de tu carpeta de usuario. Para recuperar una versión anterior de `fichas.json`, abre la carpeta en el Finder y entra en Time Machine.
+
+</TabItem>
+<TabItem label="Windows">
+
+El **Historial de archivos** de Windows respalda la carpeta si está en Documentos o en una biblioteca incluida. Para recuperar una versión, clic derecho en `fichas.json` → *Restaurar versiones anteriores*.
+
+</TabItem>
+</Tabs>
+
+Dropbox, OneDrive e iCloud también guardan versiones anteriores de cada archivo durante un tiempo.
+
+<Aside type="tip">
+Antes de una operación grande (reimportar un CSV encima de un fichero, eliminar un fichero, corregir la paginación de una fuente con muchas fichas), copia la carpeta o haz un commit. Es la forma más simple de poder deshacer.
+</Aside>
+
+## Mover un proyecto
+
+Mueve o copia la carpeta donde quieras y ábrela desde Organon con **Abrir o crear un proyecto en una carpeta…** Las rutas dentro del proyecto son relativas, así que no hay nada que reparar. La entrada antigua de *Proyectos recientes* se puede quitar con la ×.

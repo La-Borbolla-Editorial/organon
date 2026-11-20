@@ -1,0 +1,143 @@
+---
+title: Verificar la paginación
+description: Confirmar o corregir qué página impresa corresponde a cada hoja del PDF, con los casos difíciles resueltos paso a paso.
+sidebar:
+  order: 4
+---
+
+import { Steps, Aside } from '@astrojs/starlight/components'
+
+Antes de leer esta guía conviene entender qué son las hojas, las páginas y los tramos: ver [La página impresa](/organon/conceptos/pagina-impresa/).
+
+## Cuándo se hace
+
+- **Al adjuntar un PDF.** Organon abre el lector con el panel **Paginación** a la derecha.
+- **En cualquier momento**, pulsando el indicador de página del lector (*Se cita: p. 72 ⚠ sin verificar* o *Se cita: p. 72 ✓*).
+- **Desde una ficha**, con el enlace **Verificar paginación** del aviso.
+
+## El caso normal: confirmar
+
+<Steps>
+
+1. En **Muestras**, pulsa la primera hoja (por ejemplo *Hoja 1 → p. 68*). El PDF salta a ella.
+
+2. Mira el número impreso en la página. ¿Es 68?
+
+3. Repite con la hoja del medio y la última. Si el libro tiene partes distintas (preliminares, láminas), mira también una hoja de cada parte.
+
+4. Si todo coincide, pulsa **Los números coinciden: confirmar paginación**.
+
+</Steps>
+
+La fuente queda verificada y desaparecen los avisos.
+
+## Corregir con el número que ves
+
+La forma más rápida de corregir es decirle a Organon qué número ves en la hoja actual.
+
+<Steps>
+
+1. Ve a una hoja donde se vea bien el número impreso.
+
+2. En *Comprobar con la hoja que estás viendo*, escribe ese número en **n.º impreso**: `72`, o en romanos, `xii` (o `XII` si está en mayúsculas).
+
+3. Pulsa **Corregir** (o Intro).
+
+</Steps>
+
+Organon desplaza el tramo que contiene esa hoja para que la cuadre. Todas las demás hojas del tramo se mueven igual. Comprueba otra hoja y confirma.
+
+### «La numeración cambia a partir de esta hoja»
+
+Si marcas esta casilla antes de pulsar **Corregir**, Organon no mueve el tramo actual: **abre uno nuevo** a partir de esta hoja. Las hojas anteriores se quedan como estaban. Es lo que necesitas cuando, por ejemplo, terminan los preliminares en romanos y empieza la numeración arábiga.
+
+## Casos difíciles
+
+### Una portada añadida (JSTOR, Persée, bases de datos)
+
+Organon propone p. 68 para la hoja 1, pero la hoja 1 es la portada de JSTOR y el artículo empieza en la hoja 2.
+
+<Steps>
+
+1. Ve a la hoja 2.
+2. Escribe `68`, marca **La numeración cambia a partir de esta hoja** y pulsa **Corregir**. Se abre un tramo nuevo desde la hoja 2.
+3. En **Tramos**, cambia la **Numeración** del primer tramo (el de la hoja 1) a *sin número*.
+
+</Steps>
+
+La hoja 1 queda **sin número**: si seleccionas texto en ella, la ficha no tendrá página. Sin el paso 3, Organon numeraría la portada como p. 67, lo que no hace daño mientras no fiches nada en ella.
+
+### Preliminares en romanos y cuerpo en arábigos
+
+Un libro con portada y página de créditos sin número, prólogo de la i a la xxiv, y el capítulo 1 en la hoja 27.
+
+<Steps>
+
+1. Ve a la hoja donde empieza el prólogo (la 3). Escribe `i`, marca **La numeración cambia a partir de esta hoja** y pulsa **Corregir**.
+2. Ve a la hoja 27, donde empieza el capítulo 1. Escribe `1`, marca la casilla y pulsa **Corregir**.
+3. En **Tramos**, si la hoja 1 aparece con número, cambia la **Numeración** del primer tramo a *sin número*.
+4. Comprueba una hoja del prólogo y otra del cuerpo, y confirma.
+
+</Steps>
+
+Los tramos quedan así:
+
+| Desde la hoja | Página impresa | Numeración | Págs. por hoja |
+| --- | --- | --- | --- |
+| 1 | — | sin número | 1 |
+| 3 | 1 | i, ii, iii… | 1 |
+| 27 | 1 | 1, 2, 3… | 1 |
+
+### Láminas o páginas sin numerar en medio
+
+Entre la p. 123 (hoja 149) y la p. 124 hay una lámina sin número en la hoja 150.
+
+<Steps>
+
+1. En **Tramos**, pulsa **+ Añadir un tramo desde la hoja 150** estando en la hoja 150, y pon su **Numeración** en *sin número*.
+2. Ve a la hoja 151, escribe `124`, marca **La numeración cambia a partir de esta hoja** y pulsa **Corregir**.
+
+</Steps>
+
+Si la lámina no lleva número pero **sí cuenta** en la numeración del libro (la página siguiente es la 125), no hace falta nada: basta con el tramo normal.
+
+### Escaneos a doble página
+
+En un escaneo donde cada hoja del PDF tiene dos páginas del libro, Organon suele detectarlo solo y propone *2 (hoja doble)* en **Págs. por hoja**. Si no:
+
+<Steps>
+
+1. En **Tramos**, cambia **Págs. por hoja** a *2 (hoja doble)*.
+2. Ve a una hoja cualquiera y escribe el número impreso **de la página izquierda**. Pulsa **Corregir**.
+
+</Steps>
+
+Las muestras mostrarán las dos páginas de cada hoja: *Hoja 34 → p. 68-69*. Al crear una ficha, Organon mira en qué mitad de la hoja está lo que seleccionaste.
+
+Si el escaneo mezcla hojas simples y dobles (portada simple, cuerpo doble), usa dos tramos con distinto número de páginas por hoja.
+
+### Números de página que no se ven
+
+Si la página no tiene número impreso (comienzos de capítulo, por ejemplo), cuenta desde la página numerada más cercana. Organon solo necesita un número correcto por tramo.
+
+## Fichas afectadas
+
+Si la fuente ya tiene fichas marcadas y cambias la paginación, aparece **Fichas afectadas** con la página actual y la nueva de cada una:
+
+```text
+☑ Ficha 51  La individuación pide un principio positivo: p. 68 → p. 69
+☑ Ficha 52  Escoto rechaza la negación: p. 70 → p. 71
+  Ficha 60  … : p. 75 (escrita a mano, no se toca)
+```
+
+- Las fichas marcadas se actualizan al guardar. Desmarca las que quieras dejar como están.
+- Las fichas con la página **escrita a mano** nunca se tocan.
+- Si con la nueva paginación una ficha caería en una hoja sin número, se deja como está.
+
+## Guardar sin verificar
+
+**Guardar sin verificar** guarda los tramos pero deja la fuente marcada como *sin verificar*. Úsalo si quieres empezar a leer y comprobar más tarde. Los avisos seguirán apareciendo en cada ficha nueva hasta que confirmes.
+
+<Aside type="tip">
+Merece la pena verificar antes de crear fichas. Si corriges después, Organon actualiza las fichas por ti, pero las que hayas retocado a mano tendrás que revisarlas una a una.
+</Aside>

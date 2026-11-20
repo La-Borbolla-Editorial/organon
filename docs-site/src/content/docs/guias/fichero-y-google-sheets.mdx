@@ -1,0 +1,120 @@
+---
+title: Fichero y Google Sheets
+description: Usar la tabla del Fichero, importar una hoja de cálculo en CSV y exportarla sin perder columnas.
+sidebar:
+  order: 6
+---
+
+import { Steps, Aside } from '@astrojs/starlight/components'
+
+La pestaña **Fichero** muestra las fichas de un fichero en una tabla, como una hoja de cálculo. Esta guía explica cómo trabajar en ella y cómo ir y volver entre Organon y Google Sheets (o Excel, o LibreOffice).
+
+## La tabla
+
+- **Ficheros:** arriba, uno por pestaña, con su número de fichas y su marcador (`f.`). **+ Nuevo fichero** crea otro; **Nombre y marcador** cambia el del fichero actual.
+- **Buscar en todas las columnas…:** busca en lo que se ve en la tabla, sin distinguir mayúsculas ni acentos («individuacion» encuentra «Individuación»).
+- **Todos los tags:** filtra por un tag.
+- **Todas las fuentes:** filtra por fuente, o por **Sin fuente vinculada** para encontrar las fichas que no se pueden citar todavía.
+- **+ Ficha:** crea una ficha a mano.
+- **Columnas:** arrastra el borde de un encabezado para cambiar su ancho; doble clic lo devuelve al ancho normal. El ancho se guarda con el fichero.
+
+Un clic en una fila abre la ficha en el panel lateral para editarla. El título de la fuente y el autor que se ven en la tabla salen de la fuente vinculada; si la ficha no tiene fuente, la tabla lo indica.
+
+## Importar una hoja de Google Sheets
+
+<Steps>
+
+1. En Google Sheets, abre la pestaña que quieres traer y elige *Archivo → Descargar → Valores separados por comas (.csv)*. Sheets descarga solo la pestaña activa, con un nombre como `Fichero - Escoto.csv`.
+
+2. En Organon, en **Fichero**, pulsa **Importar CSV…** y elige el archivo.
+
+3. En **Destino**, elige **Fichero nuevo** (Organon propone el nombre de la pestaña: *Escoto*) o **Añadir a** un fichero que ya existe.
+
+4. En **Columnas**, revisa a qué campo de Organon corresponde cada columna de tu hoja. Organon lo adivina por el encabezado y muestra un ejemplo de cada columna.
+
+5. En **Fuentes**, mira cuántas fichas reconoció con su fuente.
+
+6. Pulsa **Importar _N_ fichas**.
+
+</Steps>
+
+Repite con cada pestaña.
+
+### Cómo se asignan las columnas
+
+Organon reconoce estos encabezados (sin importar mayúsculas, acentos ni signos):
+
+| Campo de Organon | Encabezados que reconoce |
+| --- | --- |
+| ID | `ID`, `N`, `No`, `Num`, `Número` |
+| Nota permanente | `Nota permanente`, `Título`, `Idea` |
+| Cita | `Cita`, `Quote`, `Texto citado` |
+| Tags | `Tags`, `Tag`, `Temas`, `Tema`, `Etiquetas` |
+| Autor de la fuente | `Autor`, `Autores`, `Author` |
+| Título de la fuente | `Paper/Texto`, `Paper`, `Texto`, `Fuente`, `Obra`, `Título de la fuente` |
+| Página | `Página`, `Páginas`, `Pág.`, `Págs.`, `p`, `pp`, `Page` |
+| Obra canónica / referencias | `Obra canónica`, `Referencias`, `Referencia` |
+| Notas | `Notas`, `Nota`, `Comentarios` |
+
+Cualquier otra columna se asigna a **Otra columna (se conserva tal cual)**. Puedes cambiar cualquier asignación en el desplegable. Cada campo va en una sola columna: si asignas *Cita* a una columna, la que la tenía pasa a *Otra columna*.
+
+### Qué pasa con cada dato
+
+- **ID:** si es un número entero, la ficha conserva ese número. Si está vacío, no es un número o ya existe, la ficha recibe el siguiente libre (y el valor original se guarda para exportarlo igual).
+- **Tags:** se separan por comas, punto y coma o saltos de línea.
+- **Autor** y **Título de la fuente:** sirven para buscar la fuente en la Biblioteca y además se guardan tal cual, para exportarlos igual.
+- **Página:** se guarda como página escrita a mano.
+- **Otras columnas:** se guardan con la ficha y se pueden editar en el formulario, en *Otras columnas de la hoja*.
+
+### Fuentes
+
+Si la hoja tiene columnas de autor o de título, Organon busca para cada fila una fuente de la Biblioteca cuyo autor (o editor) y título coincidan. Muestra cuántas reconoció y lista las que no, con cuántas fichas tiene cada una:
+
+```text
+42 de 50 fichas tienen su fuente en la biblioteca.
+Sin fuente en la biblioteca:
+  Cross — The Physics of Duns Scotus · 6
+  King — Scotus on Metaphysics · 2
+```
+
+Esas fichas se importan igual, sin fuente, y se vinculan solas cuando añadas o importes la fuente que falta.
+
+Si la hoja no tiene columnas de autor ni de título (por ejemplo, una pestaña dedicada a un solo libro), Organon te pide **la fuente de todas las fichas**.
+
+<Aside type="tip">
+Importa primero tu bibliografía desde Zotero y después las hojas: así casi todas las fichas quedan vinculadas al importar.
+</Aside>
+
+## Volver a importar para actualizar
+
+Si sigues editando la hoja en Sheets, puedes reimportarla en el mismo fichero. Elige **Añadir a «Escoto»** y deja marcada **Actualizar las fichas que ya existen con el mismo ID**:
+
+- Las filas cuyo ID ya existe **actualizan** esa ficha. La ficha conserva su pasaje marcado en el PDF y, si la hoja no reconoce la fuente, la que tenía.
+- Las filas con un ID nuevo se **añaden**.
+- Las fichas que ya no están en la hoja **no se borran**.
+
+Si desmarcas la casilla, las filas con un ID repetido se añaden como fichas nuevas con otro número. Organon te avisa de cuántas son.
+
+## Exportar a CSV
+
+En **Fichero**, **Exportar CSV** guarda el fichero actual en un CSV:
+
+- Con **las mismas columnas, en el mismo orden y con los mismos encabezados** que tenía tu hoja.
+- Ordenado por ID.
+- En el formato que Google Sheets lee y escribe (comillas solo donde hacen falta, saltos de línea dentro de las celdas respetados).
+
+Para llevarlo a Sheets: *Archivo → Importar → Subir*, y elige **Reemplazar la hoja actual**.
+
+Las fichas creadas en Organon salen con el autor y el título de su fuente en esas columnas. Las importadas salen con el valor original que tenían en tu hoja.
+
+## Una ficha de ejemplo, ida y vuelta
+
+Esta fila de Sheets:
+
+```csv
+ID,Nota permanente,Cita,Tema,Autor,Paper/Texto,Página,Referencias,Notas
+2,"Una cita con comas, ""comillas"" y saltos","First line.
+Second line.","Terminología, TEXTO CLAVE",Pini,Scotus on Individuation,69-70,Ordinatio II d.3 p.1 q.6 n.188,
+```
+
+se importa como la ficha 2, con dos tags (`Terminología` y `TEXTO CLAVE`), página `69-70`, vinculada a la fuente *Scotus on Individuation* de Pini, y la referencia en *Obra canónica / referencias*. Al exportar sale exactamente igual, con la columna `Tema` en su sitio.

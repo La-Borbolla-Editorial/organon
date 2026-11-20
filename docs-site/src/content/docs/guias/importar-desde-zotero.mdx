@@ -1,0 +1,67 @@
+---
+title: Importar desde Zotero
+description: Traer referencias de Zotero a la biblioteca de Organon, y mantenerlas al día.
+sidebar:
+  order: 3
+---
+
+import { Steps, Aside } from '@astrojs/starlight/components'
+
+Si ya tienes tu bibliografía en Zotero, no hace falta volver a escribirla. Organon lee las exportaciones de Zotero en tres formatos: **BibTeX**, **BibLaTeX** y **CSL JSON**.
+
+## Importar
+
+<Steps>
+
+1. En Zotero, selecciona las referencias (o haz clic derecho en una colección).
+
+2. Elige *Archivo → Exportar elementos…* (o *Exportar colección…*).
+
+3. Elige el formato **BibTeX** y pulsa *Aceptar*. No marques *Exportar archivos*: los PDF se adjuntan aparte en Organon.
+
+4. En Organon, en **Biblioteca**, pulsa **Importar de Zotero…** y elige el archivo `.bib`.
+
+5. Organon informa del resultado: «12 fuente(s) nueva(s), 0 actualizada(s)».
+
+</Steps>
+
+Las fuentes importadas no tienen PDF. Adjúntalo desde **Editar → Adjuntar PDF…** cuando lo necesites (ver [Añadir fuentes](/organon/guias/anadir-fuentes/#editar-una-fuente)).
+
+## Qué formato elegir
+
+| Formato | Ventajas | Cuidado |
+| --- | --- | --- |
+| **BibTeX** (`.bib`) | Las claves son las de Zotero (`pini2005`), legibles y estables. Recomendado. | Algunos tipos raros se convierten a tipos genéricos. |
+| **BibLaTeX** (`.bib`) | Igual que BibTeX, con más tipos y campos (traductor, edición original…). | |
+| **CSL JSON** (`.json`) | Es el formato interno de Organon: no hay conversión. | Según la versión de Zotero, la clave puede ser un identificador interno largo en lugar de `pini2005`. |
+
+Lo importante es **usar siempre el mismo formato** para la misma biblioteca, porque Organon reconoce las fuentes por su clave (ver abajo).
+
+<Aside type="tip">
+Si usas el complemento Better BibTeX de Zotero, tus claves ya son estables y personalizadas. Organon las respeta tal cual.
+</Aside>
+
+## Reimportar para actualizar
+
+Puedes importar la misma colección tantas veces como quieras. Para cada referencia, Organon mira su **clave**:
+
+- Si ya hay una fuente con esa clave, **actualiza sus metadatos** y deja intactos su PDF, su paginación, su marca de obra canónica y sus fichas.
+- Si no, la añade como fuente nueva.
+
+Así, el flujo habitual es corregir los datos en Zotero y reimportar. Si cambiaste la clave de una referencia en Zotero, Organon la verá como una fuente nueva, y tendrás dos.
+
+<Aside type="caution">
+Si editas los metadatos de una fuente en Organon y luego reimportas desde Zotero, los datos de Zotero reemplazan a los tuyos. Decide dónde corriges los metadatos: en Zotero (y reimportas) o en Organon (y no reimportas esa fuente).
+</Aside>
+
+## Fichas importadas sin fuente
+
+Si importaste fichas desde un CSV antes de tener sus fuentes, quedaron sin fuente vinculada. Cada vez que importas desde Zotero (o añades una fuente a mano), Organon busca fuente para esas fichas usando el autor y el título que traían en el CSV, y lo informa: «3 ficha(s) importada(s) quedaron vinculadas a su fuente».
+
+La coincidencia se hace por apellido de autor o editor y por título (completo o corto), sin distinguir mayúsculas ni acentos. Solo se vincula si hay **una sola** fuente candidata.
+
+## Si algo no se importa
+
+- **«El archivo no contiene referencias»**: el archivo está vacío o no es una exportación de Zotero. Abre el `.bib` con un editor de texto: debe empezar por `@article{`, `@book{`, etc.
+- **Faltan referencias**: Organon descarta los elementos sin título, autor ni editor (notas sueltas, adjuntos).
+- **Error de lectura en un `.bib`**: suele ser un carácter mal escapado en un campo. Prueba a exportar en CSL JSON.

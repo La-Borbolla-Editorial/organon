@@ -1,0 +1,107 @@
+---
+title: Organon en cinco minutos
+description: De un PDF a un capítulo con notas al pie, en seis pasos.
+sidebar:
+  order: 2
+---
+
+import { Steps, Aside } from '@astrojs/starlight/components'
+import biblioteca from '../../../assets/1-biblioteca.png'
+import anadir from '../../../assets/2-anadir-fuente.png'
+import seleccionar from '../../../assets/3-seleccionar.png'
+import ficha from '../../../assets/4-ficha.png'
+import fichero from '../../../assets/5-fichero.png'
+import escritura from '../../../assets/6-escritura.png'
+import asomada from '../../../assets/7-ficha-en-el-texto.png'
+import { Image } from 'astro:assets'
+
+Este recorrido lleva un artículo desde el PDF hasta un párrafo citado con su nota al pie. Si quieres seguirlo con datos de prueba, el repositorio trae un artículo inventado y su referencia en [`fixtures/`](https://github.com/La-Borbolla-Editorial/organon/tree/main/fixtures): `articulo-ejemplo.pdf` (12 hojas, páginas impresas 68–79) y `sample.bib`.
+
+## 1. Abre un proyecto
+
+Al abrir Organon, elige **Abrir o crear un proyecto en una carpeta…** y escoge una carpeta: la de tu tesis o la de un trabajo final. Si está vacía, Organon crea ahí sus archivos. Todo se guarda en esa carpeta (fuentes, PDF, fichas y textos), en archivos que puedes abrir tú mismo.
+
+Para cambiar de proyecto, pulsa su nombre arriba a la izquierda.
+
+<Image src={biblioteca} alt="La biblioteca de un proyecto, con la lista de fuentes" />
+
+## 2. Añade una fuente y su PDF
+
+<Steps>
+
+1. En **Biblioteca**, pulsa **+ Añadir fuente**.
+2. Pega un DOI o un ISBN en *Rellenar con un DOI o un ISBN* y pulsa **Buscar**. Organon rellena los datos. Revísalos: los catálogos tienen errores.
+3. En la sección **PDF**, pulsa **Adjuntar PDF…** y elige el archivo.
+4. Pulsa **Añadir fuente**.
+
+</Steps>
+
+<Image src={anadir} alt="El formulario para añadir una fuente" />
+
+Si usas Zotero, puedes saltarte este paso e importar todas tus referencias de una vez: ver [Importar desde Zotero](/organon/guias/importar-desde-zotero/).
+
+## 3. Confirma la paginación
+
+Al guardar una fuente con PDF, Organon abre el lector y, a la derecha, el panel **Paginación**. Ahí propone qué página impresa corresponde a cada hoja del PDF.
+
+Pulsa dos o tres de las **Muestras** (por ejemplo, la primera hoja, la del medio y la última) y compara el número que propone Organon con el que está impreso en la página. Si coinciden, pulsa **Los números coinciden: confirmar paginación**.
+
+<Aside type="tip">
+Este paso se hace una sola vez por fuente y es el que garantiza que todas tus citas lleven la página correcta. Si los números no coinciden, la guía [Verificar la paginación](/organon/guias/verificar-la-paginacion/) explica cómo corregirlos.
+</Aside>
+
+## 4. Lee y marca
+
+Selecciona un pasaje con el ratón. Aparece un botón **+ Ficha · p. 69** que ya te dice qué página se citará. Púlsalo.
+
+<Image src={seleccionar} alt="Un pasaje seleccionado en el lector, con el botón + Ficha" />
+
+En el formulario de la ficha:
+
+- **Nota permanente:** la idea del pasaje, con tus palabras. Es el título de la ficha.
+- **Cita:** el texto seleccionado. Puedes retocarlo.
+- **Tags:** temas, separados por comas o con Intro.
+
+Pulsa **Guardar ficha**. El pasaje queda resaltado en el PDF y la ficha aparece en la lista de la derecha, con su número.
+
+<Image src={ficha} alt="El formulario de una ficha nueva" />
+
+## 5. Consulta tu fichero
+
+En **Fichero** están todas tus fichas, numeradas, con búsqueda y filtros por tag y por fuente. El número de cada ficha es el que usarás para citarla.
+
+<Image src={fichero} alt="La tabla del fichero" />
+
+¿Ya tienes un fichero en Google Sheets? Pulsa **Importar CSV…** (ver [Fichero y Google Sheets](/organon/guias/fichero-y-google-sheets/)).
+
+## 6. Escribe citando tus fichas
+
+En **Escritura**, pulsa **+ Nuevo texto** y dale un nombre. Para citar la ficha 1, escribe:
+
+- `{f. 1}` para poner la cita en el texto, con su nota al pie.
+- `[f. 1]` para poner solo la nota al pie.
+
+A la derecha, la **Vista final** muestra el texto con las notas numeradas y la bibliografía. La pestaña **Fichas** de ese panel busca fichas y las inserta por ti.
+
+<Image src={escritura} alt="El editor en modo Markdown, con la vista final al lado" />
+
+El botón **Texto** te deja escribir viendo el resultado, y **Markdown** muestra la sintaxis tal cual. La flechita junto a cada referencia despliega la ficha ahí mismo, sin pegarla en el texto.
+
+<Image src={asomada} alt="Una ficha desplegada dentro del texto" />
+
+## 7. Exporta
+
+Arriba a la derecha, **Exportar**:
+
+| Opción | Para qué |
+| --- | --- |
+| **Word (.docx)** | Entregar: notas al pie de verdad, que Word coloca en cada página. |
+| **PDF** | El texto final, con las notas al final. Abre el diálogo de impresión. |
+| **PDF con fichas…** | Trabajar o enseñarle el avance a tu director: el texto tal como lo escribes, con cada ficha citada desplegada debajo. |
+| **Markdown** | El texto con las citas ya resueltas, las notas y la bibliografía. |
+
+## Siguientes pasos
+
+- [Conceptos](/organon/conceptos/proyecto/): cómo se organiza la información en Organon.
+- [De la lectura al capítulo](/organon/guias/de-la-lectura-al-capitulo/): el flujo completo con un caso real.
+- [Sintaxis de las citas](/organon/referencia/sintaxis-de-citas/): pedazos de cita, otra página, varias fichas en una nota, prefijos como «cf.».

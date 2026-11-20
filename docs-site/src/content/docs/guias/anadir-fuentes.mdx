@@ -1,0 +1,138 @@
+---
+title: Añadir fuentes
+description: Añadir una fuente a la biblioteca por DOI, por ISBN o a mano, y adjuntarle su PDF.
+sidebar:
+  order: 2
+---
+
+import { Steps, Aside, Tabs, TabItem } from '@astrojs/starlight/components'
+
+Una fuente se puede añadir de tres maneras: por su DOI, por su ISBN o escribiendo los datos a mano. Para importar muchas de una vez desde Zotero, ver [Importar desde Zotero](/organon/guias/importar-desde-zotero/).
+
+## Con un DOI o un ISBN
+
+<Steps>
+
+1. En **Biblioteca**, pulsa **+ Añadir fuente**.
+
+2. En *Rellenar con un DOI o un ISBN*, pega el identificador. Organon lo reconoce aunque venga con prefijo, como enlace o con guiones:
+
+   ```text
+   10.1017/CCOL0521632056.004
+   https://doi.org/10.1017/CCOL0521632056.004
+   doi:10.1017/CCOL0521632056.004
+   978-0-521-63563-9
+   ISBN 0521635632
+   ```
+
+3. Pulsa **Buscar** (o Intro). Organon rellena tipo, autores, título, año y lo demás.
+
+4. **Revisa los datos.** Los catálogos tienen errores frecuentes: títulos en mayúsculas, subtítulos repetidos, editores tomados como autores, nombres de pila abreviados. La sección *Así aparecerá en la bibliografía* te muestra el resultado con tu estilo de cita.
+
+5. Si tienes el PDF, pulsa **Adjuntar PDF…** en la sección PDF.
+
+6. Pulsa **Añadir fuente**. Si adjuntaste un PDF, Organon lo analiza y abre el lector para que [verifiques la paginación](/organon/guias/verificar-la-paginacion/).
+
+</Steps>
+
+### Qué consulta Organon
+
+| Identificador | Servicio | Funciona bien para |
+| --- | --- | --- |
+| DOI | [doi.org](https://doi.org), que responde con los datos de Crossref, DataCite u otra agencia | Artículos de revista, capítulos de libros académicos, ponencias recientes |
+| ISBN | [Open Library](https://openlibrary.org) | Libros. Open Library tiene huecos, sobre todo en ediciones no inglesas: si no encuentra el ISBN, rellena los datos a mano |
+
+Organon solo envía el identificador. No envía nada de tu proyecto.
+
+<Aside type="caution">
+Un capítulo de libro sin DOI no se puede buscar por el ISBN del libro: obtendrías los datos del libro entero. Busca el libro, cambia el **Tipo** a *Capítulo de libro*, mueve el título a *Libro que lo contiene* y escribe el título y el autor del capítulo.
+</Aside>
+
+## A mano
+
+Elige el **Tipo** primero: el formulario muestra solo los campos de ese tipo. Luego rellena al menos el título.
+
+Ejemplos de cómo llenar los casos más comunes:
+
+<Tabs>
+<TabItem label="Libro traducido">
+
+| Campo | Valor |
+| --- | --- |
+| Tipo | Libro |
+| Autor(es) | `Gilson, Étienne` |
+| Título | `Juan Duns Escoto: introducción a sus posiciones fundamentales` |
+| Traductor(es) | `Rubio, Pablo E.` |
+| Año | `2007` |
+| Editorial | `EUNSA` |
+| Lugar | `Pamplona` |
+
+</TabItem>
+<TabItem label="Capítulo">
+
+| Campo | Valor |
+| --- | --- |
+| Tipo | Capítulo de libro |
+| Autor(es) | `Noone, Timothy B.` |
+| Título | `Universals and Individuation` |
+| Libro que lo contiene | `The Cambridge Companion to Duns Scotus` |
+| Editor(es) | `Williams, Thomas` |
+| Año | `2003` |
+| Páginas | `100-128` |
+| Editorial | `Cambridge University Press` |
+| Lugar | `Cambridge` |
+
+</TabItem>
+<TabItem label="Artículo">
+
+| Campo | Valor |
+| --- | --- |
+| Tipo | Artículo de revista |
+| Autor(es) | `Pini, Giorgio` |
+| Título | `Scotus on Individuation` |
+| Revista | `Proceedings of the Society for Medieval Logic and Metaphysics` |
+| Volumen | `5` |
+| Año | `2005` |
+| Páginas | `50-69` |
+
+</TabItem>
+<TabItem label="Edición crítica">
+
+| Campo | Valor |
+| --- | --- |
+| Tipo | Libro |
+| Autor(es) | `Escoto, Juan Duns` |
+| Título | `Ordinatio` |
+| Editor(es) | `Balić, Carolus` |
+| Volumen | `7` |
+| Año | `1973` |
+| Editorial | `Typis Polyglottis Vaticanis` |
+| Lugar | `Ciudad del Vaticano` |
+
+Si vas a citarla por libro, distinción y número, márcala como **Obra canónica**. Ver [Obras canónicas](/organon/guias/obras-canonicas/).
+
+</TabItem>
+</Tabs>
+
+Detalles del formulario:
+
+- **Personas:** una por línea, `Apellido, Nombre`.
+- **Año:** un año (`2003`) o, si hace falta, un texto (`s. f.`, `ca. 1300`). Un año entero ordena bien en la bibliografía; un texto se cita tal cual.
+- **Páginas:** el rango de un capítulo o artículo, con guion (`100-128`). Organon también lo usa para conjeturar la paginación del PDF.
+
+## Duplicados
+
+Si la fuente que estás añadiendo tiene el mismo DOI que otra de la biblioteca, o el mismo título, primer autor y año, Organon muestra **Esta fuente parece estar ya en la biblioteca** con la entrada existente. El botón cambia a **Añadirla de todos modos**, por si de verdad son dos (por ejemplo, dos ediciones).
+
+Un ISBN compartido no cuenta como duplicado: todos los capítulos de un libro llevan el ISBN del libro.
+
+## Editar una fuente
+
+**Editar** en la fila de la fuente abre el mismo formulario. Desde ahí también puedes:
+
+- **Adjuntar PDF…** o **Cambiar PDF…**
+- **Quitar el PDF** (pasa a `pdfs/.papelera/`; las fichas se quedan).
+- Marcarla como **Obra canónica**.
+- **Eliminar fuente** (las fichas se quedan, sin fuente).
+
+Los cambios en los metadatos se reflejan al instante en todas las citas de sus fichas.

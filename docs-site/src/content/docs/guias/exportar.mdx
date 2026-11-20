@@ -1,0 +1,96 @@
+---
+title: Exportar
+description: Llevar un texto de Escritura a Word, PDF o Markdown, y preparar un PDF con fichas para trabajar.
+sidebar:
+  order: 8
+---
+
+import { Aside, Steps } from '@astrojs/starlight/components'
+
+En **Escritura**, con un texto abierto, el botón **Exportar ▾** ofrece cuatro opciones. Todas parten del texto guardado y lo resuelven igual que la Vista final: citas, notas y bibliografía con el estilo del proyecto.
+
+<Aside type="caution">
+Antes de exportar, mira la lista de problemas de la Vista final. Una referencia que no se puede resolver sale en el documento como **[⚠ sin referencia]**.
+</Aside>
+
+## Word (.docx)
+
+Para entregar. Organon guarda un `.docx` con el nombre del texto (`Capítulo 2.docx`) donde elijas.
+
+- **Notas al pie de verdad**: Word (o Pages, o LibreOffice) las numera y las coloca al pie de cada página. Si añades o quitas una nota en Word, se renumeran solas.
+- **Bibliografía** al final, con el encabezado en el idioma de las citas (*Bibliografía* o *Bibliography*).
+- **Formato base**: EB Garamond 12 pt, interlineado 1,5, márgenes de 2,54 cm; notas en 10 pt a espacio sencillo; citas en bloque en 11 pt; títulos en negrita.
+- Cursivas, negritas, listas, citas en bloque y enlaces se conservan.
+
+<Aside type="note">
+El `.docx` pide la tipografía **EB Garamond** pero no la lleva dentro. Si no está instalada en el equipo donde se abre, Word la sustituye por otra. Puedes instalarla gratis desde [Google Fonts](https://fonts.google.com/specimen/EB+Garamond), o cambiar la fuente en Word con *Seleccionar todo* y aplicar la que pida tu universidad.
+</Aside>
+
+### Ajustar el documento a una plantilla
+
+Si tu universidad tiene una plantilla de Word, la forma más limpia es:
+
+<Steps>
+
+1. Exporta a Word desde Organon.
+2. Abre la plantilla y, en ella, *Insertar → Objeto → Texto de archivo…* (o copia y pega todo el documento exportado).
+3. Aplica los estilos de la plantilla a los títulos. Las notas al pie se conservan al pegar.
+
+</Steps>
+
+## PDF…
+
+El texto final, con las notas **al final** (no al pie de cada página). Organon abre el diálogo de impresión del sistema: elige *Guardar como PDF*. Es útil para leer en una tableta o enviar una versión rápida.
+
+Para un PDF con notas al pie de cada página, exporta a Word y guarda como PDF desde Word.
+
+## PDF con fichas…
+
+Un documento de trabajo, no de entrega: **tu texto tal como lo escribes**, con las referencias tal cual (`{f. 51}`, `[f. 60]`) y, debajo de cada párrafo o punto de lista, **las fichas que nombra, desplegadas**: número, nota permanente, cita y fuente.
+
+Sirve para:
+
+- Discutir un esquema con tu director viendo en qué se apoya cada punto.
+- Revisar en papel si las citas dicen lo que el texto afirma.
+- Tener a mano el material de un capítulo para una presentación oral.
+
+También abre el diálogo de impresión.
+
+## Markdown
+
+Un archivo `.md` con el texto ya resuelto: citas en su sitio, notas como notas de Markdown (`[^1]`) y bibliografía al final. Sirve para llevar el texto a otra herramienta:
+
+- **Pandoc**, para convertirlo a LaTeX o a un `.docx` con tu plantilla de referencia:
+
+  ```bash
+  pandoc "Capítulo 2.md" -o capitulo2.docx --reference-doc=plantilla.docx
+  ```
+
+- **Obsidian**, **Typora** o cualquier editor Markdown.
+- Una web o un blog.
+
+Ejemplo de lo que produce, en Chicago (notas abreviadas):
+
+```md
+Pini lo plantea así:
+
+> Some held that the principle is a positive entity, others that it is a negation.[^1]
+
+Escoto rechaza ambas[^2] y busca un principio positivo[^3].
+
+[^1]: Pini, «Scotus on Individuation», 69.
+
+[^2]: Pini, «Scotus on Individuation», 70.
+
+[^3]: cf. Pini, «Scotus on Individuation», 69; Noone, «Universals and Individuation», 112.
+
+## Bibliografía
+
+Noone, Timothy B. «Universals and Individuation». En *The Cambridge Companion to Duns Scotus*, editado por Thomas Williams. Cambridge University Press, 2003.
+
+Pini, Giorgio. «Scotus on Individuation». *Proceedings of the Society for Medieval Logic and Metaphysics* 5 (2005): 50-69.
+```
+
+## Qué entra en la bibliografía
+
+Solo las fuentes **citadas en ese texto**, ordenadas según el estilo. Si quieres una bibliografía de todo el proyecto (por ejemplo, para el final de la tesis), crea un texto que cite todas las fuentes, o exporta la colección desde Zotero.
