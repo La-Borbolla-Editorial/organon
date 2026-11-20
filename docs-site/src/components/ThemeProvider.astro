@@ -1,0 +1,11 @@
+{/*
+  Como el ThemeProvider de Starlight, pero abre en claro (tema Organon) salvo
+  que el lector haya elegido Oscuro (tema Gryphon). En línea para no parpadear.
+*/}
+<script is:inline>
+	(() => {
+		let stored = null;
+		try { stored = localStorage.getItem('starlight-theme'); } catch {}
+		document.documentElement.dataset.theme = stored === 'dark' ? 'dark' : 'light';
+	})();
+</script>

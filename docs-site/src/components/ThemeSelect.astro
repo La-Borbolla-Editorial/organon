@@ -1,0 +1,52 @@
+---
+// Selector de tema: Claro (Organon) u Oscuro (Gryphon). Sustituye al de
+// Starlight, que tiene además «Automático» y sigue al sistema: aquí se abre
+// siempre en claro mientras el lector no elija otra cosa.
+import { Icon } from '@astrojs/starlight/components'
+import Select from '@astrojs/starlight/components/Select.astro'
+---
+
+<organon-theme-select>
+	<Select
+		label={Astro.locals.t('themeSelect.accessibleLabel')}
+		options={[
+			{ label: Astro.locals.t('themeSelect.light'), selected: true, value: 'light' },
+			{ label: Astro.locals.t('themeSelect.dark'), selected: false, value: 'dark' },
+		]}
+		width="7.5em"
+	>
+		<Fragment slot="icon">
+			<Icon name="sun" class="og-icon-light" />
+			<Icon name="moon" class="og-icon-dark" />
+		</Fragment>
+	</Select>
+</organon-theme-select>
+
+<script is:inline>
+	(() => {
+		const theme = document.documentElement.dataset.theme === 'dark' ? 'dark' : 'light';
+		document.querySelectorAll('organon-theme-select select').forEach((s) => { s.value = theme; });
+	})();
+</script>
+
+<style>
+	organon-theme-select:has([value='light']:checked) :global(.og-icon-dark),
+	organon-theme-select:has([value='dark']:checked) :global(.og-icon-light) {
+		display: none;
+	}
+</style>
+
+<script>
+	class OrganonThemeSelect extends HTMLElement {
+		constructor() {
+			super()
+			this.querySelector('select')?.addEventListener('change', (e) => {
+				const theme = (e.currentTarget as HTMLSelectElement).value === 'dark' ? 'dark' : 'light'
+				document.documentElement.dataset.theme = theme
+				document.querySelectorAll<HTMLSelectElement>('organon-theme-select select').forEach((s) => { s.value = theme })
+				try { localStorage.setItem('starlight-theme', theme) } catch {}
+			})
+		}
+	}
+	customElements.define('organon-theme-select', OrganonThemeSelect)
+</script>
