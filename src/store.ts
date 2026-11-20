@@ -10,7 +10,8 @@
 import { backend, type Stamps } from './backend'
 import { DEFAULT_PAGINATION, type PageRange } from './pagination'
 import { suggestCitekey } from './source-form'
-import { matchSource, type ImportedFicha } from './fichero-io'
+import { matchSource, orderKey, type ImportedFicha } from './fichero-io'
+import { applyColumns, reorder, type ColumnDraft } from './fichero-table'
 import { DEFAULT_COLUMNS, type Column, type CslItem, type Ficha, type Fichero, type Source } from './types'
 
 const FORMAT = 1
@@ -144,6 +145,35 @@ export async function updateFichero(id: string, patch: Partial<Pick<Fichero, 'na
   await persist('project')
 }
 
+/**
+ * Guarda el editor de columnas de un fichero. Al renombrar una columna, sus
+ * valores pasan al nombre nuevo; al eliminarla, se borran de las fichas.
+ */
+export async function saveFicheroColumns(id: string, drafts: ColumnDraft[]): Promise<void> {
+  const d = db()
+  const fichero = d.project.ficheros.find((f) => f.id === id)
+  if (!fichero) return
+  const { columns, changed } = applyColumns(d.fichas.filter((f) => f.ficheroId === id), fichero.columns, drafts)
+  d.project = { ...d.project, ficheros: d.project.ficheros.map((f) => (f.id === id ? { ...f, columns } : f)) }
+  if (!changed.length) return persist('project')
+  const byId = new Map(changed.map((f) => [f.id, f]))
+  d.fichas = d.fichas.map((f) => byId.get(f.id) ?? f)
+  await persist('project', 'fichas')
+}
+
+/** Mueve una ficha delante de otra (o al final) en el orden manual de su fichero. Su número no cambia. */
+export async function moveFicha(id: string, beforeId: string | null): Promise<void> {
+  const d = db()
+  const ficheroId = d.fichas.find((f) => f.id === id)?.ficheroId
+  const changes = reorder(d.fichas.filter((f) => f.ficheroId === ficheroId), id, beforeId)
+  if (!changes.size) return
+  d.fichas = d.fichas.map((f) => (changes.has(f.id) ? { ...f, orden: changes.get(f.id) } : f))
+  await persist('fichas')
+}
+
+/** Posición de una ficha que se añade al final del fichero. */
+const endOrder = (fichas: Ficha[], ficheroId: string) => fichas.reduce((m, f) => (f.ficheroId === ficheroId ? Math.max(m, orderKey(f)) : m), 0) + 1
+
 /** Elimina un fichero CON sus fichas. Siempre queda al menos un fichero. */
 export async function deleteFichero(id: string): Promise<void> {
   const d = db()
@@ -165,6 +195,7 @@ export async function importFichas(ficheroId: string, rows: ImportedFicha[], upd
   const taken = new Set(existing.keys())
   const replaced = new Map<string, Ficha>()
   const added: Ficha[] = []
+  let end = endOrder(d.fichas, ficheroId)
   for (const { num, ...fields } of rows) {
     const old = updateById && num !== null ? existing.get(num) : undefined
     if (old) {
@@ -175,7 +206,7 @@ export async function importFichas(ficheroId: string, rows: ImportedFicha[], upd
       let n = num
       if (n === null || taken.has(n)) n = nextNum++
       taken.add(n)
-      added.push({ ...fields, id: newId(), num: n, ficheroId, pageManual: true, anchor: null, createdAt: now(), updatedAt: now() })
+      added.push({ ...fields, id: newId(), num: n, orden: end++, ficheroId, pageManual: true, anchor: null, createdAt: now(), updatedAt: now() })
     }
   }
   d.fichas = [...d.fichas.map((f) => replaced.get(f.id) ?? f), ...added]
@@ -312,20 +343,23 @@ export async function listTags(): Promise<string[]> {
   return [...new Set(db().fichas.flatMap((f) => f.tags))].sort((a, b) => a.localeCompare(b, 'es', { sensitivity: 'base' }))
 }
 
-export type FichaDraft = Omit<Ficha, 'id' | 'num' | 'createdAt' | 'updatedAt'> & { id?: string }
+export type FichaDraft = Omit<Ficha, 'id' | 'num' | 'orden' | 'createdAt' | 'updatedAt'> & { id?: string }
 
 export async function saveFicha(draft: FichaDraft): Promise<string> {
   const d = db()
-  const { id: draftId, ...fields } = draft
+  // Un borrador hecho a partir de una ficha trae su posición: no se toca (pudo moverse mientras se editaba).
+  const { id: draftId, orden: _orden, ...fields } = draft as FichaDraft & { orden?: number }
   let id = draftId
   const nextNum = () => Math.max(0, ...d.fichas.filter((f) => f.ficheroId === fields.ficheroId).map((f) => f.num)) + 1
   if (id) {
-    // Al cambiar de fichero, la ficha recibe un ID nuevo en el de destino.
-    d.fichas = d.fichas.map((f) => (f.id === id ? { ...f, ...fields, num: f.ficheroId === fields.ficheroId ? f.num : nextNum(), updatedAt: now() } : f))
+    // Al cambiar de fichero, la ficha recibe un ID nuevo en el de destino, y va al final.
+    d.fichas = d.fichas.map((f) => (f.id !== id ? f : f.ficheroId === fields.ficheroId
+      ? { ...f, ...fields, updatedAt: now() }
+      : { ...f, ...fields, num: nextNum(), orden: endOrder(d.fichas, fields.ficheroId), updatedAt: now() }))
   } else {
     id = newId()
     const num = nextNum()
-    d.fichas = [...d.fichas, { id, num, ...fields, createdAt: now(), updatedAt: now() }]
+    d.fichas = [...d.fichas, { id, num, ...fields, orden: endOrder(d.fichas, fields.ficheroId), createdAt: now(), updatedAt: now() }]
   }
   await persist('fichas')
   return id

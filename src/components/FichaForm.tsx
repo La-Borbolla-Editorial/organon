@@ -3,7 +3,8 @@ import { authorsLabel, formatCitation, yearLabel, type CiteOptions } from '../ci
 import { canonicalRef } from '../draft'
 import { citedPages } from '../pagination'
 import type { FichaDraft } from '../store'
-import type { Fichero, Source } from '../types'
+import { CHECKED, isChecked, parseNumber } from '../fichero-table'
+import type { Column, Fichero, Source } from '../types'
 
 interface Props {
   draft: FichaDraft
@@ -39,6 +40,16 @@ export function FichaForm({ draft, num, sources, ficheros, lockSource, cite, kno
   const pdfPages = d.anchor ? (d.anchor.start.page === d.anchor.end.page ? `hoja ${d.anchor.start.page} del PDF` : `hojas ${d.anchor.start.page}–${d.anchor.end.page} del PDF`) : 'sin posición en el PDF'
   const unverified = !!source && !!d.anchor && !source.paginationVerified && !d.pageManual
   const missingPage = !d.pageLabel.trim() && !!source
+
+  // Las columnas propias del fichero de la ficha, como campos; lo demás de `extra`, aparte.
+  const ownColumns = ficheros.find((f) => f.id === d.ficheroId)?.columns.filter((c) => c.field === 'extra') ?? []
+  const otherExtra = Object.entries(d.extra).filter(([k]) => !ownColumns.some((c) => c.header === k))
+  const setExtra = (header: string, value: string) => {
+    const extra = { ...d.extra }
+    if (value === '') delete extra[header]
+    else extra[header] = value
+    set({ extra })
+  }
 
   const addTags = (text: string) => {
     const next = text.split(',').map((t) => t.trim()).filter(Boolean)
@@ -156,10 +167,12 @@ export function FichaForm({ draft, num, sources, ficheros, lockSource, cite, kno
         <textarea rows={4} value={d.notas} onChange={(e) => set({ notas: e.target.value })} />
       </label>
 
-      {Object.keys(d.extra).length > 0 && (
+      {ownColumns.map((c) => <OwnField key={c.header} column={c} value={d.extra[c.header] ?? ''} onChange={(v) => setExtra(c.header, v)} />)}
+
+      {otherExtra.length > 0 && (
         <details className="extra-columns">
           <summary>Otras columnas de la hoja</summary>
-          {Object.entries(d.extra).map(([k, v]) => (
+          {otherExtra.map(([k, v]) => (
             <label key={k}>
               {k}
               <input value={v} onChange={(e) => set({ extra: { ...d.extra, [k]: e.target.value } })} />
@@ -191,5 +204,42 @@ export function FichaForm({ draft, num, sources, ficheros, lockSource, cite, kno
         ))}
       </div>
     </form>
+  )
+}
+
+/** Una columna propia del fichero, con el control que corresponde a su tipo. */
+function OwnField({ column: c, value, onChange }: { column: Column; value: string; onChange: (v: string) => void }) {
+  const testid = `own-${c.header}`
+  if (c.kind === 'casilla') {
+    return (
+      <label className="own-check">
+        <input type="checkbox" checked={isChecked(value)} onChange={(e) => onChange(e.target.checked ? (isChecked(value) ? value : CHECKED) : '')} data-testid={testid} />
+        {c.header}
+      </label>
+    )
+  }
+  let control
+  if (c.kind === 'lista') {
+    const options = c.options ?? []
+    control = (
+      <select value={value} onChange={(e) => onChange(e.target.value)} data-testid={testid}>
+        <option value="">—</option>
+        {options.map((o) => <option key={o} value={o}>{o}</option>)}
+        {value && !options.includes(value) && <option value={value}>{value} (no está en la lista)</option>}
+      </select>
+    )
+  } else if (c.kind === 'fecha' && (!value || /^\d{4}-\d{2}-\d{2}$/.test(value))) {
+    control = <input type="date" value={value} onChange={(e) => onChange(e.target.value)} data-testid={testid} />
+  } else if (c.kind === 'numero') {
+    const bad = value.trim() !== '' && Number.isNaN(parseNumber(value))
+    control = <input inputMode="decimal" className={bad ? 'invalid' : ''} title={bad ? 'No es un número' : undefined} value={value} onChange={(e) => onChange(e.target.value)} data-testid={testid} />
+  } else {
+    control = <input value={value} onChange={(e) => onChange(e.target.value)} data-testid={testid} />
+  }
+  return (
+    <label>
+      {c.header}
+      {control}
+    </label>
   )
 }

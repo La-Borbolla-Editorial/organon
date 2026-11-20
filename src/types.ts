@@ -52,8 +52,10 @@ export interface Ficha {
   /** Obra canónica / referencias (texto libre). */
   referencia: string
   notas: string
-  /** Columnas adicionales del CSV, sin tocar. */
+  /** Valores de las columnas propias del fichero (y de las del CSV que Organon no interpreta), por encabezado. */
   extra: Record<string, string>
+  /** Posición en el orden manual del fichero. Sin ella, la ficha va en el lugar de su número. */
+  orden?: number
   createdAt: string
   updatedAt: string
 }
@@ -61,12 +63,29 @@ export interface Ficha {
 /** A qué campo de la ficha corresponde una columna del CSV. */
 export type FieldKey = 'num' | 'notaPermanente' | 'cita' | 'tags' | 'autor' | 'fuente' | 'pageLabel' | 'referencia' | 'notas' | 'extra'
 
+/** Qué guarda una columna propia (`field: 'extra'`). Los valores son siempre texto, como en el CSV. */
+export type ColumnKind = 'texto' | 'numero' | 'fecha' | 'casilla' | 'lista'
+
+export const COLUMN_KINDS: Record<ColumnKind, string> = {
+  texto: 'Texto',
+  numero: 'Número',
+  fecha: 'Fecha',
+  casilla: 'Casilla (sí / no)',
+  lista: 'Lista de opciones',
+}
+
 export interface Column {
-  /** Encabezado tal como aparece en la hoja de cálculo. */
+  /** Encabezado tal como aparece en la hoja de cálculo. Único dentro del fichero. */
   header: string
   field: FieldKey
   /** Ancho de la columna en la tabla, en píxeles (si se ha cambiado a mano). */
   width?: number
+  /** Solo en las columnas propias. Sin él, texto. */
+  kind?: ColumnKind
+  /** Opciones de una columna `lista`. */
+  options?: string[]
+  /** Oculta en la tabla. Se sigue viendo en la ficha y se sigue exportando. */
+  hidden?: boolean
 }
 
 /** Un fichero es como una pestaña de la hoja: sus fichas y sus columnas, en su orden. */

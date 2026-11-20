@@ -31,8 +31,11 @@ una hoja de cálculo como fichero y un procesador de textos para citar.
   te pide confirmarla una vez por fuente y te la enseña antes de guardar cada
   ficha. Admite preliminares en romanos, hojas dobles escaneadas y tramos sin
   numerar; siempre puedes corregirla a mano.
-- **Fichero.** Una tabla por fichero, con tus columnas y en tu orden, búsqueda y
-  filtros por tag y por fuente.
+- **Fichero.** Una tabla por fichero, como una hoja de cálculo: búsqueda, y en
+  cada encabezado un menú para ordenar y filtrar por esa columna (por texto, por
+  valores, por rango). Las filas se reordenan arrastrándolas, sin que cambie el
+  número de ninguna ficha. Y columnas propias (texto, número, fecha, casilla o
+  lista de opciones) en **Columnas…**.
 - **CSV de ida y vuelta.** Importa tu hoja de cálculo y la exporta igual, para
   seguir usando Google Sheets en paralelo.
 - **Escritura.** Escribe tus textos en Markdown citando las fichas: `{f. 51}`
@@ -118,6 +121,36 @@ la carpeta. Organon no guarda nada más, salvo la lista de proyectos recientes.
 
 Organon solo se conecta a internet cuando buscas una fuente por DOI (doi.org) o
 por ISBN (Open Library), y solo envía ese identificador.
+
+### Columnas de un fichero
+
+Cada fichero de `organon.json` tiene su lista `columns`, en el orden de la tabla.
+Se editan en **Columnas…**, pero también se pueden escribir a mano:
+
+```json
+"columns": [
+  { "header": "ID", "field": "num" },
+  { "header": "Cita", "field": "cita", "width": 400 },
+  { "header": "Referencias", "field": "referencia", "hidden": true },
+  { "header": "Estado", "field": "extra", "kind": "lista", "options": ["Pendiente", "En curso", "Lista"] },
+  { "header": "Revisada", "field": "extra", "kind": "casilla" },
+  { "header": "Leída", "field": "extra", "kind": "fecha" }
+]
+```
+
+- `header`: el nombre de la columna, único en el fichero.
+- `field`: el campo de la ficha que muestra (`num`, `notaPermanente`, `cita`, `tags`,
+  `autor`, `fuente`, `pageLabel`, `referencia`, `notas`), o `extra` para una columna propia.
+- `kind` (solo columnas propias): `texto` (si falta), `numero`, `fecha` (AAAA-MM-DD),
+  `casilla` o `lista`, con sus `options`.
+- `hidden`: oculta en la tabla; se sigue viendo en la ficha y se exporta.
+- `width`: ancho en píxeles.
+
+Los valores de las columnas propias se guardan en cada ficha de `fichas.json`, en
+`extra`, por nombre de columna: `"extra": { "Estado": "Lista", "Revisada": "sí" }`.
+Si renombras una columna a mano, renombra también esa clave en las fichas (desde
+**Columnas…** se hace solo). El orden manual de las filas es el campo `orden` de
+cada ficha; sin él, la ficha va en el lugar de su número.
 
 Si editas esos archivos a mano, o una sincronización los cambia, con el proyecto
 abierto, Organon lo detecta al volver a su ventana o al guardar: avisa, no

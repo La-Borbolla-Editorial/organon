@@ -1,5 +1,24 @@
 # Cambios
 
+## 0.6.0
+
+El Fichero, más hoja de cálculo:
+
+- **Ordenar y filtrar por columna.** Cada encabezado abre un menú: ordenar A→Z / Z→A (los números
+  como números, las fechas por fecha, las celdas vacías siempre al final) y filtrar por texto, por
+  valores (tags, autor, fuente, listas, casillas: con casillas, como en Sheets) o por rango (ID,
+  números, fechas). Los filtros se suman a la búsqueda, se ven como etiquetas sobre la tabla y cada
+  fichero recuerda los suyos. Sustituyen a los antiguos selectores de tag y de fuente.
+- **Orden manual.** Las filas se mueven arrastrándolas por el asa ⠿ que aparece a la izquierda.
+  El número de la ficha (su ID en los borradores) no cambia nunca. Se puede mover con filtros
+  puestos; mientras se ordena por una columna, no. El CSV se exporta en ese orden.
+- **Columnas propias**, en **Columnas…**: de texto, número, fecha, casilla o lista de opciones.
+  Aparecen en la tabla y como campos en la ficha, y se exportan al CSV. En el mismo panel se
+  renombran (los valores pasan al nombre nuevo), se reordenan, se ocultan o se eliminan todas las
+  columnas del fichero, y se recupera un campo de Organon que falte. También se pueden escribir a
+  mano en `organon.json` (el README explica el formato).
+- Al reimportar un CSV en un fichero, las columnas propias conservan su tipo y sus opciones.
+
 ## 0.5.2
 
 - **Versión para Windows** (instalador `Organon-…-windows-x64-setup.exe`). Abrir enlaces y la

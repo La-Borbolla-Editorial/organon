@@ -2,9 +2,12 @@ import { memo, useCallback, useDeferredValue, useEffect, useMemo, useRef, useSta
 import { backend, type ProjectInfo } from '../backend'
 import type { CiteOptions } from '../citations'
 import { markerProblem, suggestMarker } from '../draft'
-import { cellText, fichasToCsv, readCsv, type ParsedCsv } from '../fichero-io'
-import { createFichero, deleteFicha, deleteFichero, getSettings, listFichas, listFicheros, listSources, listTags, saveFicha, setSettings, updateFichero, type FichaDraft } from '../store'
+import { byManualOrder, cellText, fichasToCsv, readCsv, type ParsedCsv } from '../fichero-io'
+import { distinctValues, EMPTY_VIEW, filterActive, fold, isChecked, matchFilter, readView, sortByColumn, type ColumnFilter, type TableView } from '../fichero-table'
+import { createFichero, deleteFicha, deleteFichero, getSettings, listFichas, listFicheros, listSources, listTags, moveFicha, saveFicha, saveFicheroColumns, setSettings, updateFichero, type FichaDraft } from '../store'
 import type { Column, Ficha, Fichero, FieldKey, Source } from '../types'
+import { ColumnMenu } from './ColumnMenu'
+import { ColumnsDialog } from './ColumnsDialog'
 import { FichaForm } from './FichaForm'
 import { SidePanel } from './SidePanel'
 import { ImportDialog } from './ImportDialog'
@@ -21,10 +24,12 @@ interface Props {
   focusFichaId?: string
 }
 
-const NO_SOURCE = '__none__'
 const MIN_COLUMN = 48
 const DEFAULT_WIDTH: Record<FieldKey, number> = { num: 64, notaPermanente: 230, cita: 400, tags: 150, autor: 120, fuente: 190, pageLabel: 84, referencia: 190, notas: 240, extra: 150 }
-const fold = (s: string) => s.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase()
+const viewKey = (ficheroId: string) => `vista:${ficheroId}`
+
+/** Dónde se soltaría la fila que se arrastra: delante o detrás de otra. */
+interface Drop { id: string; after: boolean }
 
 export function FicheroView({ project, cite, onSection, onSwitchProject, onOpenPdf, focusFichaId }: Props) {
   const [ficheros, setFicheros] = useState<Fichero[]>([])
@@ -33,8 +38,12 @@ export function FicheroView({ project, cite, onSection, onSwitchProject, onOpenP
   const [sources, setSources] = useState<Source[]>([])
   const [knownTags, setKnownTags] = useState<string[]>([])
   const [query, setQuery] = useState('')
-  const [tag, setTag] = useState('')
-  const [sourceFilter, setSourceFilter] = useState('')
+  // Orden por columna y filtros del fichero abierto (se recuerdan por fichero).
+  const [view, setView] = useState<TableView>(EMPTY_VIEW)
+  const [menu, setMenu] = useState<{ index: number; anchor: DOMRect } | null>(null)
+  const [editingColumns, setEditingColumns] = useState(false)
+  const [drag, setDrag] = useState<{ id: string; drop: Drop | null } | null>(null)
+  const wrapRef = useRef<HTMLDivElement>(null)
   const [editing, setEditing] = useState<{ draft: FichaDraft; num: number | null } | null>(null)
   const [importing, setImporting] = useState<{ csv: ParsedCsv; fileName: string } | null>(null)
   const [message, setMessage] = useState<{ kind: 'ok' | 'error'; text: string } | null>(null)
@@ -56,33 +65,57 @@ export function FicheroView({ project, cite, onSection, onSwitchProject, onOpenP
   useEffect(() => {
     void (async () => {
       const fs = await reload()
+      const settings = await getSettings()
+      const open = (id: string) => {
+        setCurrentId(id)
+        setView(readView(settings[viewKey(id)], fs.find((f) => f.id === id)?.columns ?? []))
+      }
       const focus = focusFichaId ? (await listFichas()).find((f) => f.id === focusFichaId) : undefined
       if (focus) {
         // Se abre en su fichero, con la ficha en el editor.
-        setCurrentId(focus.ficheroId)
+        open(focus.ficheroId)
         void setSettings({ lastFichero: focus.ficheroId })
         edit(focus)
         return
       }
-      const last = (await getSettings()).lastFichero
-      setCurrentId(fs.some((f) => f.id === last) ? last : fs[0].id)
+      const last = settings.lastFichero
+      open(fs.some((f) => f.id === last) ? last : fs[0].id)
     })()
   }, [reload])
 
-  const select = (id: string) => {
+  const select = (id: string, fs = ficheros) => {
     setCurrentId(id)
     setEditing(null)
-    setTag('')
-    setSourceFilter('')
+    setMenu(null)
     setConfirmDelete(false)
+    void getSettings().then((settings) => setView(readView(settings[viewKey(id)], fs.find((f) => f.id === id)?.columns ?? [])))
     void setSettings({ lastFichero: id })
   }
 
+  // La vista se guarda en el proyecto un momento después del último cambio (no en cada tecla de un filtro).
+  const viewTimer = useRef<ReturnType<typeof setTimeout>>(undefined)
+  const changeView = (id: string, next: TableView) => {
+    setView(next)
+    clearTimeout(viewTimer.current)
+    viewTimer.current = setTimeout(() => {
+      const empty = !next.sort && !Object.keys(next.filters).length
+      void setSettings({ [viewKey(id)]: empty ? '' : JSON.stringify(next) })
+    }, 400)
+  }
+  const setFilter = (header: string, filter: ColumnFilter | undefined) => {
+    const filters = { ...view.filters }
+    if (filter) filters[header] = filter
+    else delete filters[header]
+    changeView(currentId, { ...view, filters })
+  }
+  const setSort = (header: string, dir: 'asc' | 'desc' | null) =>
+    changeView(currentId, { ...view, sort: dir ? { header, desc: dir === 'desc' } : undefined })
+
   const fichero = ficheros.find((f) => f.id === currentId)
   const sourceById = useMemo(() => new Map(sources.map((s) => [s.id, s])), [sources])
-  const fichas = useMemo(() => all.filter((f) => f.ficheroId === currentId).sort((a, b) => a.num - b.num), [all, currentId])
-  const tagsHere = useMemo(() => [...new Set(fichas.flatMap((f) => f.tags))].sort((a, b) => a.localeCompare(b, 'es')), [fichas])
-  const sourcesHere = useMemo(() => sources.filter((s) => fichas.some((f) => f.sourceId === s.id)), [sources, fichas])
+  const sourceOf = useCallback((f: Ficha) => (f.sourceId ? sourceById.get(f.sourceId) : undefined), [sourceById])
+  // En su orden manual: el que se cambia arrastrando las filas.
+  const fichas = useMemo(() => all.filter((f) => f.ficheroId === currentId).sort(byManualOrder), [all, currentId])
 
   const countByFichero = useMemo(() => {
     const n = new Map<string, number>()
@@ -91,24 +124,37 @@ export function FicheroView({ project, cite, onSection, onSwitchProject, onOpenP
   }, [all])
 
   const columns: Column[] = useMemo(() => fichero?.columns ?? [], [fichero])
+  // Las columnas que se ven, con su posición en la lista completa (la que usan los anchos).
+  const visible = useMemo(() => columns.flatMap((c, i) => (c.hidden ? [] : [{ c, i }])), [columns])
+  // Como la búsqueda, la tabla va un paso por detrás de los filtros: el menú responde al instante.
+  const tableView = useDeferredValue(view)
+  const activeFilters = useMemo(
+    () => visible.flatMap(({ c }) => (filterActive(tableView.filters[c.header]) ? [{ c, filter: tableView.filters[c.header] }] : [])),
+    [visible, tableView.filters],
+  )
+  const sortColumn = tableView.sort && visible.find(({ c }) => c.header === tableView.sort!.header)?.c
   // El texto en que se busca, ya normalizado, se prepara una vez por ficha y no en cada tecla.
   // (A la primera búsqueda, no al abrir el fichero.)
   const searchText = useMemo(() => {
     const m = new WeakMap<Ficha, string>() // una ficha editada es otro objeto: nunca queda texto viejo
     return (f: Ficha) => {
       let t = m.get(f)
-      if (t === undefined) m.set(f, (t = fold(columns.map((c) => cellText(f, c, f.sourceId ? sourceById.get(f.sourceId) : undefined)).join(' \n '))))
+      if (t === undefined) m.set(f, (t = fold(columns.map((c) => cellText(f, c, sourceOf(f))).join(' \n '))))
       return t
     }
-  }, [columns, sourceById])
+  }, [columns, sourceOf])
   // La búsqueda va un paso por detrás de lo que se escribe: el campo nunca se traba.
   const q = fold(useDeferredValue(query).trim())
-  const shown = useMemo(() => fichas.filter((f) => {
-    if (tag && !f.tags.includes(tag)) return false
-    if (sourceFilter === NO_SOURCE ? f.sourceId : sourceFilter && f.sourceId !== sourceFilter) return false
-    return !q || searchText(f).includes(q)
-  }), [fichas, q, tag, sourceFilter, searchText])
-  const { limit, sentinel, reveal } = useGrowing(shown.length, `${currentId}|${q}|${tag}|${sourceFilter}`)
+  const shown = useMemo(() => {
+    const kept = fichas.filter((f) => {
+      if (q && !searchText(f).includes(q)) return false
+      return activeFilters.every(({ c, filter }) => matchFilter(f, c, filter, sourceOf(f), cellText(f, c, sourceOf(f))))
+    })
+    return sortColumn ? sortByColumn(kept, sortColumn, !!tableView.sort?.desc, sourceOf) : kept
+  }, [fichas, q, searchText, activeFilters, sortColumn, tableView.sort?.desc, sourceOf])
+  const viewSignature = useMemo(() => JSON.stringify(tableView), [tableView])
+  const { limit, sentinel, reveal } = useGrowing(shown.length, `${currentId}|${q}|${viewSignature}`)
+  const filtering = !!q || activeFilters.length > 0
 
   const widthOf = (c: Column, i: number) => (resizing?.index === i ? resizing.width : (c.width ?? DEFAULT_WIDTH[c.field]))
 
@@ -159,6 +205,66 @@ export function FicheroView({ project, cite, onSection, onSwitchProject, onOpenP
     setEditing({ draft, num })
   }, [])
 
+  // ---- Arrastrar filas (orden manual) ----
+  // Mientras se ordena por una columna no se puede: el orden que se ve no es el manual.
+  const canDrag = !sortColumn
+  const dragged = useRef(false)
+  const openRow = useCallback((f: Ficha) => { if (!dragged.current) edit(f) }, [edit])
+  const fichasRef = useRef(fichas)
+  fichasRef.current = fichas
+
+  const startDrag = useCallback((id: string, e: React.PointerEvent) => {
+    e.preventDefault()
+    e.stopPropagation()
+    const wrap = wrapRef.current
+    let drop: Drop | null = null
+    let y = e.clientY
+    let raf = 0
+    setDrag({ id, drop: null })
+    const target = () => {
+      const row = document.elementFromPoint(e.clientX, y)?.closest<HTMLElement>('tr[data-id]')
+      const next = row && row.dataset.id !== id
+        ? { id: row.dataset.id!, after: y > row.getBoundingClientRect().top + row.offsetHeight / 2 }
+        : null
+      if (next?.id !== drop?.id || next?.after !== drop?.after) {
+        drop = next
+        setDrag({ id, drop })
+      }
+    }
+    // Cerca del borde de la tabla, la tabla se desplaza sola.
+    const scroll = () => {
+      if (wrap) {
+        const r = wrap.getBoundingClientRect()
+        const by = y < r.top + 70 ? -14 : y > r.bottom - 50 ? 14 : 0
+        if (by) { wrap.scrollTop += by; target() }
+      }
+      raf = requestAnimationFrame(scroll)
+    }
+    raf = requestAnimationFrame(scroll)
+    const move = (ev: PointerEvent) => { y = ev.clientY; target() }
+    const stop = () => {
+      window.removeEventListener('pointermove', move)
+      window.removeEventListener('pointerup', stop)
+      window.removeEventListener('pointercancel', stop)
+      cancelAnimationFrame(raf)
+      setDrag(null)
+      if (!drop) return
+      dragged.current = true
+      setTimeout(() => { dragged.current = false }, 0)
+      // Detrás de una fila = delante de la que le sigue en el orden completo (puede estar oculta por un filtro).
+      const list = fichasRef.current
+      const i = list.findIndex((f) => f.id === drop!.id)
+      let beforeId: string | null = drop.after ? list[i + 1]?.id ?? null : drop.id
+      if (beforeId === id) beforeId = list[i + 2]?.id ?? null
+      void moveFicha(id, beforeId).then(async () => setAll(await listFichas()))
+    }
+    window.addEventListener('pointermove', move)
+    window.addEventListener('pointerup', stop)
+    window.addEventListener('pointercancel', stop)
+  }, [])
+
+  const closeMenu = useCallback(() => setMenu(null), [])
+
   const exportCsv = async () => {
     if (!fichero) return
     try {
@@ -178,8 +284,7 @@ export function FicheroView({ project, cite, onSection, onSwitchProject, onOpenP
     if (problem) return setNaming({ ...naming, error: problem })
     if (naming.mode === 'new') {
       const id = await createFichero(name, undefined, marker)
-      await reload()
-      select(id)
+      select(id, await reload())
     } else if (fichero) {
       await updateFichero(fichero.id, { name, marker })
       await reload()
@@ -236,7 +341,7 @@ export function FicheroView({ project, cite, onSection, onSwitchProject, onOpenP
             {fichero && ficheros.length > 1 && (confirmDelete ? (
               <>
                 <span className="muted">¿Eliminar «{fichero.name}» y sus {fichas.length} fichas?</span>
-                <button className="danger" onClick={async () => { await deleteFichero(fichero.id); const fs = await reload(); select(fs[0].id) }}>Eliminar</button>
+                <button className="danger" onClick={async () => { await deleteFichero(fichero.id); const fs = await reload(); select(fs[0].id, fs) }}>Eliminar</button>
                 <button onClick={() => setConfirmDelete(false)}>No</button>
               </>
             ) : (
@@ -248,16 +353,23 @@ export function FicheroView({ project, cite, onSection, onSwitchProject, onOpenP
 
       <div className="fichero-filters">
         <input className="search" placeholder="Buscar en todas las columnas…" value={query} onChange={(e) => setQuery(e.target.value)} data-testid="fichero-search" />
-        <select value={tag} onChange={(e) => setTag(e.target.value)} data-testid="fichero-tag">
-          <option value="">Todos los tags</option>
-          {tagsHere.map((t) => <option key={t} value={t}>{t}</option>)}
-        </select>
-        <select value={sourceFilter} onChange={(e) => setSourceFilter(e.target.value)} data-testid="fichero-source">
-          <option value="">Todas las fuentes</option>
-          {sourcesHere.map((s) => <option key={s.id} value={s.id}>{String(s.csl.title ?? s.citekey)}</option>)}
-          <option value={NO_SOURCE}>Sin fuente vinculada</option>
-        </select>
+        {(activeFilters.length > 0 || sortColumn) && (
+          <span className="view-chips">
+            {activeFilters.map(({ c }) => (
+              <button key={c.header} className="chip" title="Quitar este filtro" onClick={() => setFilter(c.header, undefined)} data-testid="filter-chip">
+                {c.header} <span aria-hidden>×</span>
+              </button>
+            ))}
+            {sortColumn && (
+              <button className="chip" title="Volver al orden manual" onClick={() => setSort(sortColumn.header, null)} data-testid="sort-chip">
+                Ordenado por {sortColumn.header} {tableView.sort?.desc ? '↓' : '↑'} <span aria-hidden>×</span>
+              </button>
+            )}
+            {activeFilters.length > 1 && <button className="link" onClick={() => changeView(currentId, { ...view, filters: {} })}>Quitar filtros</button>}
+          </span>
+        )}
         <span className="muted" data-testid="fichero-count">{shown.length === fichas.length ? `${fichas.length} fichas` : `${shown.length} de ${fichas.length}`}</span>
+        <button onClick={() => setEditingColumns(true)} disabled={!fichero} data-testid="edit-columns">Columnas…</button>
         <button className="primary" onClick={() => setEditing({ num: null, draft: { ficheroId: currentId, notaPermanente: '', cita: '', sourceId: null, pageLabel: '', pageManual: true, anchor: null, tags: [], referencia: '', notas: '', extra: {} } })}>
           + Ficha
         </button>
@@ -271,7 +383,7 @@ export function FicheroView({ project, cite, onSection, onSwitchProject, onOpenP
       )}
 
       <div className="fichero-body">
-        <div className="table-wrap">
+        <div className="table-wrap" ref={wrapRef} onScroll={() => menu && setMenu(null)}>
           {fichas.length === 0 ? (
             <div className="empty">
               <h2>Este fichero está vacío</h2>
@@ -279,13 +391,23 @@ export function FicheroView({ project, cite, onSection, onSwitchProject, onOpenP
               <button className="primary" onClick={() => fileInput.current?.click()}>Importar CSV…</button>
             </div>
           ) : (
-            <table className={resizing ? 'fichas resizing' : 'fichas'} style={{ width: columns.reduce((sum, c, i) => sum + widthOf(c, i), 0) }}>
-              <colgroup>{columns.map((c, i) => <col key={i} style={{ width: widthOf(c, i) }} />)}</colgroup>
+            <table
+              className={['fichas', resizing && 'resizing', drag && 'dragging'].filter(Boolean).join(' ')}
+              style={{ width: visible.reduce((sum, { c, i }) => sum + widthOf(c, i), 0) }}
+            >
+              <colgroup>{visible.map(({ c, i }) => <col key={i} style={{ width: widthOf(c, i) }} />)}</colgroup>
               <thead>
                 <tr>
-                  {columns.map((c, i) => (
-                    <th key={i} className={`col-${c.field}`}>
-                      <span className="th-label">{c.header}</span>
+                  {visible.map(({ c, i }) => (
+                    <th key={i} className={`col-${c.field}${menu?.index === i ? ' menu-open' : ''}`}>
+                      <button
+                        type="button" className="th-label" title="Ordenar y filtrar" data-testid={`column-${c.header}`}
+                        onClick={(e) => setMenu(menu?.index === i ? null : { index: i, anchor: e.currentTarget.closest('th')!.getBoundingClientRect() })}
+                      >
+                        <span className="th-text">{c.header}</span>
+                        {sortColumn === c && <span className="th-mark">{tableView.sort?.desc ? '↓' : '↑'}</span>}
+                        {filterActive(view.filters[c.header]) && <span className="th-mark filter" title="Filtrada">●</span>}
+                      </button>
                       <span
                         className="col-resizer" role="separator" aria-orientation="vertical" aria-label={`Cambiar el ancho de ${c.header}`}
                         title="Arrastra para cambiar el ancho. Doble clic: ancho normal." data-testid={`resize-${i}`}
@@ -297,12 +419,21 @@ export function FicheroView({ project, cite, onSection, onSwitchProject, onOpenP
               </thead>
               <tbody>
                 {shown.slice(0, limit).map((f) => (
-                  <FichaRow key={f.id} ficha={f} columns={columns} source={f.sourceId ? sourceById.get(f.sourceId) : undefined} current={editingId === f.id} onEdit={edit} />
+                  <FichaRow
+                    key={f.id} ficha={f} columns={visible} source={sourceOf(f)} current={editingId === f.id} onEdit={openRow}
+                    onGrip={canDrag ? startDrag : undefined} dragging={drag?.id === f.id} drop={drag?.drop?.id === f.id ? (drag.drop.after ? 'after' : 'before') : null}
+                  />
                 ))}
               </tbody>
             </table>
           )}
           {limit < shown.length && <div ref={sentinel} className="list-more muted small">…</div>}
+          {fichas.length > 0 && shown.length === 0 && (
+            <p className="empty-filter muted">
+              Ninguna ficha pasa {filtering ? 'la búsqueda y los filtros' : 'los filtros'}.{' '}
+              <button className="link" onClick={() => { setQuery(''); changeView(currentId, { ...view, filters: {} }) }}>Quitarlos</button>
+            </p>
+          )}
         </div>
 
         {editing && (
@@ -318,11 +449,36 @@ export function FicheroView({ project, cite, onSection, onSwitchProject, onOpenP
         )}
       </div>
 
+      {menu && columns[menu.index] && (() => {
+        const c = columns[menu.index]
+        return (
+          <ColumnMenu
+            key={c.header} column={c} anchor={menu.anchor} filter={view.filters[c.header]}
+            sort={view.sort?.header === c.header ? (view.sort.desc ? 'desc' : 'asc') : null}
+            values={() => distinctValues(fichas, c, sourceOf, sourceById)}
+            onFilter={(f) => setFilter(c.header, f)} onSort={(dir) => setSort(c.header, dir)} onClose={closeMenu}
+          />
+        )
+      })()}
+
+      {editingColumns && fichero && (
+        <ColumnsDialog
+          fichero={fichero} fichas={fichas} onCancel={() => setEditingColumns(false)}
+          onSave={async (drafts) => {
+            await saveFicheroColumns(fichero.id, drafts)
+            const fs = await reload()
+            // Los filtros de columnas que ya no existen o se ocultaron dejan de aplicarse.
+            changeView(fichero.id, readView(JSON.stringify(view), fs.find((f) => f.id === fichero.id)?.columns.filter((c) => !c.hidden) ?? []))
+            setEditingColumns(false)
+          }}
+        />
+      )}
+
       {importing && (
         <ImportDialog
           csv={importing.csv} fileName={importing.fileName} ficheros={ficheros} fichas={all} sources={sources}
           onCancel={() => setImporting(null)}
-          onDone={async (id, text) => { setImporting(null); await reload(); select(id); setMessage({ kind: 'ok', text }) }}
+          onDone={async (id, text) => { setImporting(null); select(id, await reload()); setMessage({ kind: 'ok', text }) }}
         />
       )}
     </div>
@@ -331,18 +487,31 @@ export function FicheroView({ project, cite, onSection, onSwitchProject, onOpenP
 
 interface RowProps {
   ficha: Ficha
-  columns: Column[]
+  /** Las columnas visibles, con su posición en la lista completa. */
+  columns: { c: Column; i: number }[]
   source: Source | undefined
   current: boolean
   onEdit: (f: Ficha) => void
+  /** Sin él, la fila no se puede arrastrar (p. ej. mientras se ordena por una columna). */
+  onGrip?: (id: string, e: React.PointerEvent) => void
+  dragging: boolean
+  /** La fila que se arrastra caería delante o detrás de esta. */
+  drop: 'before' | 'after' | null
 }
 
 // Con miles de fichas, abrir una o cambiar un ancho no vuelve a pintar las demás filas.
-const FichaRow = memo(function FichaRow({ ficha: f, columns, source, current, onEdit }: RowProps) {
+const FichaRow = memo(function FichaRow({ ficha: f, columns, source, current, onEdit, onGrip, dragging, drop }: RowProps) {
+  const cls = [current && 'current', dragging && 'drag-source', drop && `drop-${drop}`].filter(Boolean).join(' ')
   return (
-    <tr className={current ? 'current' : ''} onClick={() => onEdit(f)} data-testid="ficha-row">
-      {columns.map((c, i) => (
-        <td key={i} className={`col-${c.field}`}>
+    <tr className={cls} onClick={() => onEdit(f)} data-id={f.id} data-testid="ficha-row">
+      {columns.map(({ c, i }, k) => (
+        <td key={i} className={`col-${c.field}${c.kind ? ` kind-${c.kind}` : ''}`}>
+          {k === 0 && onGrip && (
+            <span
+              className="row-grip" title="Arrastra para mover la ficha" aria-label={`Mover la ficha ${f.num}`} data-testid="row-grip"
+              onPointerDown={(e) => onGrip(f.id, e)} onClick={(e) => e.stopPropagation()}
+            >⠿</span>
+          )}
           {c.field === 'tags' ? (
             <div className="tags">{f.tags.map((t) => <span key={t} className="tag">{t}</span>)}</div>
           ) : c.field === 'num' ? (
@@ -350,6 +519,8 @@ const FichaRow = memo(function FichaRow({ ficha: f, columns, source, current, on
               {cellText(f, c, source)}
               {f.anchor ? <span className="dot linked" title="Pasaje marcado en el PDF" /> : !f.sourceId ? <span className="dot orphan" title="Sin fuente vinculada" /> : null}
             </>
+          ) : c.kind === 'casilla' ? (
+            isChecked(f.extra[c.header]) ? <span className="check" aria-label="Sí">✓</span> : null
           ) : (
             <div className="clamp">{cellText(f, c, source)}</div>
           )}
