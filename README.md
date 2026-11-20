@@ -13,7 +13,7 @@ bibliography. The interface is in Spanish.*
 Reúne en una sola herramienta lo que antes pedía tres: Zotero para leer y marcar,
 una hoja de cálculo como fichero y un procesador de textos para citar.
 
-**¿Primera vez? Lee el [tutorial de cinco minutos](TUTORIAL.md).**
+**¿Primera vez? Lee el [tutorial de cinco minutos](TUTORIAL.md).** La documentación completa, con guías paso a paso y referencia, está en **[la-borbolla-editorial.github.io/organon](https://la-borbolla-editorial.github.io/organon/)**.
 
 ## Qué hace
 

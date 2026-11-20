@@ -1,0 +1,164 @@
+---
+title: Escribir con fichas
+description: Escribir en Markdown citando fichas, con notas al pie, bibliografía, esquemas y la vista final.
+sidebar:
+  order: 7
+---
+
+import { Steps, Aside } from '@astrojs/starlight/components'
+
+La pestaña **Escritura** es un editor de textos pensado para escribir con tus fichas al lado. Escribes en Markdown y, en lugar de copiar una cita y su referencia, escribes el número de la ficha. Organon pone la cita, compone la nota al pie con tu estilo y añade la fuente a la bibliografía.
+
+## Textos
+
+Cada texto es un archivo `.md` en la carpeta `escritura/` del proyecto: `escritura/Capítulo 2.md`. A la izquierda está la lista de **Textos**.
+
+- **+ Nuevo texto** crea uno. El nombre no puede repetirse.
+- **Renombrar** cambia el nombre (y el del archivo).
+- **Eliminar** lo mueve a la papelera del proyecto (`escritura/.papelera/`). Se puede recuperar desde ahí hasta que [vacíes la papelera](/organon/guias/ajustes-y-temas/#papelera-del-proyecto).
+
+El texto se **guarda solo** mientras escribes. El estado aparece arriba: *Sin guardar…*, *Guardando…*, *Guardado*.
+
+Como son archivos Markdown normales, puedes abrirlos también con otro editor (Obsidian, iA Writer, VS Code). Si cambias el texto fuera mientras está abierto en Organon, verás *Este texto cambió fuera de Organon desde que lo abriste*, con dos opciones: **Cargar la versión del disco** o **Guardar la mía encima**.
+
+## Citar una ficha
+
+Las dos formas básicas:
+
+| Escribes | Qué hace | Resultado (Chicago, notas abreviadas) |
+| --- | --- | --- |
+| `{f. 51}` | Pone **la cita de la ficha** en el texto, entre comillas, con su nota. | «Some held that the principle is a positive entity…»¹ |
+| `[f. 51]` | Pone **solo la nota**, para cuando parafraseas. | …como señala Pini.¹ |
+
+Y la nota en los dos casos: ¹ Pini, «Scotus on Individuation», 69.
+
+Hay muchas más variantes (un pedazo de la cita, otra página, varias fichas en una nota, «cf.»…). Están todas, con su resultado, en [Sintaxis de las citas](/organon/referencia/sintaxis-de-citas/). Un adelanto:
+
+```md
+Pini lo plantea así:
+
+{f. 51}
+
+La primera opción es {f. 51 «a positive entity»}, que Escoto rechaza[f. 52]
+por razones que Noone resume en otro lugar[f. 60, p. 115]. Sobre el debate
+posterior[cf. f. 61; f. 62].
+```
+
+Una referencia **sola en su párrafo**, como `{f. 51}` arriba, se convierte en **cita en bloque** (sangrada, sin comillas). Dentro de una frase, va entre comillas: «…» en español, “…” en inglés.
+
+<Aside type="tip">
+Escribe la referencia pegada a la palabra (`resume en otro lugar[f. 60]`), sin espacio. En los estilos de nota, la llamada queda pegada a la palabra. En los estilos autor-año, Organon añade el espacio antes del paréntesis.
+</Aside>
+
+## El panel lateral
+
+A la derecha del editor hay dos pestañas.
+
+### Vista final
+
+El texto tal como quedará: citas en su sitio, notas numeradas al final y bibliografía. Debajo, si las hay, la lista de **problemas**: referencias a fichas que no existen, fichas sin fuente o sin página, pedazos de cita que no aparecen en la ficha.
+
+Con **En vivo** encendido, la vista se actualiza mientras escribes. En textos muy largos puedes apagarlo y pulsar **Actualizar** cuando quieras ver el resultado.
+
+### Fichas
+
+Un buscador de fichas para insertarlas sin salir del texto.
+
+<Steps>
+
+1. Escribe en **Buscar fichas…** (busca en la nota permanente, la cita, los tags y la fuente). Puedes limitarlo a un fichero.
+
+2. En la tarjeta de la ficha, pulsa:
+   - **Insertar** para escribir `{f. 51}` donde está el cursor.
+   - **Referenciar** para escribir `[f. 51]`.
+
+3. Para citar **solo un pedazo**, selecciónalo antes en la cita de la tarjeta y luego pulsa **Insertar**: se escribe `{f. 51 «el pedazo»}`.
+
+4. Marca **Poner la cita completa de la ficha en la nota (`+`)** si quieres que la nota lleve además el texto citado.
+
+</Steps>
+
+El título de cada tarjeta abre la ficha en el Fichero.
+
+## Ver las fichas dentro del texto
+
+Mientras escribes es útil ver qué dice la ficha que citas sin cambiar de pantalla:
+
+- La **flechita** junto a cada referencia despliega la ficha debajo de esa línea: nota permanente, cita y fuente.
+- **Ver las fichas en el texto** las despliega todas a la vez.
+
+Las fichas desplegadas **solo se ven en el editor**. No se añaden al texto ni salen al exportar. Su texto se puede seleccionar y copiar.
+
+## Fichero por defecto
+
+Si tienes varios ficheros con el mismo marcador, **Fichero por defecto** indica a cuál se refieren `{f. N}` y `[f. N]` en este texto cuando no se nombra otro. Se guarda en la cabecera del archivo:
+
+```md
+---
+fichero: Escoto
+---
+
+## Capítulo 2
+```
+
+Ver [Dos ficheros con el mismo marcador](/organon/conceptos/fichas-y-ficheros/#dos-ficheros-con-el-mismo-marcador).
+
+## Modos del editor: Texto y Markdown
+
+- **Texto** muestra el resultado mientras escribes: títulos grandes, cursivas en cursiva, las referencias como etiquetas de color con su número de nota o la cita en línea. Es el modo cómodo para redactar.
+- **Markdown** muestra el archivo tal cual, con su sintaxis (`## `, `*`, `{f. 51}`). Es el modo para revisar o arreglar algo raro.
+
+Los dos editan el mismo texto; cambia solo cómo se ve.
+
+### Formato
+
+La barra de formato tiene: **N** (negrita, ⌘B / Ctrl+B), **C** (cursiva, ⌘I / Ctrl+I), **T1**, **T2** y **T3** (título, apartado, subapartado), **•** (lista), **1.** (lista numerada) y **”** (cita en bloque).
+
+En Markdown:
+
+```md
+# Título
+## Apartado
+### Subapartado
+
+*cursiva* y **negrita**
+
+> Una cita en bloque escrita a mano.
+
+Una nota propia, sin ficha.[^aclaracion]
+
+[^aclaracion]: Las notas de Markdown se numeran junto con las de las fichas.
+```
+
+## Esquemas
+
+Para planificar un capítulo antes de redactarlo, usa listas:
+
+- **Tab** anida el punto (lo mete un nivel); **Mayús+Tab** lo saca.
+- **Intro** en un punto de lista continúa la lista, con la misma viñeta o el número siguiente.
+- Las listas numeradas se renumeran solas en cada nivel.
+
+```md
+1. El problema
+   1. Las dos opciones [f. 51]
+   2. Por qué Escoto rechaza la negación [f. 52]
+2. La solución
+   - La naturaleza común {f. 60}
+   - La *haecceitas* [e. 3]
+```
+
+Puedes citar fichas dentro del esquema. Al exportar un **PDF con fichas**, cada punto lleva sus fichas desplegadas debajo: un buen documento para discutir la estructura con tu director antes de escribir.
+
+## Del esquema al texto
+
+Un flujo que funciona:
+
+<Steps>
+
+1. Haz el esquema con listas, citando en cada punto las fichas que lo apoyan con `[f. N]`.
+2. Activa **Ver las fichas en el texto** para tener todo el material a la vista.
+3. Debajo de cada punto, redacta el párrafo. Convierte las `[f. N]` en `{f. N}` donde quieras la cita literal.
+4. Borra los puntos del esquema cuando el párrafo esté escrito.
+5. Revisa los **problemas** de la Vista final antes de exportar.
+
+</Steps>

@@ -1,0 +1,96 @@
+---
+title: Leer y marcar
+description: Usar el lector de PDF para crear fichas, revisarlas y enlazar fichas que aún no tienen pasaje.
+sidebar:
+  order: 5
+---
+
+import { Steps, Aside } from '@astrojs/starlight/components'
+
+El lector es donde nacen la mayoría de las fichas. Se abre con **Abrir** en una fuente con PDF de la Biblioteca, o desde una ficha del Fichero (*Ver el pasaje en el PDF*).
+
+## La pantalla del lector
+
+- **Arriba:** ← para volver a donde estabas, el autor, el año y el título de la fuente, el campo **Hoja _n_ de _N_** (escribe un número y pulsa Intro para saltar), el indicador **Se cita: p. 72** con el estado de la paginación y el zoom (**−**, **Ancho**, **+**).
+- **Centro:** el PDF, con las fichas de esta fuente resaltadas.
+- **Derecha:** el panel lateral. Muestra **Fichas de esta fuente**, el formulario de una ficha o el panel de paginación. Se puede ocultar y ensanchar arrastrando su borde.
+
+## Crear una ficha
+
+<Steps>
+
+1. Selecciona el pasaje con el ratón. Puede ocupar varias líneas, varias columnas o pasar de una hoja a la siguiente.
+
+2. Junto a la selección aparece **+ Ficha · p. 69**. La página es la que se citará, calculada con la paginación de la fuente. Si dice **p. ¿?**, la hoja no tiene número según la paginación.
+
+3. Pulsa el botón. Se abre el formulario con la **Cita** ya rellena con el texto seleccionado.
+
+4. Escribe la **Nota permanente**: la idea, con tus palabras.
+
+5. Revisa la **Cita**. El texto que sale de un PDF a veces trae guiones de final de línea, ligaduras raras o saltos de línea; corrígelos si quieres.
+
+6. Añade **Tags**: escribe y pulsa coma o Intro. Organon sugiere los tags que ya usaste en el proyecto. Retroceso borra el último.
+
+7. Si tienes varios ficheros, elige el **Fichero**. Organon recuerda el último que usaste.
+
+8. Pulsa **Guardar ficha**.
+
+</Steps>
+
+La ficha aparece en la lista de la derecha con su número y la cita ya formateada con el estilo del proyecto, y el pasaje queda resaltado.
+
+### La página de la ficha
+
+En el recuadro **Página que se citará** ves:
+
+- La página calculada (`69`, o `69-70` si el pasaje cruza de página), y en qué hoja del PDF está.
+- La cita tal como saldrá en una nota: *Pini, «Scotus on Individuation», 69.*
+- Un aviso si la paginación de la fuente no está verificada, con el enlace **Verificar paginación**.
+
+Puedes escribir otra página a mano (`69n` para una nota al pie, por ejemplo). Organon la marca como **escrita a mano** y no la recalculará nunca. Si luego quieres volver a la calculada, aparece el enlace **Según la paginación sería p. 69: usar esa**.
+
+### Pasajes que cruzan de página
+
+Si seleccionas un pasaje que sigue en la hoja siguiente, la selección incluye el pie de la primera página y el encabezado de la segunda (el número de página, el título corrido). Organon los detecta y los quita de la cita, y te avisa arriba del formulario:
+
+> La cita cruza de página: se quitó «70» y «G. PINI». Revisa el texto.
+
+## Revisar las fichas de una fuente
+
+En **Fichas de esta fuente**:
+
+- **Un clic en una ficha** salta a su pasaje en el PDF y lo resalta con otro color.
+- **Un clic en un resaltado** del PDF abre su ficha.
+- **Editar** abre el formulario. Desde ahí puedes también **Eliminar** la ficha.
+
+## Marcar el pasaje de una ficha que no lo tiene
+
+Las fichas importadas de un CSV, o creadas a mano en el Fichero, no tienen posición en el PDF. En la lista del lector aparecen con el enlace **Sin marcar en el PDF: marcar el pasaje…**
+
+<Steps>
+
+1. Pulsa ese enlace. Aparece un aviso arriba: *Selecciona en el PDF el pasaje de la ficha 12: «…»*, con el comienzo de la cita para que la encuentres.
+
+2. Busca el pasaje y selecciónalo.
+
+3. El botón dice ahora **Vincular a la ficha 12 · p. 70**. Púlsalo.
+
+4. Se abre el formulario de esa ficha con su posición nueva. Revisa la página y pulsa **Guardar ficha**.
+
+</Steps>
+
+La ficha conserva su texto, su nota y sus tags. Si ya tenía una página escrita y no coincide con la calculada, se mantiene la suya como escrita a mano y Organon te ofrece la calculada.
+
+También puedes empezar desde el **Fichero**: abre la ficha y pulsa **Marcar el pasaje en el PDF…** Organon abre el lector de su fuente en modo de vincular.
+
+## PDF sin capa de texto
+
+Si el PDF es una imagen escaneada sin reconocimiento de texto (OCR), no se puede seleccionar nada. Organon lo detecta al abrirlo y muestra:
+
+> Este PDF no tiene capa de texto (está escaneado sin OCR), así que no se puede seleccionar nada.
+
+Pásalo por una herramienta de OCR y vuelve a adjuntarlo con **Editar → Cambiar PDF…** Como es el mismo documento, la paginación y las fichas siguen valiendo. Ver [Problemas frecuentes](/organon/problemas-frecuentes/#el-pdf-no-deja-seleccionar-texto) para opciones de OCR.
+
+<Aside type="tip">
+Lee con el panel lateral abierto en la lista de fichas: ver qué marcaste ya en esa fuente evita fichas repetidas.
+</Aside>
