@@ -113,6 +113,12 @@ export function rowsToFichas(csv: ParsedCsv, columns: Column[], sources: Source[
   })
 }
 
+// ---- Orden manual -----------------------------------------------------------------
+
+/** Posición en el orden manual: la guardada o, si nunca se movió, su número. */
+export const orderKey = (f: Ficha) => f.orden ?? f.num
+export const byManualOrder = (a: Ficha, b: Ficha) => orderKey(a) - orderKey(b) || a.num - b.num
+
 // ---- Exportar ---------------------------------------------------------------------
 
 /** Texto de una ficha en una columna de su fichero (lo que se ve en la tabla y lo que se exporta). */
@@ -127,8 +133,9 @@ export function cellText(f: Ficha, col: Column, source: Source | undefined): str
   }
 }
 
+/** Las fichas van en el orden manual del fichero. */
 export function fichasToCsv(fichas: Ficha[], columns: Column[], sources: Source[]): string {
   const byId = new Map(sources.map((s) => [s.id, s]))
-  const sorted = [...fichas].sort((a, b) => a.num - b.num)
+  const sorted = [...fichas].sort(byManualOrder)
   return toCsv([columns.map((c) => c.header), ...sorted.map((f) => columns.map((c) => cellText(f, c, f.sourceId ? byId.get(f.sourceId) : undefined)))])
 }

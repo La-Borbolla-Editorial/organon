@@ -60,9 +60,14 @@ export function ImportDialog({ csv, fileName, ficheros, fichas, sources, onDone,
         id = await createFichero(ficheroName, columns, suggestMarker(ficheroName, ficheros))
       }
       else {
-        // Al reimportar se conservan los anchos de columna que ya tenía el fichero.
+        // Al reimportar, cada columna conserva su ancho y, si es propia, su tipo, sus opciones y si está oculta.
         const old = ficheros.find((f) => f.id === target)?.columns ?? []
-        await updateFichero(target, { columns: columns.map((c) => ({ ...c, width: old.find((o) => o.header === c.header)?.width })) })
+        await updateFichero(target, {
+          columns: columns.map((c) => {
+            const o = old.find((x) => x.header === c.header)
+            return o && o.field === c.field ? { ...o, ...c, width: o.width } : { ...c, width: o?.width }
+          }),
+        })
       }
       const { added, updated } = await importFichas(id, rows, target !== 'new' && update)
       const linked = rows.filter((r) => r.sourceId).length
