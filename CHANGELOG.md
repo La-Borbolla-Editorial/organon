@@ -1,5 +1,13 @@
 # Cambios
 
+## 0.5.2
+
+- **Versión para Windows** (instalador `Organon-…-windows-x64-setup.exe`). Abrir enlaces y la
+  carpeta de temas usa el navegador y el Explorador de Windows; los atajos se muestran como
+  Ctrl+B / Ctrl+I.
+- Los releases se compilan solos en GitHub (macOS Apple Silicon, macOS Intel y Windows) al subir
+  una etiqueta de versión.
+
 ## 0.5.1
 
 - Se puede **quitar el PDF de una fuente** (Biblioteca → Editar → «Quitar el PDF»). La fuente y sus

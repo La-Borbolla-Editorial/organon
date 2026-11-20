@@ -36,7 +36,7 @@ jobs:
     outputs:
       created: ${{ steps.release.outputs.created }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
         with:
           ref: ${{ env.TAG }}
       - name: Crear el release si no existe
@@ -85,10 +85,10 @@ jobs:
       run:
         shell: bash
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
         with:
           ref: ${{ env.TAG || github.ref }}
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v5
         with:
           node-version: 24
           cache: npm
@@ -129,7 +129,7 @@ jobs:
         run: gh release upload "$TAG" "$ASSET" --clobber
       - name: Guardar la compilación de prueba
         if: env.TAG == ''
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v5
         with:
           name: ${{ env.ASSET }}
           path: ${{ env.ASSET }}
