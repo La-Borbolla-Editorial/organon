@@ -1,20 +1,113 @@
-/* Colores del tema «Organon»: papel cálido y acento granate. */
-:root {
-  --sl-color-accent-low: #3a1717;
-  --sl-color-accent: #b0574f;
-  --sl-color-accent-high: #f0cfc9;
+/*
+  Colores de la documentación, tomados de los temas de la app (src/theme.ts):
+  claro = «Organon», oscuro = «Gryphon».
+
+  En Starlight, --sl-color-white es el texto más fuerte y --sl-color-black el
+  fondo, en los dos modos; la escala gray-1…gray-7 va del texto al fondo.
+  Los avisos usan orange (cuidado), green, red (peligro), blue (nota) y purple
+  (consejo): -low es el fondo, el color base el borde y -high el texto.
+*/
+
+/* ---- Oscuro: Gryphon ---------------------------------------------------- */
+:root,
+:root[data-theme='dark'] {
+  --sl-color-white: #e6eef6;
+  --sl-color-gray-1: #cfdce9; /* texto */
+  --sl-color-gray-2: #b2ccd6; /* texto suave */
+  --sl-color-gray-3: #7d8794; /* texto secundario */
+  --sl-color-gray-4: #4f5b69;
+  --sl-color-gray-5: #232b35; /* bordes */
+  --sl-color-gray-6: #11161d; /* paneles */
+  --sl-color-black: #0b1017; /* fondo */
+
+  --sl-color-accent-low: #0d2745;
+  --sl-color-accent: #316dca;
+  --sl-color-accent-high: #79b0ff;
+
+  --sl-color-text: var(--sl-color-gray-1);
+  --sl-color-bg-nav: #11161d;
+  --sl-color-bg-sidebar: #0b1017;
+  --sl-color-bg-inline-code: #1c222a;
+  --sl-color-hairline-light: #232b35;
+  --sl-color-hairline: #1c222a;
+  --sl-color-backdrop-overlay: rgb(0 0 0 / 0.6);
+
+  --sl-color-orange-low: #2a2110;
+  --sl-color-orange: #ffb61e;
+  --sl-color-orange-high: #ffd27a;
+  --sl-color-green-low: #0f2418;
+  --sl-color-green: #57ab5a;
+  --sl-color-green-high: #8fd18f;
+  --sl-color-red-low: #2b1216;
+  --sl-color-red: #fa4549;
+  --sl-color-red-high: #ff9a9c;
+  --sl-color-blue-low: #0d2745;
+  --sl-color-blue: #79b0ff;
+  --sl-color-blue-high: #b8d5ff;
+  --sl-color-purple-low: #1d1530;
+  --sl-color-purple: #b083f0;
+  --sl-color-purple-high: #d6bdf8;
 }
+
+/* ---- Claro: Organon ----------------------------------------------------- */
 :root[data-theme='light'] {
+  --sl-color-white: #23201c; /* texto */
+  --sl-color-gray-1: #2e2a25;
+  --sl-color-gray-2: #45403a; /* texto de citas */
+  --sl-color-gray-3: #7b746a; /* texto secundario */
+  --sl-color-gray-4: #a39b8f;
+  --sl-color-gray-5: #c9c2b4; /* bordes marcados */
+  --sl-color-gray-6: #e2ddd3; /* bordes */
+  --sl-color-gray-7: #efebe3; /* fondos suaves */
+  --sl-color-black: #ffffff; /* papel */
+
   --sl-color-accent-low: #f2e2df;
   --sl-color-accent: #7a2e2e;
-  --sl-color-accent-high: #4a1a1a;
-  --sl-color-bg: #fbfaf6;
+  --sl-color-accent-high: #5e2121;
+
+  --sl-color-text: #23201c;
+  --sl-color-bg: #ffffff;
+  --sl-color-bg-nav: #f6f4ef; /* fondo de la ventana */
+  --sl-color-bg-sidebar: #f6f4ef;
+  --sl-color-bg-inline-code: #efebe3;
+  --sl-color-hairline-light: #e2ddd3;
+  --sl-color-hairline: #e2ddd3;
+  --sl-color-hairline-shade: #e2ddd3;
+  --sl-color-backdrop-overlay: rgb(0 0 0 / 0.35);
+
+  --sl-color-orange-low: #fdf1d3;
+  --sl-color-orange: #d4a43a;
+  --sl-color-orange-high: #8a5a00;
+  --sl-color-green-low: #e5f1e7;
+  --sl-color-green: #6aa77a;
+  --sl-color-green-high: #2f6b3f;
+  --sl-color-red-low: #fbe4e1;
+  --sl-color-red: #d9786e;
+  --sl-color-red-high: #a02222;
+  --sl-color-blue-low: #e2edf8;
+  --sl-color-blue: #7aa3cc;
+  --sl-color-blue-high: #1f4d7a;
+  --sl-color-purple-low: #f2e2df;
+  --sl-color-purple: #b0574f;
+  --sl-color-purple-high: #7a2e2e;
 }
-.sl-markdown-content :is(h1, h2, h3),
-h1#_top {
+
+/* ---- Tipografía: la de la app (sistema para la interfaz, Iowan para el texto) */
+:root {
+  --sl-font: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  --sl-font-mono: ui-monospace, Menlo, monospace;
+}
+.sl-markdown-content :is(h1, h2, h3, h4),
+h1#_top,
+.hero h1 {
   font-family: 'Iowan Old Style', Palatino, Georgia, serif;
 }
+.sl-markdown-content blockquote {
+  font-family: 'Iowan Old Style', Palatino, Georgia, serif;
+  color: var(--sl-color-gray-2);
+}
+
 .sl-markdown-content img {
-  border: 1px solid var(--sl-color-gray-5);
+  border: 1px solid var(--sl-color-hairline-light);
   border-radius: 6px;
 }

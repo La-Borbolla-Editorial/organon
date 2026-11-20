@@ -18,6 +18,10 @@ export default defineConfig({
       editLink: { baseUrl: 'https://github.com/La-Borbolla-Editorial/organon/edit/main/docs-site/' },
       lastUpdated: true,
       customCss: ['./src/styles/organon.css'],
+      components: {
+        ThemeProvider: './src/components/ThemeProvider.astro',
+        ThemeSelect: './src/components/ThemeSelect.astro',
+      },
       sidebar: [
         { label: 'Empezar', items: [{ autogenerate: { directory: 'empezar' } }] },
         { label: 'Conceptos', items: [{ autogenerate: { directory: 'conceptos' } }] },
