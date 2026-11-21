@@ -209,6 +209,23 @@ fn draft_path(dir: &Path, name: &str) -> Result<PathBuf, String> {
     Ok(dir.join("escritura").join(format!("{name}.md")))
 }
 
+/// Además, para un nombre NUEVO (al crear o renombrar un texto): que valga también en Windows,
+/// donde el proyecto puede acabar sincronizado. Los textos que ya existen se siguen abriendo.
+fn check_new_draft_name(name: &str) -> Result<(), String> {
+    if name.chars().any(|c| matches!(c, '/' | '\\' | ':' | '*' | '?' | '"' | '<' | '>' | '|')) {
+        return Err("Un nombre de texto no puede llevar ninguno de estos signos: / \\ : * ? \" < > |".into());
+    }
+    if name.ends_with('.') || name.ends_with(' ') {
+        return Err("Un nombre de texto no puede terminar en punto ni en espacio.".into());
+    }
+    let stem = name.split('.').next().unwrap_or("").trim().to_ascii_uppercase();
+    let numbered = (stem.starts_with("COM") || stem.starts_with("LPT")) && stem.len() == 4 && matches!(stem.as_bytes()[3], b'1'..=b'9');
+    if matches!(stem.as_str(), "CON" | "PRN" | "AUX" | "NUL") || numbered {
+        return Err(format!("«{name}» es un nombre reservado en Windows: elige otro."));
+    }
+    Ok(())
+}
+
 #[tauri::command]
 fn list_drafts(state: State<'_, Current>) -> Result<Vec<Draft>, String> {
     let dir = current(&state)?.join("escritura");
@@ -239,6 +256,9 @@ fn read_draft(state: State<'_, Current>, name: String) -> Result<DraftContent, S
 fn write_draft(state: State<'_, Current>, name: String, content: String, expected: Option<String>, force: bool) -> Result<Option<String>, String> {
     let dir = current(&state)?;
     let path = draft_path(&dir, &name)?;
+    if !path.exists() {
+        check_new_draft_name(&name)?;
+    }
     if !force && stamp(&path) != expected {
         return Err(format!("CONFLICT {name}"));
     }
@@ -252,11 +272,22 @@ fn write_draft(state: State<'_, Current>, name: String, content: String, expecte
 #[tauri::command]
 fn rename_draft(state: State<'_, Current>, from: String, to: String) -> Result<(), String> {
     let dir = current(&state)?;
+    check_new_draft_name(&to)?;
+    let source = draft_path(&dir, &from)?;
     let target = draft_path(&dir, &to)?;
     if target.exists() {
-        return Err(format!("Ya existe un texto llamado «{to}»"));
+        // En macOS y Windows «Prueba» y «prueba» son el mismo archivo: cambiar solo mayúsculas
+        // no choca con nada (salvo que de verdad haya otro archivo con ese nombre exacto).
+        let exact = format!("{to}.md");
+        let other = fs::read_dir(dir.join("escritura")).map_err(err)?.flatten().any(|e| e.file_name().to_string_lossy() == exact);
+        if other || from.to_lowercase() != to.to_lowercase() {
+            return Err(format!("Ya existe un texto llamado «{to}»"));
+        }
+        let step = dir.join("escritura").join(format!(".{from}.renombrando"));
+        fs::rename(&source, &step).map_err(err)?;
+        return fs::rename(&step, target).map_err(err);
     }
-    fs::rename(draft_path(&dir, &from)?, target).map_err(err)
+    fs::rename(source, target).map_err(err)
 }
 
 /// No borra: mueve el borrador a `escritura/.papelera/`.

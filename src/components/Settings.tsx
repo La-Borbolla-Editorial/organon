@@ -1,4 +1,5 @@
 import { createContext, useContext, useEffect, useMemo, useState } from 'react'
+import { useEscape } from '../useEscape'
 import { appSettings, loadThemes, saveAppSettings, type ThemeEntry } from '../appearance'
 import { backend, isNative, type ProjectInfo, type TrashInfo, type TrashName } from '../backend'
 import { LOCALES, STYLES, type CiteOptions, type LocaleId, type StyleId } from '../citations'
@@ -42,11 +43,7 @@ export function Settings({ project, cite, onCiteChange, onClose }: Props) {
   const current = themes.find((t) => t.id === selected) ?? themes[0]
 
   // Esc cierra; con cambios sin guardar, primero los descarta.
-  useEffect(() => {
-    const esc = (e: KeyboardEvent) => { if (e.key === 'Escape') close() }
-    document.addEventListener('keydown', esc)
-    return () => document.removeEventListener('keydown', esc)
-  })
+  useEscape(() => close())
 
   const choose = async (entry: ThemeEntry) => {
     setDraft(null)

@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
+import { useEscape } from '../useEscape'
 
 export type ExportKind = 'docx' | 'pdf' | 'fichas' | 'md'
 
@@ -24,11 +25,10 @@ export function ExportMenu({ disabled, busy, onExport }: Props) {
   useEffect(() => {
     if (!open) return
     const outside = (e: MouseEvent) => { if (!root.current?.contains(e.target as Node)) setOpen(false) }
-    const esc = (e: KeyboardEvent) => { if (e.key === 'Escape') setOpen(false) }
     document.addEventListener('mousedown', outside)
-    document.addEventListener('keydown', esc)
-    return () => { document.removeEventListener('mousedown', outside); document.removeEventListener('keydown', esc) }
+    return () => document.removeEventListener('mousedown', outside)
   }, [open])
+  useEscape(() => setOpen(false), open)
 
   const label = busy ? 'Exportando…' : 'Exportar'
   return (

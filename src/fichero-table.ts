@@ -1,19 +1,61 @@
 // La tabla del fichero como hoja de cálculo: columnas propias, filtros y orden
 // por columna, y el orden manual de las filas. Todo sin interfaz: se prueba
 // por separado.
-import { byManualOrder, cellText } from './fichero-io'
+import { byManualOrder, cellText, CHECKED, isChecked } from './fichero-io'
 import type { Column, Ficha, Source } from './types'
 
 export const fold = (s: string) => s.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase()
 
 // ---- Valores de las columnas propias ------------------------------------------------
 
-/** Lo que se guarda en una casilla marcada. Al leer se aceptan también TRUE, x, 1… (Sheets exporta TRUE). */
-export const CHECKED = 'sí'
-export const isChecked = (v: string | undefined) => !!v && /^(s[ií]|true|verdadero|x|1|✓|✔)$/i.test(v.trim())
+export { CHECKED, isChecked } from './fichero-io'
 
-/** «12,5» o «12.5». NaN si no es un número. */
-export const parseNumber = (v: string) => (/^\s*-?\d+([.,]\d+)?\s*$/.test(v) ? Number(v.replace(',', '.')) : NaN)
+/**
+ * Un número escrito a mano: «12,5», «12.5», «1.000», «1 000», «1.000,5», «1,000.5».
+ * Con un solo separador seguido de tres cifras («1.000», «2,500») se entiende
+ * separador de miles; «0,125» sí es decimal. NaN si no es un número.
+ */
+export function parseNumber(v: string): number {
+  let s = v.trim().replace(/[\s\u00a0\u202f]/g, '')
+  if (!/^-?\d[\d.,]*$/.test(s) || /[.,]$/.test(s)) return NaN
+  const dots = (s.match(/\./g) ?? []).length
+  const commas = (s.match(/,/g) ?? []).length
+  if (dots && commas) {
+    // El último separador es el decimal; el otro, de miles.
+    const decimal = s.lastIndexOf('.') > s.lastIndexOf(',') ? '.' : ','
+    const thousands = decimal === '.' ? ',' : '.'
+    if (s.split(decimal).length > 2) return NaN
+    s = s.split(thousands).join('').replace(',', '.')
+  } else if (dots + commas > 1) {
+    const sep = dots ? '.' : ','
+    if (!/^-?\d{1,3}(?:[.,]\d{3})+$/.test(s)) return NaN
+    s = s.split(sep).join('')
+  } else if (dots + commas === 1) {
+    const [int, frac] = s.split(/[.,]/)
+    const thousands = frac.length === 3 && !/^-?0$/.test(int)
+    s = thousands ? int + frac : `${int}.${frac}`
+  }
+  const n = Number(s)
+  return Number.isFinite(n) ? n : NaN
+}
+
+/**
+ * Una fecha escrita a mano, como AAAA-MM-DD: «2026-03-14», «14/03/2026»,
+ * «14-3-2026», «14.03.26» (el día va primero). null si no es una fecha.
+ */
+export function parseDate(v: string): string | null {
+  const s = v.trim()
+  let y: number, m: number, d: number
+  let match = /^(\d{4})-(\d{1,2})-(\d{1,2})(?:[T\s].*)?$/.exec(s)
+  if (match) [y, m, d] = [Number(match[1]), Number(match[2]), Number(match[3])]
+  else if ((match = /^(\d{1,2})[/.-](\d{1,2})[/.-](\d{2}|\d{4})$/.exec(s))) {
+    ;[d, m, y] = [Number(match[1]), Number(match[2]), Number(match[3])]
+    if (y < 100) y += 2000
+  } else return null
+  const date = new Date(Date.UTC(y, m - 1, d))
+  if (date.getUTCFullYear() !== y || date.getUTCMonth() !== m - 1 || date.getUTCDate() !== d) return null
+  return `${String(y).padStart(4, '0')}-${String(m).padStart(2, '0')}-${String(d).padStart(2, '0')}`
+}
 
 // ---- Filtros ------------------------------------------------------------------------
 
@@ -38,7 +80,9 @@ export interface ColumnFilter {
   q?: string
   /** Solo las celdas vacías, o solo las que tienen algo. */
   empty?: 'vacia' | 'llena'
-  /** Valores que se muestran (filtrar por valores). '' es «vacía». */
+  /** Valores que se ocultan (filtrar por valores). '' es «vacía». Un valor nuevo se ve siempre. */
+  hidden?: string[]
+  /** Valores que se muestran: así lo guardaba 0.6.0. Se sigue leyendo; el menú lo convierte en `hidden`. */
   values?: string[]
   /** Rango, en números y fechas (ambos extremos incluidos). */
   min?: string
@@ -54,7 +98,7 @@ export interface TableView {
 export const EMPTY_VIEW: TableView = { filters: {} }
 
 export const filterActive = (f: ColumnFilter | undefined): boolean =>
-  !!f && (!!f.q?.trim() || !!f.empty || !!f.values || !!f.min?.trim() || !!f.max?.trim())
+  !!f && (!!f.q?.trim() || !!f.empty || !!f.values || !!f.hidden?.length || !!f.min?.trim() || !!f.max?.trim())
 
 /** Lee la vista guardada, descartando lo que se refiere a columnas que ya no existen. */
 export function readView(json: string | undefined, columns: Column[]): TableView {
@@ -114,11 +158,16 @@ export function matchFilter(f: Ficha, c: Column, filter: ColumnFilter, source: S
     const wanted = new Set(filter.values)
     if (!cellValues(f, c, source).some((v) => wanted.has(v))) return false
   }
+  if (filter.hidden?.length) {
+    // Con varios tags, la ficha se ve si alguno de ellos no está oculto.
+    const hidden = new Set(filter.hidden)
+    if (cellValues(f, c, source).every((v) => hidden.has(v))) return false
+  }
   const min = filter.min?.trim()
   const max = filter.max?.trim()
   if (min || max) {
     if (filterKind(c) === 'fecha') {
-      const d = text.trim().slice(0, 10)
+      const d = parseDate(text)
       if (!d || (min && d < min) || (max && d > max)) return false
     } else {
       const n = c.field === 'num' ? f.num : parseNumber(text)
@@ -144,6 +193,7 @@ export function sortByColumn(fichas: Ficha[], c: Column, desc: boolean, sourceOf
     if (c.field === 'num') key = f.num
     else if (c.kind === 'casilla') key = isChecked(f.extra[c.header]) ? 0 : null
     else if (kind === 'numero') key = Number.isNaN(parseNumber(text)) ? (text ? text : null) : parseNumber(text)
+    else if (kind === 'fecha') key = parseDate(text) ?? (text || null) // fechas: en cualquier formato, por fecha
     else key = text || null
     return { f, i, key }
   })
@@ -188,6 +238,9 @@ export interface ColumnDraft extends Column {
   orig?: string
 }
 
+/** Columnas de campos de Organon que guardan en `extra` el texto original del CSV. Solo se ocultan. */
+export const KEEPS_CSV_TEXT = new Set<Column['field']>(['num', 'autor', 'fuente'])
+
 export function columnsProblem(drafts: ColumnDraft[]): string | null {
   const seen = new Set<string>()
   for (const d of drafts) {
@@ -218,7 +271,9 @@ export function applyColumns(fichas: Ficha[], before: Column[], drafts: ColumnDr
     if (c.hidden) col.hidden = true
     return col
   })
-  const owned = before.map((c) => c.header)
+  // ID, autor y título guardan en `extra` lo que traía el CSV (lo que identifica a una ficha sin
+  // fuente): eso no se borra aunque la columna desaparezca.
+  const owned = before.filter((c) => !KEEPS_CSV_TEXT.has(c.field) || drafts.some((d) => d.orig === c.header)).map((c) => c.header)
   const moves = drafts.flatMap((d, i) => (d.orig !== undefined ? [[d.orig, columns[i].header] as const] : []))
   const changed: Ficha[] = []
   for (const f of fichas) {

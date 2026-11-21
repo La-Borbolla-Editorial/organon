@@ -113,6 +113,12 @@ export function rowsToFichas(csv: ParsedCsv, columns: Column[], sources: Source[
   })
 }
 
+// ---- Casillas ----------------------------------------------------------------------
+
+/** Lo que se guarda en una casilla marcada. Al leer se aceptan también TRUE, x, 1… (Sheets exporta TRUE). */
+export const CHECKED = 'sí'
+export const isChecked = (v: string | undefined) => !!v && /^(s[ií]|true|verdadero|x|1|✓|✔)$/i.test(v.trim())
+
 // ---- Orden manual -----------------------------------------------------------------
 
 /** Posición en el orden manual: la guardada o, si nunca se movió, su número. */
@@ -137,5 +143,9 @@ export function cellText(f: Ficha, col: Column, source: Source | undefined): str
 export function fichasToCsv(fichas: Ficha[], columns: Column[], sources: Source[]): string {
   const byId = new Map(sources.map((s) => [s.id, s]))
   const sorted = [...fichas].sort(byManualOrder)
-  return toCsv([columns.map((c) => c.header), ...sorted.map((f) => columns.map((c) => cellText(f, c, f.sourceId ? byId.get(f.sourceId) : undefined)))])
+  // Las casillas salen como TRUE / FALSE: así Google Sheets las reconoce como casillas.
+  const cell = (f: Ficha, c: Column) => (c.field === 'extra' && c.kind === 'casilla'
+    ? (isChecked(f.extra[c.header]) ? 'TRUE' : 'FALSE')
+    : cellText(f, c, f.sourceId ? byId.get(f.sourceId) : undefined))
+  return toCsv([columns.map((c) => c.header), ...sorted.map((f) => columns.map((c) => cell(f, c)))])
 }

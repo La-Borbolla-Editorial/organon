@@ -1,5 +1,34 @@
 # Cambios
 
+## 0.6.1
+
+Arreglos del Fichero 0.6.0 y de Escritura:
+
+- **Esc cierra solo lo que está encima.** Cerrar con Esc el menú de una columna, «Columnas…», los
+  Ajustes o el menú Exportar ya no cierra también la ficha que estás editando (ni pierde lo que
+  no habías guardado).
+- **Los filtros por valores guardan lo que ocultas**, no lo que se ve: un tag, una opción o una
+  fuente nuevos aparecen siempre. Los filtros guardados por 0.6.0 se siguen entendiendo.
+- **Una ficha guardada que los filtros ocultan ya no desaparece sin más:** un aviso lo dice y
+  ofrece quitar la búsqueda y los filtros. Si la cambias de fichero, también lo avisa.
+- **ID, Autor y Paper/Texto solo se pueden ocultar**, no quitar: guardan lo que traía el CSV
+  (lo que identifica a una ficha sin fuente y lo que usa la vinculación automática).
+- «Columnas…»: con cambios sin guardar, Esc, Cancelar o un clic fuera preguntan antes de
+  descartarlos; el aviso de nombre vacío sale al guardar, no al añadir la columna.
+- Renombrar una columna conserva su filtro y su orden.
+- **Fechas** en cualquier formato habitual (14/03/2026, 14-3-26, 2026-03-14) para ordenar y
+  filtrar; en la ficha se ven en el calendario.
+- **Números** con separador de miles: «1.000» es mil, «1.000,5» y «1,000.5» también se entienden.
+- Las casillas se exportan al CSV como TRUE / FALSE, que Google Sheets reconoce como casillas.
+- La búsqueda del Fichero busca solo en las columnas visibles.
+- Las filas también se mueven con el teclado: selecciona una con Tab y pulsa Alt+↑ / Alt+↓.
+- Cambiar de fichero muy rápido ya no puede aplicarle los filtros del anterior; los filtros de un
+  fichero eliminado se borran del proyecto.
+- Escritura: se puede renombrar un texto cambiando solo mayúsculas («Prueba» → «prueba»); los
+  nombres nuevos con `/ \ : * ? " < > |`, o reservados en Windows, se rechazan con un aviso claro.
+- Escritura: la lista de fichas para insertar sigue el orden manual del Fichero y busca también
+  en las columnas propias.
+
 ## 0.6.0
 
 El Fichero, más hoja de cálculo:
