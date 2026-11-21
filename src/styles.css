@@ -302,6 +302,8 @@ table.fichas tbody tr { cursor: pointer; }
 .list-more { text-align: center; padding: 14px; }
 table.fichas tbody tr:hover { background: var(--hover); }
 table.fichas tbody tr.current { background: var(--mark-bg); box-shadow: inset 3px 0 0 var(--mark); }
+table.fichas tbody tr:focus-visible { outline: 2px solid color-mix(in srgb, var(--accent) 55%, transparent); outline-offset: -2px; }
+.column-fixed { white-space: nowrap; }
 .clamp { display: -webkit-box; -webkit-line-clamp: 4; -webkit-box-orient: vertical; overflow: hidden; white-space: pre-line; }
 td.col-num { white-space: nowrap; color: var(--muted); font-variant-numeric: tabular-nums; }
 td.col-notaPermanente { font-weight: 600; }

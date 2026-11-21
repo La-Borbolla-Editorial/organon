@@ -46,7 +46,7 @@ export function FicheroView({ project, cite, onSection, onSwitchProject, onOpenP
   const wrapRef = useRef<HTMLDivElement>(null)
   const [editing, setEditing] = useState<{ draft: FichaDraft; num: number | null } | null>(null)
   const [importing, setImporting] = useState<{ csv: ParsedCsv; fileName: string } | null>(null)
-  const [message, setMessage] = useState<{ kind: 'ok' | 'error'; text: string } | null>(null)
+  const [message, setMessage] = useState<{ kind: 'ok' | 'error'; text: string; clearFilters?: boolean } | null>(null)
   const [naming, setNaming] = useState<{ mode: 'new' | 'rename'; value: string; marker: string; error?: string } | null>(null)
   const [confirmDelete, setConfirmDelete] = useState(false)
   const fileInput = useRef<HTMLInputElement>(null)
@@ -83,12 +83,17 @@ export function FicheroView({ project, cite, onSection, onSwitchProject, onOpenP
     })()
   }, [reload])
 
+  const viewRequest = useRef(0)
   const select = (id: string, fs = ficheros) => {
     setCurrentId(id)
     setEditing(null)
     setMenu(null)
     setConfirmDelete(false)
-    void getSettings().then((settings) => setView(readView(settings[viewKey(id)], fs.find((f) => f.id === id)?.columns ?? [])))
+    // Si se cambia de fichero antes de que llegue, la vista de este ya no se aplica.
+    const req = ++viewRequest.current
+    void getSettings().then((settings) => {
+      if (req === viewRequest.current) setView(readView(settings[viewKey(id)], fs.find((f) => f.id === id)?.columns ?? []))
+    })
     void setSettings({ lastFichero: id })
   }
 
@@ -139,19 +144,20 @@ export function FicheroView({ project, cite, onSection, onSwitchProject, onOpenP
     const m = new WeakMap<Ficha, string>() // una ficha editada es otro objeto: nunca queda texto viejo
     return (f: Ficha) => {
       let t = m.get(f)
-      if (t === undefined) m.set(f, (t = fold(columns.map((c) => cellText(f, c, sourceOf(f))).join(' \n '))))
+      if (t === undefined) m.set(f, (t = fold(visible.map(({ c }) => cellText(f, c, sourceOf(f))).join(' \n '))))
       return t
     }
-  }, [columns, sourceOf])
+  }, [visible, sourceOf])
   // La búsqueda va un paso por detrás de lo que se escribe: el campo nunca se traba.
   const q = fold(useDeferredValue(query).trim())
+  const passes = useCallback((f: Ficha) => {
+    if (q && !searchText(f).includes(q)) return false
+    return activeFilters.every(({ c, filter }) => matchFilter(f, c, filter, sourceOf(f), cellText(f, c, sourceOf(f))))
+  }, [q, searchText, activeFilters, sourceOf])
   const shown = useMemo(() => {
-    const kept = fichas.filter((f) => {
-      if (q && !searchText(f).includes(q)) return false
-      return activeFilters.every(({ c, filter }) => matchFilter(f, c, filter, sourceOf(f), cellText(f, c, sourceOf(f))))
-    })
+    const kept = fichas.filter(passes)
     return sortColumn ? sortByColumn(kept, sortColumn, !!tableView.sort?.desc, sourceOf) : kept
-  }, [fichas, q, searchText, activeFilters, sortColumn, tableView.sort?.desc, sourceOf])
+  }, [fichas, passes, sortColumn, tableView.sort?.desc, sourceOf])
   const viewSignature = useMemo(() => JSON.stringify(tableView), [tableView])
   const { limit, sentinel, reveal } = useGrowing(shown.length, `${currentId}|${q}|${viewSignature}`)
   const filtering = !!q || activeFilters.length > 0
@@ -263,7 +269,30 @@ export function FicheroView({ project, cite, onSection, onSwitchProject, onOpenP
     window.addEventListener('pointercancel', stop)
   }, [])
 
+  // Con el teclado: Alt+↑ / Alt+↓ sobre una fila la sube o la baja un puesto entre las que se ven.
+  const shownRef = useRef(shown)
+  shownRef.current = shown
+  const moveByKey = useCallback((id: string, dir: -1 | 1) => {
+    const list = shownRef.current
+    const i = list.findIndex((f) => f.id === id)
+    const neighbor = list[i + dir]
+    if (i === -1 || !neighbor) return
+    let beforeId: string | null = neighbor.id
+    if (dir === 1) {
+      // Detrás de la siguiente = delante de la que le sigue en el orden completo.
+      const all = fichasRef.current
+      const j = all.findIndex((f) => f.id === neighbor.id)
+      beforeId = all[j + 1]?.id ?? null
+      if (beforeId === id) beforeId = all[j + 2]?.id ?? null
+    }
+    void moveFicha(id, beforeId).then(async () => {
+      setAll(await listFichas())
+      requestAnimationFrame(() => document.querySelector<HTMLElement>(`tr[data-id="${id}"]`)?.focus())
+    })
+  }, [])
+
   const closeMenu = useCallback(() => setMenu(null), [])
+  const clearFilters = () => { setQuery(''); changeView(currentId, { ...view, filters: {} }) }
 
   const exportCsv = async () => {
     if (!fichero) return
@@ -352,7 +381,7 @@ export function FicheroView({ project, cite, onSection, onSwitchProject, onOpenP
       </div>
 
       <div className="fichero-filters">
-        <input className="search" placeholder="Buscar en todas las columnas…" value={query} onChange={(e) => setQuery(e.target.value)} data-testid="fichero-search" />
+        <input className="search" placeholder="Buscar en las columnas visibles…" value={query} onChange={(e) => setQuery(e.target.value)} data-testid="fichero-search" />
         {(activeFilters.length > 0 || sortColumn) && (
           <span className="view-chips">
             {activeFilters.map(({ c }) => (
@@ -378,6 +407,9 @@ export function FicheroView({ project, cite, onSection, onSwitchProject, onOpenP
       {message && (
         <div className={`banner ${message.kind}`}>
           {message.text}
+          {message.clearFilters && (
+            <button className="link" onClick={() => { clearFilters(); setMessage(null) }} data-testid="notice-clear-filters">Quitar búsqueda y filtros</button>
+          )}
           <button className="link" onClick={() => setMessage(null)}>Cerrar</button>
         </div>
       )}
@@ -421,7 +453,7 @@ export function FicheroView({ project, cite, onSection, onSwitchProject, onOpenP
                 {shown.slice(0, limit).map((f) => (
                   <FichaRow
                     key={f.id} ficha={f} columns={visible} source={sourceOf(f)} current={editingId === f.id} onEdit={openRow}
-                    onGrip={canDrag ? startDrag : undefined} dragging={drag?.id === f.id} drop={drag?.drop?.id === f.id ? (drag.drop.after ? 'after' : 'before') : null}
+                    onGrip={canDrag ? startDrag : undefined} onKeyMove={canDrag ? moveByKey : undefined} dragging={drag?.id === f.id} drop={drag?.drop?.id === f.id ? (drag.drop.after ? 'after' : 'before') : null}
                   />
                 ))}
               </tbody>
@@ -431,7 +463,7 @@ export function FicheroView({ project, cite, onSection, onSwitchProject, onOpenP
           {fichas.length > 0 && shown.length === 0 && (
             <p className="empty-filter muted">
               Ninguna ficha pasa {filtering ? 'la búsqueda y los filtros' : 'los filtros'}.{' '}
-              <button className="link" onClick={() => { setQuery(''); changeView(currentId, { ...view, filters: {} }) }}>Quitarlos</button>
+              <button className="link" onClick={clearFilters}>Quitarlos</button>
             </p>
           )}
         </div>
@@ -441,7 +473,16 @@ export function FicheroView({ project, cite, onSection, onSwitchProject, onOpenP
             <FichaForm
               key={editing.draft.id ?? 'new'} draft={editing.draft} num={editing.num} sources={sources} ficheros={ficheros} cite={cite} knownTags={knownTags}
               onCancel={() => setEditing(null)}
-              onSave={async (d) => { await saveFicha(d); await reload(); setEditing(null) }}
+              onSave={async (d) => {
+                const id = await saveFicha(d)
+                await reload()
+                setEditing(null)
+                // Guardada, pero quizá fuera de la vista: se avisa en vez de dejar que «desaparezca».
+                const saved = (await listFichas()).find((f) => f.id === id)
+                const moved = ficheros.find((f) => f.id === saved?.ficheroId && f.id !== currentId)
+                if (moved) setMessage({ kind: 'ok', text: `La ficha ${saved!.num} está ahora en «${moved.name}».` })
+                else if (saved && !passes(saved)) setMessage({ kind: 'ok', text: `Ficha ${saved.num} guardada. No se ve porque la búsqueda o los filtros la ocultan.`, clearFilters: true })
+              }}
               onDelete={editing.draft.id ? async () => { await deleteFicha(editing.draft.id!); await reload(); setEditing(null) } : undefined}
               onOpenPdf={editing.draft.id ? (d) => d.sourceId && onOpenPdf(d.sourceId, d.anchor ? { focusFichaId: d.id } : { linkFichaId: d.id }) : undefined}
             />
@@ -467,8 +508,14 @@ export function FicheroView({ project, cite, onSection, onSwitchProject, onOpenP
           onSave={async (drafts) => {
             await saveFicheroColumns(fichero.id, drafts)
             const fs = await reload()
-            // Los filtros de columnas que ya no existen o se ocultaron dejan de aplicarse.
-            changeView(fichero.id, readView(JSON.stringify(view), fs.find((f) => f.id === fichero.id)?.columns.filter((c) => !c.hidden) ?? []))
+            // Una columna renombrada conserva su filtro y su orden; los de las que ya no existen
+            // o se ocultaron dejan de aplicarse.
+            const renamed = new Map(drafts.flatMap((d) => (d.orig !== undefined ? [[d.orig, d.header.trim()] as const] : [])))
+            const moved: TableView = {
+              sort: view.sort && renamed.has(view.sort.header) ? { ...view.sort, header: renamed.get(view.sort.header)! } : undefined,
+              filters: Object.fromEntries(Object.entries(view.filters).flatMap(([h, f]) => (renamed.has(h) ? [[renamed.get(h)!, f]] : []))),
+            }
+            changeView(fichero.id, readView(JSON.stringify(moved), fs.find((f) => f.id === fichero.id)?.columns.filter((c) => !c.hidden) ?? []))
             setEditingColumns(false)
           }}
         />
@@ -494,21 +541,29 @@ interface RowProps {
   onEdit: (f: Ficha) => void
   /** Sin él, la fila no se puede arrastrar (p. ej. mientras se ordena por una columna). */
   onGrip?: (id: string, e: React.PointerEvent) => void
+  onKeyMove?: (id: string, dir: -1 | 1) => void
   dragging: boolean
   /** La fila que se arrastra caería delante o detrás de esta. */
   drop: 'before' | 'after' | null
 }
 
 // Con miles de fichas, abrir una o cambiar un ancho no vuelve a pintar las demás filas.
-const FichaRow = memo(function FichaRow({ ficha: f, columns, source, current, onEdit, onGrip, dragging, drop }: RowProps) {
+const FichaRow = memo(function FichaRow({ ficha: f, columns, source, current, onEdit, onGrip, onKeyMove, dragging, drop }: RowProps) {
   const cls = [current && 'current', dragging && 'drag-source', drop && `drop-${drop}`].filter(Boolean).join(' ')
   return (
-    <tr className={cls} onClick={() => onEdit(f)} data-id={f.id} data-testid="ficha-row">
+    <tr
+      className={cls} onClick={() => onEdit(f)} data-id={f.id} data-testid="ficha-row" tabIndex={0}
+      onKeyDown={(e) => {
+        if (e.target !== e.currentTarget) return
+        if (e.key === 'Enter') { e.preventDefault(); onEdit(f) }
+        else if (e.altKey && onKeyMove && (e.key === 'ArrowUp' || e.key === 'ArrowDown')) { e.preventDefault(); onKeyMove(f.id, e.key === 'ArrowUp' ? -1 : 1) }
+      }}
+    >
       {columns.map(({ c, i }, k) => (
         <td key={i} className={`col-${c.field}${c.kind ? ` kind-${c.kind}` : ''}`}>
           {k === 0 && onGrip && (
             <span
-              className="row-grip" title="Arrastra para mover la ficha" aria-label={`Mover la ficha ${f.num}`} data-testid="row-grip"
+              className="row-grip" title="Arrastra para mover la ficha (o, con la fila seleccionada, Alt+↑ / Alt+↓)" aria-label={`Mover la ficha ${f.num}`} data-testid="row-grip"
               onPointerDown={(e) => onGrip(f.id, e)} onClick={(e) => e.stopPropagation()}
             >⠿</span>
           )}

@@ -3,7 +3,7 @@ import { authorsLabel, formatCitation, yearLabel, type CiteOptions } from '../ci
 import { canonicalRef } from '../draft'
 import { citedPages } from '../pagination'
 import type { FichaDraft } from '../store'
-import { CHECKED, isChecked, parseNumber } from '../fichero-table'
+import { CHECKED, isChecked, parseDate, parseNumber } from '../fichero-table'
 import type { Column, Fichero, Source } from '../types'
 
 interface Props {
@@ -228,8 +228,9 @@ function OwnField({ column: c, value, onChange }: { column: Column; value: strin
         {value && !options.includes(value) && <option value={value}>{value} (no está en la lista)</option>}
       </select>
     )
-  } else if (c.kind === 'fecha' && (!value || /^\d{4}-\d{2}-\d{2}$/.test(value))) {
-    control = <input type="date" value={value} onChange={(e) => onChange(e.target.value)} data-testid={testid} />
+  } else if (c.kind === 'fecha' && (!value || parseDate(value))) {
+    // «14/03/2026» (p. ej. importada de una hoja) se muestra en el calendario; al cambiarla se guarda como 2026-03-14.
+    control = <input type="date" value={value ? parseDate(value)! : ''} onChange={(e) => onChange(e.target.value)} data-testid={testid} />
   } else if (c.kind === 'numero') {
     const bad = value.trim() !== '' && Number.isNaN(parseNumber(value))
     control = <input inputMode="decimal" className={bad ? 'invalid' : ''} title={bad ? 'No es un número' : undefined} value={value} onChange={(e) => onChange(e.target.value)} data-testid={testid} />

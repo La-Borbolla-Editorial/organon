@@ -1,6 +1,7 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useMemo, useState } from 'react'
 import { FIELD_NAMES } from '../fichero-io'
-import { columnsProblem, filledCount, type ColumnDraft } from '../fichero-table'
+import { columnsProblem, filledCount, KEEPS_CSV_TEXT, type ColumnDraft } from '../fichero-table'
+import { useEscape } from '../useEscape'
 import { COLUMN_KINDS, type ColumnKind, type Ficha, type FieldKey, type Fichero } from '../types'
 
 interface Props {
@@ -28,11 +29,14 @@ export function ColumnsDialog({ fichero, fichas, onSave, onCancel }: Props) {
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
 
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onCancel() }
-    window.addEventListener('keydown', onKey)
-    return () => window.removeEventListener('keydown', onKey)
-  }, [onCancel])
+  // Los avisos (nombre vacío, repetido…) se muestran al intentar guardar, no mientras se escribe.
+  const [tried, setTried] = useState(false)
+  const [confirmDiscard, setConfirmDiscard] = useState(false)
+  const [initial] = useState(() => JSON.stringify(rows))
+  const dirty = JSON.stringify(rows) !== initial
+  // Esc, Cancelar o clic fuera: con cambios, primero se pregunta.
+  const cancel = () => (dirty && !confirmDiscard ? setConfirmDiscard(true) : onCancel())
+  useEscape(() => (confirmDiscard ? setConfirmDiscard(false) : cancel()))
 
   const kept = rows.filter((r) => !r.removed)
   const drafts: ColumnDraft[] = kept.map(({ key: _k, removed: _r, optionsText, ...c }) => ({ ...c, options: c.kind === 'lista' ? (optionsText ?? '').split('\n') : undefined }))
@@ -56,7 +60,8 @@ export function ColumnsDialog({ fichero, fichas, onSave, onCancel }: Props) {
   }
 
   const save = async () => {
-    if (problem) return setError(problem)
+    setTried(true)
+    if (problem) return
     setBusy(true)
     try {
       await onSave(drafts)
@@ -67,7 +72,7 @@ export function ColumnsDialog({ fichero, fichas, onSave, onCancel }: Props) {
   }
 
   return (
-    <div className="modal-backdrop" onMouseDown={(e) => e.target === e.currentTarget && onCancel()}>
+    <div className="modal-backdrop" onMouseDown={(e) => e.target === e.currentTarget && cancel()}>
       <form className="modal columns-dialog" onSubmit={(e) => { e.preventDefault(); void save() }} data-testid="columns-dialog">
         <h2>Columnas de «{fichero.name}»</h2>
         <p className="muted small">
@@ -103,6 +108,8 @@ export function ColumnsDialog({ fichero, fichas, onSave, onCancel }: Props) {
                   </label>
                   {r.removed ? (
                     <button type="button" className="link" onClick={() => set(r.key, { removed: false })}>Deshacer</button>
+                  ) : KEEPS_CSV_TEXT.has(r.field) && r.orig !== undefined ? (
+                    <span className="muted small column-fixed" title="Esta columna guarda lo que traía el CSV (lo que identifica a una ficha sin fuente). Se puede ocultar, no quitar.">Solo se oculta</span>
                   ) : (
                     <button type="button" className="link subtle" onClick={() => set(r.key, { removed: true })} data-testid="column-remove">
                       {own ? 'Eliminar' : 'Quitar'}
@@ -142,10 +149,21 @@ export function ColumnsDialog({ fichero, fichas, onSave, onCancel }: Props) {
         </p>
 
         <div className="form-actions">
-          {(error || problem) && <span className="page-warning">{error || problem}</span>}
-          <div className="spacer" />
-          <button type="button" onClick={onCancel}>Cancelar</button>
-          <button type="submit" className="primary" disabled={busy || !!problem} data-testid="columns-save">Guardar columnas</button>
+          {confirmDiscard ? (
+            <>
+              <span className="page-warning">¿Descartar los cambios en las columnas?</span>
+              <div className="spacer" />
+              <button type="button" className="danger" onClick={onCancel} data-testid="columns-discard">Descartar</button>
+              <button type="button" onClick={() => setConfirmDiscard(false)}>Seguir editando</button>
+            </>
+          ) : (
+            <>
+              {(error || (tried && problem)) && <span className="page-warning">{error || problem}</span>}
+              <div className="spacer" />
+              <button type="button" onClick={cancel}>Cancelar</button>
+              <button type="submit" className="primary" disabled={busy || (tried && !!problem)} data-testid="columns-save">Guardar columnas</button>
+            </>
+          )}
         </div>
       </form>
     </div>

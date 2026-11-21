@@ -44,6 +44,12 @@ export function devBackend(): Plugin {
         if (!name.trim() || name.length > 120 || name.startsWith('.') || /[/\\:\0]/.test(name)) throw new Error(`Nombre de texto no válido: ${name}`)
         return join(project(), 'escritura', `${name}.md`)
       }
+      // Igual que el núcleo: un nombre nuevo tiene que valer también en Windows.
+      const checkNewName = (name: string) => {
+        if (/[/\\:*?"<>|]/.test(name)) throw new Error('Un nombre de texto no puede llevar ninguno de estos signos: / \\ : * ? " < > |')
+        if (/[. ]$/.test(name)) throw new Error('Un nombre de texto no puede terminar en punto ni en espacio.')
+        if (/^(con|prn|aux|nul|com[1-9]|lpt[1-9])$/i.test(name.split('.')[0].trim())) throw new Error(`«${name}» es un nombre reservado en Windows: elige otro.`)
+      }
 
       const themesDir = join(stateDir, 'temas')
       mkdirSync(themesDir, { recursive: true })
@@ -67,6 +73,7 @@ export function devBackend(): Plugin {
         read_draft: ({ name }) => ({ content: readFileSync(draft(name), 'utf8'), stamp: stamp(draft(name)) }),
         write_draft: ({ name, content, expected, force }) => {
           const file = draft(name)
+          if (!existsSync(file)) checkNewName(name)
           if (!force && stamp(file) !== (expected ?? null)) throw new Error(`CONFLICT ${name}`)
           mkdirSync(join(project(), 'escritura'), { recursive: true })
           const tmp = join(project(), 'escritura', `.${name}.tmp`)
@@ -75,7 +82,16 @@ export function devBackend(): Plugin {
           return stamp(file)
         },
         rename_draft: ({ from, to }) => {
-          if (existsSync(draft(to))) throw new Error(`Ya existe un texto llamado «${to}»`)
+          checkNewName(to)
+          // Igual que el núcleo: cambiar solo mayúsculas no choca consigo mismo.
+          if (existsSync(draft(to))) {
+            const other = readdirSync(join(project(), 'escritura')).includes(`${to}.md`)
+            if (other || from.toLowerCase() !== to.toLowerCase()) throw new Error(`Ya existe un texto llamado «${to}»`)
+            const step = join(project(), 'escritura', `.${from}.renombrando`)
+            renameSync(draft(from), step)
+            renameSync(step, draft(to))
+            return
+          }
           renameSync(draft(from), draft(to))
         },
         trash_info: () => {

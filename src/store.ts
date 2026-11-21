@@ -178,7 +178,9 @@ const endOrder = (fichas: Ficha[], ficheroId: string) => fichas.reduce((m, f) =>
 export async function deleteFichero(id: string): Promise<void> {
   const d = db()
   if (d.project.ficheros.length <= 1) throw new Error('El proyecto necesita al menos un fichero.')
-  d.project = { ...d.project, ficheros: d.project.ficheros.filter((f) => f.id !== id) }
+  // También se olvidan sus filtros guardados.
+  const { [`vista:${id}`]: _vista, ...settings } = d.project.settings
+  d.project = { ...d.project, settings, ficheros: d.project.ficheros.filter((f) => f.id !== id) }
   d.fichas = d.fichas.filter((f) => f.ficheroId !== id)
   await persist('project', 'fichas')
 }

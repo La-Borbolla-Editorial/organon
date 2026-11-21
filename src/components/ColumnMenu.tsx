@@ -1,4 +1,5 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'react'
+import { useEscape } from '../useEscape'
 import { filterActive, filterKind, fold, type ColumnFilter } from '../fichero-table'
 import type { Column } from '../types'
 
@@ -46,16 +47,14 @@ export function ColumnMenu({ column: c, anchor, filter, sort, values, onFilter, 
 
   useEffect(() => {
     const onDown = (e: MouseEvent) => { if (!ref.current?.contains(e.target as Node)) onClose() }
-    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose() }
     window.addEventListener('mousedown', onDown)
-    window.addEventListener('keydown', onKey)
     window.addEventListener('resize', onClose)
     return () => {
       window.removeEventListener('mousedown', onDown)
-      window.removeEventListener('keydown', onKey)
       window.removeEventListener('resize', onClose)
     }
   }, [onClose])
+  useEscape(onClose)
 
   const update = (patch: Partial<ColumnFilter>) => {
     const next: ColumnFilter = { ...f, ...patch }
@@ -63,12 +62,18 @@ export function ColumnMenu({ column: c, anchor, filter, sort, values, onFilter, 
     onFilter(filterActive(next) ? next : undefined)
   }
 
-  const selected = new Set(f.values ?? all.map((v) => v.value))
+  // Se guardan los valores ocultos: un tag o una opción que aparezca después se verá.
+  // (Un filtro guardado por 0.6.0 trae los mostrados, `values`: se convierte al tocarlo.)
+  const selected = f.values ? new Set(f.values) : new Set(all.map((v) => v.value).filter((v) => !f.hidden?.includes(v)))
+  const setShown = (shown: Set<string>) => {
+    const hidden = all.map((v) => v.value).filter((v) => !shown.has(v))
+    update({ values: undefined, hidden: hidden.length ? hidden : undefined })
+  }
   const toggle = (value: string) => {
     const next = new Set(selected)
     if (next.has(value)) next.delete(value)
     else next.add(value)
-    update({ values: next.size === all.length ? undefined : [...next] })
+    setShown(next)
   }
   const visibleValues = search.trim() ? all.filter((v) => fold(v.label).includes(fold(search.trim()))) : all
   const [ascLabel, descLabel] = SORT_LABELS[kind]
@@ -113,8 +118,8 @@ export function ColumnMenu({ column: c, anchor, filter, sort, values, onFilter, 
           <>
             {all.length > 8 && <input autoFocus placeholder="Buscar un valor…" value={search} onChange={(e) => setSearch(e.target.value)} data-testid="filter-values-search" />}
             <div className="column-menu-row">
-              <button type="button" className="link" onClick={() => update({ values: undefined })}>Todos</button>
-              <button type="button" className="link" onClick={() => update({ values: [] })}>Ninguno</button>
+              <button type="button" className="link" onClick={() => setShown(new Set(all.map((v) => v.value)))}>Todos</button>
+              <button type="button" className="link" onClick={() => setShown(new Set())}>Ninguno</button>
             </div>
             <div className="value-list">
               {visibleValues.map((v) => (

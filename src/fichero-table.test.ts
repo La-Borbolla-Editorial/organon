@@ -1,6 +1,6 @@
 import { expect, test } from 'vitest'
 import { fichasToCsv } from './fichero-io'
-import { applyColumns, columnsProblem, distinctValues, matchFilter, readView, reorder, sortByColumn } from './fichero-table'
+import { applyColumns, columnsProblem, distinctValues, matchFilter, parseDate, parseNumber, readView, reorder, sortByColumn } from './fichero-table'
 import type { Column, Ficha, Source } from './types'
 
 const ficha = (num: number, patch: Partial<Ficha> = {}): Ficha => ({
@@ -106,4 +106,56 @@ test('la vista guardada olvida las columnas que ya no existen', () => {
   const json = JSON.stringify({ sort: { header: 'Viejo' }, filters: { Notas: { q: 'x' }, Viejo: { q: 'y' }, Tags: {} } })
   expect(readView(json, [notas, tags])).toEqual({ sort: undefined, filters: { Notas: { q: 'x' } } })
   expect(readView('no es json', [notas])).toEqual({ filters: {} })
+})
+
+test('filtrar por valores guarda los ocultos: un valor nuevo se ve', () => {
+  const nueva = ficha(9, { tags: ['Tema nuevo'] })
+  const vieja = ficha(1, { tags: ['¿King?'] })
+  const mixta = ficha(2, { tags: ['¿King?', 'Universales'] })
+  const pass = (f: Ficha) => matchFilter(f, tags, { hidden: ['¿King?'] }, undefined, text(f, tags))
+  expect(pass(nueva)).toBe(true)
+  expect(pass(vieja)).toBe(false)
+  expect(pass(mixta)).toBe(true) // le queda un tag que no está oculto
+  // Un filtro guardado por 0.6.0 (valores mostrados) se sigue entendiendo.
+  expect(matchFilter(vieja, tags, { values: ['Universales'] }, undefined, '')).toBe(false)
+})
+
+test('números escritos a mano', () => {
+  expect(parseNumber('12,5')).toBe(12.5)
+  expect(parseNumber('12.5')).toBe(12.5)
+  expect(parseNumber('1.000')).toBe(1000)
+  expect(parseNumber('1 000')).toBe(1000)
+  expect(parseNumber('1.000.000')).toBe(1000000)
+  expect(parseNumber('1.000,5')).toBe(1000.5)
+  expect(parseNumber('1,000.5')).toBe(1000.5)
+  expect(parseNumber('0,125')).toBe(0.125)
+  expect(parseNumber('-3')).toBe(-3)
+  expect(parseNumber('12a')).toBeNaN()
+  expect(parseNumber('1.00.0')).toBeNaN()
+  expect(parseNumber('')).toBeNaN()
+})
+
+test('fechas escritas a mano, con el día primero', () => {
+  expect(parseDate('2026-03-14')).toBe('2026-03-14')
+  expect(parseDate('14/03/2026')).toBe('2026-03-14')
+  expect(parseDate('4-3-2026')).toBe('2026-03-04')
+  expect(parseDate('14.03.26')).toBe('2026-03-14')
+  expect(parseDate('31/02/2026')).toBeNull()
+  expect(parseDate('marzo')).toBeNull()
+  const f = ficha(1, { extra: { Leída: '14/03/2026' } })
+  expect(matchFilter(f, fecha, { min: '2026-03-01', max: '2026-03-31' }, undefined, '14/03/2026')).toBe(true)
+  const fs = [ficha(1, { extra: { Leída: '02/01/2027' } }), ficha(2, { extra: { Leída: '2026-12-31' } }), ficha(3, { extra: { Leída: '15/06/2026' } })]
+  expect(sortByColumn(fs, fecha, false, none).map((x) => x.num)).toEqual([3, 2, 1])
+})
+
+test('quitar las columnas de ID, autor o título no borra lo que traía el CSV', () => {
+  const autor: Column = { header: 'Autor', field: 'autor' }
+  const trad: Column = { header: 'Trad.', field: 'extra' }
+  const { changed } = applyColumns([ficha(1, { extra: { Autor: 'Pini', 'Trad.': 'Wolter' } })], [notas, autor, trad], [{ ...notas, orig: 'Notas' }])
+  expect(changed[0].extra).toEqual({ Autor: 'Pini' })
+})
+
+test('las casillas se exportan como TRUE / FALSE', () => {
+  const fs = [ficha(1, { extra: { Revisada: 'sí' } }), ficha(2)]
+  expect(fichasToCsv(fs, [{ header: 'ID', field: 'num' }, revisada], []).trim().split(/\r?\n/)).toEqual(['ID,Revisada', '1,TRUE', '2,FALSE'])
 })

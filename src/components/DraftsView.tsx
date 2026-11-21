@@ -6,6 +6,7 @@ import { backend, MOD_KEY, type ProjectInfo } from '../backend'
 import { authorsLabel, canonicalText, yearLabel, type CiteOptions } from '../citations'
 import { bibliographyHeading, canonicalRef, defaultFichero, lookupRef, resolveDraft, setFrontMatter, tokenText, type DraftContext, type RenderedToken, type Token } from '../draft'
 import { getSettings, listFichas, listFicheros, listSources, setSettings } from '../store'
+import { byManualOrder } from '../fichero-io'
 import type { Ficha, Fichero, Source } from '../types'
 import { MarkdownEditor, type EditorMode, type Format, type MarkdownEditorHandle, type PeekItem, type TokenInfo } from './MarkdownEditor'
 import { ExportMenu, type ExportKind } from './ExportMenu'
@@ -317,8 +318,9 @@ export function DraftsView({ project, cite, onSection, onSwitchProject, onOpenFi
   const picked = useMemo(() => {
     const q = fold(query.trim())
     return fichas
-      .filter((f) => (!pickId || f.ficheroId === pickId) && (!q || fold(`${f.num} ${f.notaPermanente} ${f.cita} ${f.tags.join(' ')} ${sourceLabel(f)}`).includes(q)))
-      .sort((a, b) => a.ficheroId.localeCompare(b.ficheroId) || a.num - b.num)
+      .filter((f) => (!pickId || f.ficheroId === pickId) && (!q || fold(`${f.num} ${f.notaPermanente} ${f.cita} ${f.tags.join(' ')} ${sourceLabel(f)} ${Object.values(f.extra).join(' ')}`).includes(q)))
+      // Por fichero y, dentro de cada uno, en su orden manual (el de la tabla del Fichero).
+      .sort((a, b) => a.ficheroId.localeCompare(b.ficheroId) || byManualOrder(a, b))
   }, [fichas, pickId, query, sourceLabel])
 
   const words = useMemo(() => (text.replace(/^---[\s\S]*?---/, '').match(/[\p{L}\p{N}]+/gu) ?? []).length, [text])
