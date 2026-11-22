@@ -71,6 +71,7 @@ export function MarkPopover({ marca, at, onColor, onText, onFicha, onDelete, onC
         <>
           <div className="mark-popover-row"><ColorDots value={marca.color ?? 'amarillo'} onPick={onColor} label="Cambiar a" /></div>
           <p className="mark-excerpt">«{trim(marca.anchor?.exact ?? '', 140)}»</p>
+          {marca.texto && <p className="mark-comment" data-testid="mark-comment">{marca.texto}</p>}
         </>
       )}
       {marca.kind === 'nota' && (
@@ -105,9 +106,13 @@ interface PanelProps {
   pageLabel: (n: number) => string
   onMarca: (m: Marca) => void
   onFicha: (f: Ficha) => void
+  onImport: () => void
+  onExport: () => void
+  /** Importando o exportando: los botones esperan. */
+  busy: string
 }
 
-export function MarksPanel({ marcas, fichas, activeId, pageLabel, onMarca, onFicha }: PanelProps) {
+export function MarksPanel({ marcas, fichas, activeId, pageLabel, onMarca, onFicha, onImport, onExport, busy }: PanelProps) {
   const [kinds, setKinds] = useState<Set<Kind>>(new Set())
   const [colors, setColors] = useState<Set<HlColor>>(new Set())
   const items = useMemo(() => inDocumentOrder<Marca | Ficha>([...marcas, ...fichas.filter((f) => f.anchor)]), [marcas, fichas])
@@ -120,6 +125,11 @@ export function MarksPanel({ marcas, fichas, activeId, pageLabel, onMarca, onFic
 
   return (
     <div className="marks-panel" data-testid="marks-panel">
+      <div className="marks-actions">
+        <button type="button" onClick={onImport} disabled={!!busy} title="Copia como marcas los resaltados y las notas que ya trae el PDF (de Zotero, Vista Previa, el iPad…). El PDF no se toca." data-testid="import-annotations">Importar del PDF</button>
+        <button type="button" onClick={onExport} disabled={!!busy || items.length === 0} title="Guarda una copia del PDF con los resaltados, las notas, los recortes y las fichas como anotaciones, para verlas en Vista Previa, Zotero o el iPad." data-testid="export-pdf">Exportar PDF con marcas…</button>
+        {busy && <span className="muted small">{busy}</span>}
+      </div>
       <div className="marks-filters">
         {(Object.keys(KIND_LABELS) as Kind[]).map((k) => (
           <button key={k} type="button" className={`chip ${kinds.has(k) ? 'on' : ''}`} onClick={() => setKinds(toggle(kinds, k))} disabled={!counts[k]} aria-pressed={kinds.has(k)}>
@@ -149,7 +159,7 @@ export function MarksPanel({ marcas, fichas, activeId, pageLabel, onMarca, onFic
                 <span className={`mark-icon k-${k} ${color ? `c-${color}` : ''} ${k === 'ficha' && !color ? 'k-recorte' : ''}`} aria-hidden>{k === 'nota' ? '✎' : k === 'recorte' ? '▭' : k === 'ficha' ? (it as Ficha).num : ''}</span>
                 <span className="mark-body">
                   {k === 'nota' && (((it as Marca).texto ?? '').trim() ? trim((it as Marca).texto!, 160) : <em className="muted">Nota vacía</em>)}
-                  {k === 'resaltado' && `«${trim((it as Marca).anchor?.exact ?? '', 160)}»`}
+                  {k === 'resaltado' && <>«{trim((it as Marca).anchor?.exact ?? '', 160)}»{(it as Marca).texto && <span className="mark-comment"> {trim((it as Marca).texto!, 120)}</span>}</>}
                   {k === 'recorte' && ((it as Marca).imagen ? <RecorteImage name={(it as Marca).imagen!} className="mark-thumb" /> : 'Recorte')}
                   {k === 'ficha' && ((it as Ficha).notaPermanente || `«${trim((it as Ficha).cita, 120)}»`)}
                 </span>

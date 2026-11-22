@@ -31,6 +31,17 @@ Marcar:
 - Las marcas se guardan en `marcas.json`, en la carpeta del proyecto. Tus PDF no se modifican.
 - La selección nueva en el PDF se pinta en gris, para no confundirla con el resaltado azul.
 
+Entrar y salir:
+
+- **Importar las anotaciones del PDF.** Si un PDF trae resaltados, subrayados o notas (de Zotero,
+  Vista Previa, el iPad…), Organon lo avisa al abrirlo y los copia como marcas con su color, su
+  texto y su comentario. También desde «Marcas → Importar del PDF». Importar dos veces no duplica
+  nada, y el PDF no se toca. (Hasta ahora Organon no mostraba esas anotaciones.)
+- **Exportar PDF con marcas.** Desde «Marcas», guarda una copia del PDF con los resaltados, las
+  notas, los recortes y las fichas como anotaciones estándar, que se ven en Vista Previa, en Zotero
+  o en el iPad. Las fichas llevan su número y su nota permanente. Si se importaron las anotaciones
+  del PDF, la copia lleva las de Organon en su lugar, para que no salgan dos veces.
+
 ## 0.6.2
 
 - **El formulario de fuentes ya no se arrastra al escribir.** La vista previa de la bibliografía

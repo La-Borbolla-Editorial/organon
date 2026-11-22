@@ -144,6 +144,8 @@ export interface Marca {
   texto?: string
   /** Recorte: archivo de la imagen en `recortes/`. */
   imagen?: string
+  /** Si vino de una anotación del PDF (Zotero, Vista Previa…): cuál, para no importarla dos veces. */
+  origen?: string
   createdAt: string
   updatedAt: string
 }

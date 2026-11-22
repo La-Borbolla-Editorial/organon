@@ -38,10 +38,10 @@ Acordado el 22 nov 2026. Marca con [x] lo que vaya quedando hecho.
 
 ## 3. Entrar y salir
 
-- [ ] **Importar las anotaciones del PDF.** Al adjuntar un PDF, o cuando lo pidas, Organon lee los
+- [x] **Importar las anotaciones del PDF.** Al adjuntar un PDF, o cuando lo pidas, Organon lee los
   resaltados y las notas que ya traiga de Zotero, Vista Previa o el iPad, y los copia como marcas
   con su color. El PDF queda igual.
-- [ ] **Exportar una copia con las marcas.** Los resaltados, las notas y las fichas salen como
+- [x] **Exportar una copia con las marcas.** Los resaltados, las notas y las fichas salen como
   anotaciones estándar del PDF, que se ven en Vista Previa, en Zotero o en el iPad.
 
 ## Fuera de 0.7.0

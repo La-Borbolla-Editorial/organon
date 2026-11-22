@@ -2,11 +2,12 @@ import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { backend } from '../backend'
 import { authorsLabel, formatCitation, yearLabel, type CiteOptions } from '../citations'
 import { canonicalRef } from '../draft'
-import { deleteFicha, deleteMarca, getFicha, getSettings, getSource, listFichas, listFicheros, listMarcas, listTags, newId, saveFicha, saveMarca, savePagination, setSettings, type FichaDraft, type MarcaDraft } from '../store'
+import { addMarcas, deleteFicha, deleteMarca, getFicha, getSettings, getSource, listFichas, listFicheros, listMarcas, listTags, newId, saveFicha, saveMarca, savePagination, setSettings, type FichaDraft, type MarcaDraft } from '../store'
 import { citedPages, sheetLabel, type PageRange } from '../pagination'
 import { EventBus, FindState, lacksTextLayer, openPdf, PDFFindController, PDFLinkService, PDFViewer, type PDFDocumentProxy } from '../pdf/pdfjs'
 import { captureSelection, type Capture } from '../pdf/selection'
 import { clampScale, readerStateKey, readReaderState, wheelZoomFactor, type ReaderState } from '../pdf/view-state'
+import { countAnnotations, pdfWithMarks, readAnnotations, type ExportItem } from '../pdf/annotations'
 import { renderCrop } from '../pdf/crop'
 import { anchorHit, fichaFieldsFrom, marcaAt, rectBetween, startOf } from '../pdf/marks'
 import { DEFAULT_HL_COLOR, isHlColor, type Anchor, type Ficha, type Fichero, type HlColor, type Marca, type Source } from '../types'
@@ -81,6 +82,11 @@ export function Reader({ sourceId, cite, focusFichaId, linkFichaId, backLabel, o
   // Recorte en curso: hoja y esquinas (0–1).
   const [drag, setDrag] = useState<{ page: number; from: [number, number]; to: [number, number] } | null>(null)
   const [markError, setMarkError] = useState('')
+  // Anotaciones que trae el PDF: cuántas hay sin importar (para ofrecerlo) y lo que se está haciendo.
+  const [annotOffer, setAnnotOffer] = useState(0)
+  const [busy, setBusy] = useState('')
+  const [markNotice, setMarkNotice] = useState('')
+  const annotSetting = useRef<string | undefined>(undefined)
   /** Zoom y hoja guardados la última vez que se leyó esta fuente (JSON en los ajustes del proyecto). */
   const savedView = useRef<string | undefined>(undefined)
 
@@ -115,12 +121,18 @@ export function Reader({ sourceId, cite, focusFichaId, linkFichaId, backLabel, o
       setSidebar(settings.lectorIndice === '1')
       if (isHlColor(settings.colorResaltado)) setLastColor(settings.colorResaltado)
       if (settings.lectorPestana === 'marcas') setSideTab('marcas')
+      annotSetting.current = settings[`anotaciones:${sourceId}`]
       setFicheros(fs)
       setDefaultFichero(fs.some((f) => f.id === last) ? last : fs[0].id)
       if (linkFichaId) setLinking(await getFicha(linkFichaId))
       if (focusFichaId) setActiveId(focusFichaId)
       setDoc(opened)
       setNoText(await lacksTextLayer(opened))
+      // Si el PDF trae anotaciones y aún no se decidió qué hacer con ellas, se ofrece importarlas.
+      if (!annotSetting.current) {
+        const n = await countAnnotations(opened)
+        if (!cancelled && n) setAnnotOffer(n)
+      }
       // Una fuente recién adjuntada se abre pidiendo verificar la paginación.
       if (!s.paginationVerified && !all.some((f) => f.anchor)) {
         setDraftRanges(s.pagination)
@@ -537,6 +549,63 @@ export function Reader({ sourceId, cite, focusFichaId, linkFichaId, backLabel, o
     })
   }
 
+  // ---- Anotaciones del PDF ----
+
+  const importAnnotations = async () => {
+    if (!doc || !source) return
+    setAnnotOffer(0)
+    setBusy('Leyendo las anotaciones del PDF…')
+    try {
+      const found = await readAnnotations(doc)
+      const known = new Set(marcas.map((m) => m.origen).filter(Boolean))
+      const fresh = found.filter((a) => !known.has(a.origen))
+      await addMarcas(fresh.map(({ origen, kind, page, anchor, color, at, texto }) => (
+        kind === 'resaltado' ? { sourceId: source.id, kind, anchor, color, texto: texto || undefined, origen } : { sourceId: source.id, kind, page, at, texto, origen }
+      )))
+      void setSettings({ [`anotaciones:${source.id}`]: 'importadas' })
+      annotSetting.current = 'importadas'
+      await reloadMarcas()
+      const hl = fresh.filter((a) => a.kind === 'resaltado').length
+      const notes = fresh.length - hl
+      setMarkNotice(
+        !found.length ? 'Este PDF no trae resaltados ni notas que importar.'
+          : !fresh.length ? 'Las anotaciones de este PDF ya estaban importadas.'
+          : `Importadas: ${[hl && `${hl} resaltado${hl > 1 ? 's' : ''}`, notes && `${notes} nota${notes > 1 ? 's' : ''}`].filter(Boolean).join(' y ')}. Están en la pestaña «Marcas».`,
+      )
+      setSideTab('marcas')
+    } catch (e) { failed(e) } finally { setBusy('') }
+  }
+
+  const declineAnnotations = () => {
+    setAnnotOffer(0)
+    annotSetting.current = 'no'
+    if (source) void setSettings({ [`anotaciones:${source.id}`]: 'no' })
+  }
+
+  const exportPdf = async () => {
+    if (!doc || !source?.pdfFile) return
+    setBusy('Preparando la copia…')
+    try {
+      const items: ExportItem[] = []
+      for (const m of marcas) {
+        if (m.kind === 'resaltado' && m.anchor) for (const g of m.anchor.rects) items.push({ kind: 'resaltado', page: g.page, rects: g.r, color: m.color ?? 'amarillo', texto: m.texto ?? '', id: m.id })
+        else if (m.kind === 'nota' && m.page && m.at) items.push({ kind: 'nota', page: m.page, at: m.at, texto: m.texto ?? '', id: m.id })
+        else if (m.kind === 'recorte' && m.page && m.rect) items.push({ kind: 'recuadro', page: m.page, rect: m.rect, texto: '', id: m.id })
+      }
+      for (const f of fichas) {
+        if (!f.anchor) continue
+        const texto = [`Ficha ${f.num}${f.notaPermanente ? `: ${f.notaPermanente}` : ''}`, f.notas].filter((t) => t?.trim()).join('\n\n')
+        for (const g of f.anchor.rects) {
+          if (f.imagen) for (const r of g.r) items.push({ kind: 'recuadro', page: g.page, rect: r, texto, id: f.id })
+          else items.push({ kind: 'resaltado', page: g.page, rects: g.r, color: f.color ?? 'amarillo', texto, id: f.id })
+        }
+      }
+      const bytes = await pdfWithMarks(await backend.readPdf(source.pdfFile), doc, items, annotSetting.current === 'importadas')
+      const name = `${source.citekey || 'fuente'} (con marcas).pdf`
+      if (await backend.saveBinaryFile(name, bytes, 'application/pdf')) setMarkNotice(`Copia guardada: «${name}». El PDF del proyecto no cambia.`)
+    } catch (e) { failed(e) } finally { setBusy('') }
+  }
+
   const chooseTool = (t: Tool) => {
     setTool((cur) => (cur === t ? 'texto' : t))
     setPending(null)
@@ -668,6 +737,19 @@ export function Reader({ sourceId, cite, focusFichaId, linkFichaId, backLabel, o
         </div>
       )}
 
+      {annotOffer > 0 && (
+        <div className="banner ok" data-testid="annotations-offer">
+          <span>Este PDF trae {annotOffer} {annotOffer === 1 ? 'anotación' : 'anotaciones'} (resaltados o notas de Zotero, Vista Previa…). ¿Las copio como marcas? El PDF no se toca.</span>
+          <button className="primary" onClick={() => void importAnnotations()}>Importarlas</button>
+          <button className="link" onClick={declineAnnotations}>Ahora no</button>
+        </div>
+      )}
+      {markNotice && (
+        <div className="banner ok" data-testid="mark-notice">
+          <span>{markNotice}</span>
+          <button className="link" onClick={() => setMarkNotice('')}>Cerrar</button>
+        </div>
+      )}
       {markError && (
         <div className="banner error">
           <span>{markError}</span>
@@ -794,6 +876,7 @@ export function Reader({ sourceId, cite, focusFichaId, linkFichaId, backLabel, o
               marcas={marcas} fichas={fichas} activeId={activeMark}
               pageLabel={(n) => sheetLabel(ranges, n) ?? ''}
               onMarca={showMarca} onFicha={(f) => jumpTo(f)}
+              onImport={() => void importAnnotations()} onExport={() => void exportPdf()} busy={busy}
             />
           )}
         </SidePanel>

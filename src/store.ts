@@ -333,9 +333,10 @@ export async function deleteSource(id: string): Promise<void> {
     d.marcas = d.marcas.filter((m) => m.sourceId !== id)
     await persist('marcas')
   }
-  // También se olvida dónde se había quedado su lectura.
-  if (`lector:${id}` in d.project.settings) {
-    const { [`lector:${id}`]: _lector, ...settings } = d.project.settings
+  // También se olvida dónde se había quedado su lectura y qué se decidió sobre sus anotaciones.
+  const keys = [`lector:${id}`, `anotaciones:${id}`].filter((k) => k in d.project.settings)
+  if (keys.length) {
+    const settings = Object.fromEntries(Object.entries(d.project.settings).filter(([k]) => !keys.includes(k)))
     d.project = { ...d.project, settings }
     await persist('project')
   }
@@ -422,5 +423,13 @@ export async function saveMarca(draft: MarcaDraft): Promise<string> {
 export async function deleteMarca(id: string): Promise<void> {
   const d = db()
   d.marcas = d.marcas.filter((m) => m.id !== id)
+  await persist('marcas')
+}
+
+/** Añade varias marcas de una vez (al importar las anotaciones de un PDF). */
+export async function addMarcas(drafts: Omit<MarcaDraft, 'id'>[]): Promise<void> {
+  if (!drafts.length) return
+  const d = db()
+  d.marcas = [...d.marcas, ...drafts.map((m) => ({ id: newId(), ...m, createdAt: now(), updatedAt: now() }))]
   await persist('marcas')
 }
