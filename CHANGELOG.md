@@ -14,6 +14,23 @@ Leer:
 - **Volver.** Después de saltar a una ficha, a una entrada del índice, a una hoja o a una búsqueda,
   «↩ Volver» (o ⌘←, o ⌘[) regresa a donde estabas.
 
+Marcar:
+
+- **Resaltar sin hacer ficha.** Al seleccionar un pasaje, junto a «+ Ficha» salen seis colores:
+  uno resalta el pasaje con ese color. Organon recuerda el último que usaste y no le da ningún
+  significado a los colores.
+- **Las fichas también tienen color** en el PDF; se elige en su formulario.
+- **Un resaltado se convierte en ficha** desde su globo («Hacer ficha»): la ficha hereda el pasaje,
+  la cita y el color, y el resaltado suelto desaparece.
+- **Notas al margen.** Con «✎ Nota», un clic en la hoja deja una nota. Una nota que se cierra vacía
+  no se guarda.
+- **Recortes.** Con «▭ Recorte» se arrastra un rectángulo sobre una tabla, un esquema o un escaneo
+  sin texto. Organon guarda la imagen en `recortes/` y se puede hacer una ficha con ella.
+- **Pestaña «Marcas»** junto a «Fichas». Reúne resaltados, notas, recortes y fichas en el orden del
+  PDF, filtrables por tipo y por color; un clic lleva a cada una.
+- Las marcas se guardan en `marcas.json`, en la carpeta del proyecto. Tus PDF no se modifican.
+- La selección nueva en el PDF se pinta en gris, para no confundirla con el resaltado azul.
+
 ## 0.6.2
 
 - **El formulario de fuentes ya no se arrastra al escribir.** La vista previa de la bibliografía

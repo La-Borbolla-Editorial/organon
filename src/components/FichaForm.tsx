@@ -5,6 +5,7 @@ import { citedPages } from '../pagination'
 import type { FichaDraft } from '../store'
 import { CHECKED, isChecked, parseDate, parseNumber } from '../fichero-table'
 import type { Column, Fichero, Source } from '../types'
+import { ColorDots, RecorteImage } from './Marks'
 
 interface Props {
   draft: FichaDraft
@@ -76,10 +77,24 @@ export function FichaForm({ draft, num, sources, ficheros, lockSource, cite, kno
         <input autoFocus value={d.notaPermanente} onChange={(e) => set({ notaPermanente: e.target.value })} placeholder="La idea, con tus palabras" data-testid="nota-permanente" />
       </label>
 
+      {d.imagen && (
+        <figure className="ficha-image">
+          <RecorteImage name={d.imagen} />
+          <figcaption className="muted">Recorte del PDF</figcaption>
+        </figure>
+      )}
+
       <label>
-        Cita
-        <textarea className="quote" rows={7} value={d.cita} onChange={(e) => set({ cita: e.target.value })} />
+        {d.imagen ? 'Cita o descripción (opcional)' : 'Cita'}
+        <textarea className="quote" rows={d.imagen ? 3 : 7} value={d.cita} onChange={(e) => set({ cita: e.target.value })} />
       </label>
+
+      {d.anchor && !d.imagen && (
+        <div className="ficha-color">
+          <span>Color en el PDF</span>
+          <ColorDots value={d.color ?? 'amarillo'} onPick={(c) => set({ color: c === 'amarillo' ? undefined : c })} label="Resaltar en" />
+        </div>
+      )}
 
       {!lockSource && (
         <label>

@@ -96,6 +96,17 @@ export const backend = {
     return new Uint8Array(await (await dev('read_pdf', { body: JSON.stringify({ name }) })).arrayBuffer())
   },
 
+  // ---- Recortes del PDF (recortes/*.png) ----
+  async saveRecorte(name: string, bytes: Uint8Array): Promise<void> {
+    if (isNative) await invoke('save_recorte', bytes, { headers: { 'x-name': name } })
+    else await dev('save_recorte', { body: bytes as BodyInit, headers: { 'x-name': name } })
+  },
+  async readRecorte(name: string): Promise<Uint8Array> {
+    if (isNative) return new Uint8Array(await invoke<ArrayBuffer>('read_recorte', { name }))
+    return new Uint8Array(await (await dev('read_recorte', { body: JSON.stringify({ name }) })).arrayBuffer())
+  },
+  deleteRecorte: (name: string) => call<void>('delete_recorte', { name }),
+
   /** Guarda un archivo de texto donde elija el usuario. `false` si cancela. */
   async saveTextFile(defaultName: string, content: string): Promise<boolean> {
     if (isNative) return invoke<boolean>('save_text_file', { defaultName, content })

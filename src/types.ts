@@ -56,6 +56,10 @@ export interface Ficha {
   extra: Record<string, string>
   /** Posición en el orden manual del fichero. Sin ella, la ficha va en el lugar de su número. */
   orden?: number
+  /** Color de su resaltado en el PDF. Sin él, amarillo. */
+  color?: HlColor
+  /** Imagen de un recorte del PDF (archivo en `recortes/`), si la ficha nació de uno. */
+  imagen?: string
   createdAt: string
   updatedAt: string
 }
@@ -108,3 +112,38 @@ export const DEFAULT_COLUMNS: Column[] = [
   { header: 'Obra Canónica', field: 'referencia' },
   { header: 'Notas', field: 'notas' },
 ]
+
+// ---- Marcas del PDF (marcas.json) ----------------------------------------------
+
+/**
+ * Colores del resaltado. Organon no les da ningún significado: cada quien decide qué quiere decir
+ * cada uno. Se guardan por nombre; el tono exacto lo pone el tema.
+ */
+export const HL_COLORS = ['amarillo', 'verde', 'azul', 'rosa', 'naranja', 'morado'] as const
+export type HlColor = (typeof HL_COLORS)[number]
+export const DEFAULT_HL_COLOR: HlColor = 'amarillo'
+export const isHlColor = (c: unknown): c is HlColor => HL_COLORS.includes(c as HlColor)
+
+export type MarcaKind = 'resaltado' | 'nota' | 'recorte'
+
+/** Algo marcado en el PDF de una fuente que no es (todavía) una ficha. */
+export interface Marca {
+  id: string
+  sourceId: string
+  kind: MarcaKind
+  /** Resaltado: el pasaje, igual que el de una ficha. */
+  anchor?: Anchor
+  color?: HlColor
+  /** Nota y recorte: hoja del PDF (desde 1). */
+  page?: number
+  /** Nota: punto de la hoja (0–1). */
+  at?: [x: number, y: number]
+  /** Recorte: rectángulo de la hoja (0–1). */
+  rect?: [x: number, y: number, w: number, h: number]
+  /** Nota: su texto. */
+  texto?: string
+  /** Recorte: archivo de la imagen en `recortes/`. */
+  imagen?: string
+  createdAt: string
+  updatedAt: string
+}

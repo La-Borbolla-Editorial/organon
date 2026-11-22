@@ -2,14 +2,17 @@ import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { backend } from '../backend'
 import { authorsLabel, formatCitation, yearLabel, type CiteOptions } from '../citations'
 import { canonicalRef } from '../draft'
-import { deleteFicha, getFicha, getSettings, getSource, listFichas, listFicheros, listTags, saveFicha, savePagination, setSettings, type FichaDraft } from '../store'
+import { deleteFicha, deleteMarca, getFicha, getSettings, getSource, listFichas, listFicheros, listMarcas, listTags, newId, saveFicha, saveMarca, savePagination, setSettings, type FichaDraft, type MarcaDraft } from '../store'
 import { citedPages, sheetLabel, type PageRange } from '../pagination'
 import { EventBus, FindState, lacksTextLayer, openPdf, PDFFindController, PDFLinkService, PDFViewer, type PDFDocumentProxy } from '../pdf/pdfjs'
 import { captureSelection, type Capture } from '../pdf/selection'
 import { clampScale, readerStateKey, readReaderState, wheelZoomFactor, type ReaderState } from '../pdf/view-state'
-import type { Anchor, Ficha, Fichero, Source } from '../types'
+import { renderCrop } from '../pdf/crop'
+import { anchorHit, fichaFieldsFrom, marcaAt, rectBetween, startOf } from '../pdf/marks'
+import { DEFAULT_HL_COLOR, isHlColor, type Anchor, type Ficha, type Fichero, type HlColor, type Marca, type Source } from '../types'
 import { FichaForm } from './FichaForm'
 import { FindBar, type FindStatus } from './FindBar'
+import { ColorDots, MarkPopover, MarksPanel, RecorteImage } from './Marks'
 import { PdfSidebar } from './PdfSidebar'
 import { SidePanel } from './SidePanel'
 import { PaginationEditor } from './PaginationEditor'
@@ -30,7 +33,10 @@ interface Props {
 
 // `seq` distingue cada apertura del formulario: una selección nueva trae una cita nueva, aunque
 // el formulario ya estuviera abierto con otra.
-type Panel = { kind: 'list' } | { kind: 'form'; draft: FichaDraft; num: number | null; notice?: string; seq?: number } | { kind: 'pagination' }
+type Panel = { kind: 'list' } | { kind: 'form'; draft: FichaDraft; num: number | null; notice?: string; seq?: number; fromMarca?: string } | { kind: 'pagination' }
+
+/** Qué hace un clic en el PDF: seleccionar texto, poner una nota o recortar un rectángulo. */
+type Tool = 'texto' | 'nota' | 'recorte'
 let formSeq = 0
 
 /** Una posición en el PDF: hoja y punto de arriba a la izquierda, en unidades del PDF. */
@@ -66,6 +72,15 @@ export function Reader({ sourceId, cite, focusFichaId, linkFichaId, backLabel, o
   const history = useRef<Loc[]>([])
   const [canGoBack, setCanGoBack] = useState(false)
   const searched = useRef(false)
+  // Marcas del PDF que no son fichas: resaltados, notas y recortes.
+  const [marcas, setMarcas] = useState<Marca[]>([])
+  const [tool, setTool] = useState<Tool>('texto')
+  const [popover, setPopover] = useState<{ id: string; at: { x: number; y: number } } | null>(null)
+  const [lastColor, setLastColor] = useState<HlColor>(DEFAULT_HL_COLOR)
+  const [sideTab, setSideTab] = useState<'fichas' | 'marcas'>('fichas')
+  // Recorte en curso: hoja y esquinas (0–1).
+  const [drag, setDrag] = useState<{ page: number; from: [number, number]; to: [number, number] } | null>(null)
+  const [markError, setMarkError] = useState('')
   /** Zoom y hoja guardados la última vez que se leyó esta fuente (JSON en los ajustes del proyecto). */
   const savedView = useRef<string | undefined>(undefined)
 
@@ -77,6 +92,7 @@ export function Reader({ sourceId, cite, focusFichaId, linkFichaId, backLabel, o
     setFichas(await listFichas({ sourceId }))
     setKnownTags(await listTags())
   }, [sourceId])
+  const reloadMarcas = useCallback(async () => setMarcas(await listMarcas(sourceId)), [sourceId])
 
   // ---- Carga ---------------------------------------------------------------
   useEffect(() => {
@@ -90,12 +106,15 @@ export function Reader({ sourceId, cite, focusFichaId, linkFichaId, backLabel, o
       if (cancelled) return void opened.loadingTask.destroy()
       setSource(s)
       setFichas(all)
+      setMarcas(await listMarcas(sourceId))
       setKnownTags(await listTags())
       const fs = await listFicheros()
       const settings = await getSettings()
       const last = settings.lastFichero
       savedView.current = settings[readerStateKey(sourceId)]
       setSidebar(settings.lectorIndice === '1')
+      if (isHlColor(settings.colorResaltado)) setLastColor(settings.colorResaltado)
+      if (settings.lectorPestana === 'marcas') setSideTab('marcas')
       setFicheros(fs)
       setDefaultFichero(fs.some((f) => f.id === last) ? last : fs[0].id)
       if (linkFichaId) setLinking(await getFicha(linkFichaId))
@@ -116,7 +135,7 @@ export function Reader({ sourceId, cite, focusFichaId, linkFichaId, backLabel, o
 
   // ---- Resaltados ------------------------------------------------------------
   // Lo que hay que pintar se guarda en una ref para que los eventos de PDF.js vean siempre lo último.
-  const paintState = useRef<{ fichas: Ficha[]; activeId: string | null; draft: Anchor | null }>({ fichas: [], activeId: null, draft: null })
+  const paintState = useRef<{ fichas: Ficha[]; marcas: Marca[]; activeId: string | null; draft: Anchor | null }>({ fichas: [], marcas: [], activeId: null, draft: null })
   const draftAnchor = panel.kind === 'form' && !panel.draft.id ? panel.draft.anchor : null
 
   const paintPage = useCallback((pageDiv: HTMLElement) => {
@@ -136,15 +155,46 @@ export function Reader({ sourceId, cite, focusFichaId, linkFichaId, backLabel, o
       }
     }
     const st = paintState.current
-    for (const f of st.fichas) if (f.anchor) add(f.anchor, f.id === st.activeId ? 'active' : '')
+    const color = (c?: HlColor) => (c && c !== 'amarillo' ? `c-${c}` : '')
+    const outline = (page: number, [x, y, w, h]: [number, number, number, number], cls: string) => {
+      if (page !== n) return
+      const el = document.createElement('div')
+      el.className = cls
+      el.style.cssText = `left:${x * 100}%;top:${y * 100}%;width:${w * 100}%;height:${h * 100}%`
+      layer.appendChild(el)
+    }
+    for (const m of st.marcas) {
+      const active = m.id === st.activeId ? 'active' : ''
+      if (m.kind === 'resaltado' && m.anchor) add(m.anchor, `${color(m.color)} ${active}`)
+      else if (m.kind === 'recorte' && m.page && m.rect) outline(m.page, m.rect, `og-crop ${active}`)
+      else if (m.page === n && m.kind === 'nota' && m.at) {
+        const el = document.createElement('div')
+        el.className = `og-note ${active} ${(m.texto ?? '').trim() ? '' : 'empty'}`
+        el.style.cssText = `left:${m.at[0] * 100}%;top:${m.at[1] * 100}%`
+        el.title = m.texto ?? ''
+        el.textContent = '✎'
+        layer.appendChild(el)
+      }
+    }
+    for (const f of st.fichas) {
+      if (!f.anchor) continue
+      const active = f.id === st.activeId ? 'active' : ''
+      // Una ficha que nació de un recorte se marca con su recuadro, no con un resaltado.
+      if (f.imagen) for (const g of f.anchor.rects) for (const r of g.r) outline(g.page, r, `og-crop ficha ${active}`)
+      else add(f.anchor, `${color(f.color)} ${active}`)
+    }
     if (st.draft) add(st.draft, 'draft')
     if (layer.childElementCount) pageDiv.appendChild(layer)
   }, [])
 
+  // Lo activo: la marca con el globo abierto, o la ficha elegida.
+  const activeMark = popover?.id ?? activeId
   useEffect(() => {
-    paintState.current = { fichas, activeId, draft: draftAnchor }
+    // Mientras se hace una ficha a partir de una marca, la marca no se pinta: ya lo hace el borrador.
+    const hidden = panel.kind === 'form' ? panel.fromMarca : undefined
+    paintState.current = { fichas, marcas: hidden ? marcas.filter((m) => m.id !== hidden) : marcas, activeId: activeMark, draft: draftAnchor }
     viewerRef.current?.querySelectorAll<HTMLElement>('.page').forEach(paintPage)
-  }, [fichas, activeId, draftAnchor, paintPage])
+  }, [fichas, marcas, activeMark, draftAnchor, panel, paintPage])
 
   // ---- Visor -----------------------------------------------------------------
   useEffect(() => {
@@ -245,6 +295,14 @@ export function Reader({ sourceId, cite, focusFichaId, linkFichaId, backLabel, o
       linkRef.current = null
     }
   }, [doc, paintPage])
+
+  // Esc deja el modo Nota o Recorte.
+  useEffect(() => {
+    if (tool === 'texto') return
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') { setTool('texto'); setDrag(null) } }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [tool])
 
   const goBackRef = useRef(() => {})
   // ⌘+ / ⌘− / ⌘0 (Ctrl en Windows): ampliar, reducir y ajustar al ancho. ⌘F busca y ⌘[ vuelve.
@@ -392,16 +450,160 @@ export function Reader({ sourceId, cite, focusFichaId, linkFichaId, backLabel, o
     setPanel({ kind: 'form', num, draft })
   }, [])
 
-  // Clic sobre un resaltado: abre su ficha.
-  const onClick = (e: React.MouseEvent) => {
+  // ---- Marcas ----------------------------------------------------------------------
+
+  /** Hoja y punto (0–1) bajo el ratón, o null si no está sobre una hoja. */
+  const pointOn = (e: { target: EventTarget | null; clientX: number; clientY: number }, pageDiv?: HTMLElement | null) => {
+    const div = pageDiv ?? (e.target as HTMLElement).closest?.<HTMLElement>('.page')
+    if (!div) return null
+    const box = div.getBoundingClientRect()
+    return {
+      div, page: Number(div.dataset.pageNumber),
+      x: (e.clientX - box.left - div.clientLeft) / div.clientWidth,
+      y: (e.clientY - box.top - div.clientTop) / div.clientHeight,
+    }
+  }
+
+  const failed = (e: unknown) => setMarkError(e instanceof Error ? e.message : String(e))
+
+  /** Resalta la selección con un color, sin hacer ficha. */
+  const highlight = async (color: HlColor) => {
+    if (!pending || !source) return
+    const anchor = pending.anchor
+    setPending(null)
+    window.getSelection()?.removeAllRanges()
+    setLastColor(color)
+    void setSettings({ colorResaltado: color })
+    try {
+      await saveMarca({ sourceId: source.id, kind: 'resaltado', anchor, color })
+      await reloadMarcas()
+    } catch (e) { failed(e) }
+  }
+
+  const updateMarca = async (m: Marca, patch: Partial<MarcaDraft>) => {
+    try {
+      await saveMarca({ ...m, ...patch })
+      await reloadMarcas()
+    } catch (e) { failed(e) }
+  }
+
+  const removeMarca = async (m: Marca) => {
+    setPopover(null)
+    try {
+      await deleteMarca(m.id)
+      if (m.imagen) await backend.deleteRecorte(m.imagen).catch(() => {})
+      await reloadMarcas()
+    } catch (e) { failed(e) }
+  }
+
+  /** Abre el formulario de una ficha nueva que hereda el pasaje (y el color o la imagen) de una marca. */
+  const fichaFromMarca = (m: Marca) => {
+    const fields = fichaFieldsFrom(m)
+    if (!fields || !source) return
+    setPopover(null)
+    setActiveId(null)
+    setPanel({
+      kind: 'form', seq: ++formSeq, num: null, fromMarca: m.id,
+      draft: {
+        ficheroId: defaultFichero, notaPermanente: '', sourceId: source.id,
+        pageLabel: citedPages(source.pagination, fields.anchor.start, fields.anchor.end), pageManual: false,
+        tags: [], referencia: '', notas: '', extra: {}, ...fields,
+      },
+    })
+  }
+
+  const openMarca = (m: Marca, at: { x: number; y: number }) => {
+    setActiveId(null)
+    setPopover({ id: m.id, at })
+  }
+
+  /** Desde el panel de marcas: lleva a la marca y abre su globo. */
+  const showMarca = (m: Marca) => {
+    const st = startOf(m)
+    const container = containerRef.current
+    if (!st || !container) return
+    remember()
+    goToPage(st.page)
+    requestAnimationFrame(() => {
+      const pageDiv = viewerRef.current?.querySelector<HTMLElement>(`.page[data-page-number="${st.page}"]`)
+      if (!pageDiv) return
+      container.scrollTop = pageDiv.offsetTop + st.y * pageDiv.clientHeight - container.clientHeight * 0.3
+      const box = pageDiv.getBoundingClientRect()
+      const x = m.kind === 'nota' && m.at ? m.at[0] : m.kind === 'recorte' && m.rect ? m.rect[0] : (m.anchor?.rects[0]?.r[0]?.[0] ?? 0.1)
+      requestAnimationFrame(() => {
+        const b = pageDiv.getBoundingClientRect()
+        openMarca(m, { x: box.left + x * pageDiv.clientWidth, y: b.top + st.y * pageDiv.clientHeight + 14 })
+      })
+    })
+  }
+
+  const chooseTool = (t: Tool) => {
+    setTool((cur) => (cur === t ? 'texto' : t))
+    setPending(null)
+    window.getSelection()?.removeAllRanges()
+  }
+
+  // Recorte: se arrastra un rectángulo sobre una hoja. Los oyentes se ponen al pulsar, para no
+  // perder un arrastre rápido.
+  const onMouseDown = (e: React.MouseEvent) => {
+    if (tool !== 'recorte' || e.button !== 0) return
+    const p = pointOn(e)
+    if (!p) return
+    e.preventDefault()
+    const pageDiv = p.div
+    let current = { page: p.page, from: [p.x, p.y] as [number, number], to: [p.x, p.y] as [number, number] }
+    setDrag(current)
+    const onMove = (ev: MouseEvent) => {
+      const q = pointOn(ev, pageDiv)
+      if (!q) return
+      current = { ...current, to: [q.x, q.y] }
+      setDrag(current)
+    }
+    const onUp = (ev: MouseEvent) => {
+      window.removeEventListener('mousemove', onMove)
+      onMove(ev)
+      setDrag(null)
+      void finishCrop(current.page, rectBetween(current.from, current.to), pageDiv)
+    }
+    window.addEventListener('mousemove', onMove)
+    window.addEventListener('mouseup', onUp, { once: true })
+  }
+
+  const finishCrop = async (page: number, rect: [number, number, number, number], pageDiv: HTMLElement) => {
+    if (!doc || !source || rect[2] < 0.01 || rect[3] < 0.01) return
+    try {
+      const id = newId()
+      const imagen = `${id}.png`
+      await backend.saveRecorte(imagen, await renderCrop(doc, page, rect))
+      await saveMarca({ id, sourceId: source.id, kind: 'recorte', page, rect, imagen })
+      const all = await listMarcas(source.id)
+      setMarcas(all)
+      setTool('texto')
+      const created = all.find((m) => m.imagen === imagen)
+      const box = pageDiv.getBoundingClientRect()
+      if (created) openMarca(created, { x: box.left + (rect[0] + rect[2]) * pageDiv.clientWidth, y: box.top + (rect[1] + rect[3]) * pageDiv.clientHeight })
+    } catch (err) { failed(err) }
+  }
+
+  // Clic en el PDF: pone una nota (modo Nota), abre el globo de una marca o la ficha de un resaltado.
+  const onClick = async (e: React.MouseEvent) => {
     if (!window.getSelection()?.isCollapsed) return
-    const pageDiv = (e.target as HTMLElement).closest<HTMLElement>('.page')
-    if (!pageDiv) return
-    const box = pageDiv.getBoundingClientRect()
-    const x = (e.clientX - box.left - pageDiv.clientLeft) / pageDiv.clientWidth
-    const y = (e.clientY - box.top - pageDiv.clientTop) / pageDiv.clientHeight
-    const n = Number(pageDiv.dataset.pageNumber)
-    const hit = fichas.find((f) => f.anchor?.rects.some((g) => g.page === n && g.r.some(([rx, ry, rw, rh]) => x >= rx && x <= rx + rw && y >= ry && y <= ry + rh)))
+    const p = pointOn(e)
+    if (!p || !source) return
+    if (tool === 'nota') {
+      try {
+        await saveMarca({ sourceId: source.id, kind: 'nota', page: p.page, at: [p.x, p.y], texto: '' })
+        const all = await listMarcas(source.id)
+        setMarcas(all)
+        setTool('texto')
+        openMarca(all[all.length - 1], { x: e.clientX, y: e.clientY })
+      } catch (err) { failed(err) }
+      return
+    }
+    if (tool !== 'texto') return
+    const m = marcaAt(marcas, p.page, p.x, p.y)
+    if (m) return openMarca(m, { x: e.clientX, y: e.clientY })
+    const hit = fichas.find((f) => anchorHit(f.anchor, p.page, p.x, p.y))
     if (hit && panel.kind !== 'form') editFicha(hit)
   }
 
@@ -434,7 +636,11 @@ export function Reader({ sourceId, cite, focusFichaId, linkFichaId, backLabel, o
           <span>{source?.csl.title}</span>
         </div>
         <div className="spacer" />
-        {canGoBack && <button onClick={goBack} title="Volver a donde estabas antes del salto (⌘← o ⌘[)" data-testid="reader-back">↩ Volver</button>}
+        <div className="mark-tools" role="group" aria-label="Marcar">
+          <button className={tool === 'nota' ? 'on' : ''} aria-pressed={tool === 'nota'} onClick={() => chooseTool('nota')} title="Nota al margen: pulsa en la hoja donde quieras ponerla (Esc para cancelar)" data-testid="tool-nota">✎<span className="tool-label"> Nota</span></button>
+          <button className={tool === 'recorte' ? 'on' : ''} aria-pressed={tool === 'recorte'} onClick={() => chooseTool('recorte')} title="Recorte: arrastra un rectángulo sobre la hoja (Esc para cancelar)" data-testid="tool-recorte">▭<span className="tool-label"> Recorte</span></button>
+        </div>
+        {canGoBack && <button onClick={goBack} title="Volver a donde estabas antes del salto (⌘← o ⌘[)" data-testid="reader-back" aria-label="Volver">↩<span className="tool-label"> Volver</span></button>}
         <form className="page-nav" onSubmit={(e) => { e.preventDefault(); jumpToPage(Number(pageInput)) }}>
           Hoja
           <input value={pageInput} onChange={(e) => setPageInput(e.target.value)} onBlur={() => setPageInput(String(page))} aria-label="Hoja del PDF" />
@@ -462,6 +668,13 @@ export function Reader({ sourceId, cite, focusFichaId, linkFichaId, backLabel, o
         </div>
       )}
 
+      {markError && (
+        <div className="banner error">
+          <span>{markError}</span>
+          <button className="link" onClick={() => setMarkError('')}>Cerrar</button>
+        </div>
+      )}
+
       {linking && (
         <div className="banner ok">
           <span>Selecciona en el PDF el pasaje de la ficha {linking.num}: <em>«{linking.cita.slice(0, 110)}{linking.cita.length > 110 ? '…' : ''}»</em></span>
@@ -479,18 +692,47 @@ export function Reader({ sourceId, cite, focusFichaId, linkFichaId, backLabel, o
         )}
         <div className="pdf-pane">
           {findOpen && <FindBar status={findStatus} onFind={find} onClose={closeFind} focusKey={findKey} />}
-          <div className="pdf-container" ref={containerRef} onMouseUp={onMouseUp} onClick={onClick}>
+          {/* Flota sobre el PDF: no lo mueve al aparecer ni al irse. */}
+          {tool !== 'texto' && (
+            <div className="tool-hint" data-testid="tool-banner">
+              <span>{tool === 'nota' ? 'Pulsa en la hoja donde quieras poner la nota.' : 'Arrastra un rectángulo sobre la hoja: tabla, esquema o trozo de un escaneo.'}</span>
+              <button className="link" onClick={() => setTool('texto')}>Cancelar (Esc)</button>
+            </div>
+          )}
+          <div className={`pdf-container tool-${tool}`} ref={containerRef} onMouseUp={onMouseUp} onMouseDown={onMouseDown} onClick={(e) => void onClick(e)}>
             <div className="pdfViewer" ref={viewerRef} />
           </div>
-          {pending && panel.kind !== 'pagination' && (
-            <button
-              className="new-ficha-button primary" data-testid="new-ficha"
-              style={{ left: Math.min(pending.client.x + 6, window.innerWidth - 480), top: pending.client.y + 6 }}
-              onMouseDown={(e) => e.preventDefault()} onClick={startFicha}
-            >
-              {linking ? `Vincular a la ficha ${linking.num}` : '+ Ficha'} · p. {source ? citedPages(source.pagination, pending.anchor.start, pending.anchor.end) || '¿?' : ''}
-            </button>
+          {drag && <DragBox drag={drag} viewer={viewerRef.current} />}
+          {pending && panel.kind !== 'pagination' && tool === 'texto' && (
+            <div className="selection-bar" style={{ left: Math.min(pending.client.x + 6, window.innerWidth - 480), top: pending.client.y + 6 }} data-testid="selection-bar">
+              {!linking && <ColorDots value={null} onPick={(c) => void highlight(c)} />}
+              <button
+                className="primary" data-testid="new-ficha"
+                onMouseDown={(e) => e.preventDefault()} onClick={startFicha}
+              >
+                {linking ? `Vincular a la ficha ${linking.num}` : '+ Ficha'} · p. {source ? citedPages(source.pagination, pending.anchor.start, pending.anchor.end) || '¿?' : ''}
+              </button>
+            </div>
           )}
+          {popover && (() => {
+            const m = marcas.find((x) => x.id === popover.id)
+            return m ? (
+              <MarkPopover
+                key={m.id} marca={m} at={popover.at}
+                onColor={(c) => { setLastColor(c); void setSettings({ colorResaltado: c }); void updateMarca(m, { color: c }) }}
+                onText={(texto) => void updateMarca(m, { texto })}
+                onFicha={() => fichaFromMarca(m)}
+                onDelete={() => void removeMarca(m)}
+                onClose={(texto) => {
+                  setPopover(null)
+                  if (m.kind !== 'nota') return
+                  // Una nota que se cierra vacía no se queda.
+                  if (!texto.trim()) void removeMarca(m)
+                  else if (texto !== (m.texto ?? '')) void updateMarca(m, { texto })
+                }}
+              />
+            ) : null
+          })()}
         </div>
 
         <SidePanel reserve={340} revealKey={panel.kind === 'list' ? null : panel.kind === 'form' ? (panel.draft.id ?? panel.draft.anchor?.exact ?? 'nueva') : 'paginacion'}>
@@ -501,7 +743,8 @@ export function Reader({ sourceId, cite, focusFichaId, linkFichaId, backLabel, o
               onCancel={() => setPanel({ kind: 'list' })}
               onVerifyPagination={openPagination}
               onSave={async (d) => {
-                const id = await saveFicha(d)
+                const id = await saveFicha(d, { replacesMarca: panel.fromMarca })
+                if (panel.fromMarca) await reloadMarcas()
                 if (d.ficheroId !== defaultFichero) { setDefaultFichero(d.ficheroId); void setSettings({ lastFichero: d.ficheroId }) }
                 await reloadFichas()
                 setActiveId(id)
@@ -509,6 +752,7 @@ export function Reader({ sourceId, cite, focusFichaId, linkFichaId, backLabel, o
               }}
               onDelete={panel.draft.id ? async () => {
                 await deleteFicha(panel.draft.id!)
+                if (panel.draft.imagen) await backend.deleteRecorte(panel.draft.imagen).catch(() => {})
                 await reloadFichas()
                 setActiveId(null)
                 setPanel({ kind: 'list' })
@@ -533,7 +777,24 @@ export function Reader({ sourceId, cite, focusFichaId, linkFichaId, backLabel, o
           )}
 
           {source && panel.kind === 'list' && (
+            <div className="side-tabs" role="tablist">
+              <button role="tab" aria-selected={sideTab === 'fichas'} className={sideTab === 'fichas' ? 'on' : ''} onClick={() => { setSideTab('fichas'); void setSettings({ lectorPestana: '' }) }}>
+                Fichas <span className="muted">{fichas.length}</span>
+              </button>
+              <button role="tab" aria-selected={sideTab === 'marcas'} className={sideTab === 'marcas' ? 'on' : ''} onClick={() => { setSideTab('marcas'); void setSettings({ lectorPestana: 'marcas' }) }} data-testid="tab-marcas">
+                Marcas <span className="muted">{marcas.length + fichas.filter((f) => f.anchor).length}</span>
+              </button>
+            </div>
+          )}
+          {source && panel.kind === 'list' && sideTab === 'fichas' && (
             <FichaList fichas={fichas} source={source} cite={cite} activeId={activeId} onJump={jumpTo} onEdit={editFicha} onLink={setLinking} />
+          )}
+          {source && panel.kind === 'list' && sideTab === 'marcas' && (
+            <MarksPanel
+              marcas={marcas} fichas={fichas} activeId={activeMark}
+              pageLabel={(n) => sheetLabel(ranges, n) ?? ''}
+              onMarca={showMarca} onFicha={(f) => jumpTo(f)}
+            />
           )}
         </SidePanel>
       </div>
@@ -559,7 +820,6 @@ const FichaList = memo(function FichaList({ fichas, source, cite, activeId, onJu
   useEffect(() => { if (activeIndex >= limit) reveal(activeIndex) }, [activeIndex, limit, reveal])
   return (
     <div className="ficha-list">
-      <h2>Fichas de esta fuente <span className="muted">{fichas.length}</span></h2>
       {fichas.length === 0 && <p className="muted">Selecciona un pasaje en el PDF y pulsa <strong>+ Ficha</strong>.</p>}
       {fichas.slice(0, limit).map((f) => (
         <FichaCard key={f.id} ficha={f} source={source} cite={cite} active={f.id === activeId} onJump={onJump} onEdit={onEdit} onLink={onLink} />
@@ -587,10 +847,25 @@ const FichaCard = memo(function FichaCard({ ficha: f, source, cite, active, onJu
         <h3>{f.notaPermanente || <em className="muted">Sin nota permanente</em>}</h3>
         <button className="link" onClick={(e) => { e.stopPropagation(); onEdit(f) }}>Editar</button>
       </header>
-      <blockquote>{f.cita}</blockquote>
+      {f.imagen && <RecorteImage name={f.imagen} className="ficha-card-image" />}
+      {(f.cita || !f.imagen) && <blockquote>{f.cita}</blockquote>}
       {!f.anchor && <button className="link" onClick={(e) => { e.stopPropagation(); onLink(f) }}>Sin marcar en el PDF: marcar el pasaje…</button>}
       <div className="ficha-citation" dangerouslySetInnerHTML={{ __html: formatCitation(source.csl, f.pageLabel, cite, canonicalRef(source, f)) }} />
       {f.tags.length > 0 && <div className="tags">{f.tags.map((t) => <span key={t} className="tag">{t}</span>)}</div>}
     </article>
   )
 })
+
+/** El rectángulo de un recorte mientras se arrastra, dibujado sobre su hoja. */
+function DragBox({ drag, viewer }: { drag: { page: number; from: [number, number]; to: [number, number] }; viewer: HTMLElement | null }) {
+  const pageDiv = viewer?.querySelector<HTMLElement>(`.page[data-page-number="${drag.page}"]`)
+  if (!pageDiv) return null
+  const box = pageDiv.getBoundingClientRect()
+  const [x, y, w, h] = rectBetween(drag.from, drag.to)
+  return (
+    <div
+      className="crop-drag"
+      style={{ left: box.left + pageDiv.clientLeft + x * pageDiv.clientWidth, top: box.top + pageDiv.clientTop + y * pageDiv.clientHeight, width: w * pageDiv.clientWidth, height: h * pageDiv.clientHeight }}
+    />
+  )
+}

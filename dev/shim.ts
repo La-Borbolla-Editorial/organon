@@ -112,6 +112,10 @@ export function devBackend(): Plugin {
           mkdirSync(join(pdfs, '.papelera'), { recursive: true })
           renameSync(join(pdfs, safe(name, '.pdf')), join(pdfs, '.papelera', `${name.replace(/\.pdf$/, '')} (${Math.floor(Date.now() / 1000)}).pdf`))
         },
+        delete_recorte: ({ name }) => {
+          const file = join(project(), 'recortes', safe(name, '.png'))
+          if (existsSync(file)) unlinkSync(file)
+        },
         trash_draft: ({ name }) => {
           const trash = join(project(), 'escritura', '.papelera')
           mkdirSync(trash, { recursive: true })
@@ -159,7 +163,13 @@ export function devBackend(): Plugin {
             writeFileSync(join(project(), 'pdfs', safe(String(req.headers['x-name']), '.pdf')), raw)
             return res.end('null')
           }
+          if (cmd === 'save_recorte') {
+            mkdirSync(join(project(), 'recortes'), { recursive: true })
+            writeFileSync(join(project(), 'recortes', safe(String(req.headers['x-name']), '.png')), raw)
+            return res.end('null')
+          }
           const args = raw.length ? JSON.parse(raw.toString('utf8')) : {}
+          if (cmd === 'read_recorte') return res.end(readFileSync(join(project(), 'recortes', safe(args.name, '.png'))))
           if (cmd === 'read_pdf') return res.end(readFileSync(join(project(), 'pdfs', safe(args.name, '.pdf'))))
           if (!commands[cmd]) throw new Error(`Comando desconocido: ${cmd}`)
           res.setHeader('content-type', 'application/json')

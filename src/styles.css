@@ -29,8 +29,13 @@
   --mark: #e0a030;
   --mark-bg: #fffaf0;
   --hl: #ffe27a;
-  --hl-active: #ffbf47;
-  --hl-draft: #a9d5ff;
+  --hl-verde: #b5e3a0;
+  --hl-azul: #9fd0f7;
+  --hl-rosa: #f9b8d3;
+  --hl-naranja: #ffc285;
+  --hl-morado: #d4bdf5;
+  --hl-active: #c0392b;
+  --hl-draft: #c9ccd2;
   --pdf-bg: #d9d5cc;
   --ref-insert-bg: #fdeebf;
   --ref-insert-ink: #6b4a00;
@@ -130,11 +135,16 @@ textarea { resize: vertical; width: 100%; }
 .pdf-pane { flex: 1; position: relative; min-width: 0; background: var(--pdf-bg); }
 .pdf-container { position: absolute; inset: 0; overflow: auto; }
 .pdfViewer { --page-margin: 10px auto; }
-.new-ficha-button { position: fixed; z-index: 20; box-shadow: 0 3px 12px var(--shadow); }
 
 .og-hl-layer { position: absolute; inset: 0; pointer-events: none; z-index: 1; mix-blend-mode: multiply; }
 .og-hl { position: absolute; background: var(--hl); border-radius: 2px; }
-.og-hl.active { background: var(--hl-active); }
+.og-hl.c-verde { background: var(--hl-verde); }
+.og-hl.c-azul { background: var(--hl-azul); }
+.og-hl.c-rosa { background: var(--hl-rosa); }
+.og-hl.c-naranja { background: var(--hl-naranja); }
+.og-hl.c-morado { background: var(--hl-morado); }
+/* La marca activa conserva su color y se rodea con un borde. */
+.og-hl.active { box-shadow: 0 0 0 1.5px var(--hl-active); }
 .og-hl.draft { background: var(--hl-draft); }
 
 /* min-width: 0 en todo lo de dentro: el contenido se estrecha con el panel en vez de salirse. */
@@ -596,3 +606,80 @@ sup.cm-rich-mark { font-size: 0.68em; line-height: 0; padding-left: 1px; }
 .outline-toggle { width: 16px; flex: none; padding: 0; border: none; background: none; color: var(--muted); font-size: 12px; line-height: 20px; }
 .outline-title { flex: 1; min-width: 0; text-align: left; padding: 2px 4px; border: none; background: none; border-radius: 4px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .outline-title:hover:not(:disabled) { background: var(--hover); }
+
+/* Marcas del PDF: resaltados, notas y recortes */
+.mark-tools { display: flex; gap: 4px; }
+.mark-tools button.on { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); }
+.pdf-container.tool-nota .page { cursor: cell; }
+.pdf-container.tool-recorte .page { cursor: crosshair; }
+.pdf-container.tool-nota .textLayer, .pdf-container.tool-recorte .textLayer { -webkit-user-select: none; user-select: none; pointer-events: none; }
+.og-crop { position: absolute; border: 1.5px dashed var(--accent); border-radius: 2px; background: rgb(122 46 46 / 0.04); }
+.og-crop.active { border-style: solid; box-shadow: 0 0 0 1.5px var(--hl-active); }
+.og-note {
+  position: absolute; width: 20px; height: 20px; margin: -10px 0 0 -10px; display: grid; place-items: center;
+  font-size: 12px; line-height: 1; color: #5b4300; background: #ffd75e; border: 1px solid #c99a12; border-radius: 50% 50% 50% 2px;
+  box-shadow: 0 1px 3px rgb(0 0 0 / 0.25); mix-blend-mode: normal;
+}
+.og-note.empty { opacity: 0.55; }
+.og-note.active { box-shadow: 0 0 0 2px var(--hl-active); }
+.crop-drag { position: fixed; z-index: 25; pointer-events: none; border: 1.5px solid var(--accent); background: rgb(122 46 46 / 0.08); }
+
+.selection-bar {
+  position: fixed; z-index: 20; display: flex; align-items: center; gap: 8px; padding: 5px 6px 5px 10px;
+  background: var(--panel); border: 1px solid var(--line); border-radius: 8px; box-shadow: 0 3px 12px var(--shadow);
+}
+.color-dots { display: inline-flex; gap: 5px; align-items: center; }
+.color-dot { width: 18px; height: 18px; padding: 0; border-radius: 50%; border: 1px solid rgb(0 0 0 / 0.18); background: var(--hl); flex: none; }
+.color-dot:hover { transform: scale(1.12); }
+.color-dot.on { box-shadow: 0 0 0 2px var(--panel), 0 0 0 3.5px var(--ink); }
+.color-dot.c-verde { background: var(--hl-verde); }
+.color-dot.c-azul { background: var(--hl-azul); }
+.color-dot.c-rosa { background: var(--hl-rosa); }
+.color-dot.c-naranja { background: var(--hl-naranja); }
+.color-dot.c-morado { background: var(--hl-morado); }
+
+.mark-popover {
+  position: fixed; z-index: 40; width: 290px; display: flex; flex-direction: column; gap: 8px; padding: 10px;
+  background: var(--panel); border: 1px solid var(--line); border-radius: 8px; box-shadow: 0 6px 20px var(--shadow);
+}
+.mark-popover textarea { width: 100%; resize: vertical; font-family: var(--font-text); }
+.mark-popover-row { display: flex; align-items: center; gap: 6px; }
+.mark-excerpt { margin: 0; font-family: var(--font-text); font-size: 13px; color: var(--ink-soft); max-height: 5.5em; overflow: hidden; }
+.mark-crop { max-width: 100%; max-height: 180px; object-fit: contain; align-self: center; border: 1px solid var(--line); }
+
+.side-tabs { display: flex; gap: 2px; margin: 0 0 10px; padding: 3px; background: var(--subtle); border-radius: 7px; }
+.side-tabs button { flex: 1; border-color: transparent; background: none; padding: 4px 0; }
+.side-tabs button.on { background: var(--panel); border-color: var(--line); }
+.marks-panel { display: flex; flex-direction: column; gap: 8px; }
+.marks-filters { display: flex; flex-wrap: wrap; gap: 5px; align-items: center; }
+.marks-filters .chip { font-size: 12px; padding: 2px 8px; border-radius: 12px; }
+.marks-filters .chip.on { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); }
+.marks-filters .chip.on .muted { color: inherit; opacity: 0.8; }
+.marks-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 4px; }
+.mark-item { width: 100%; display: flex; align-items: flex-start; gap: 8px; text-align: left; padding: 6px 8px; border: 1px solid var(--line); border-radius: 6px; background: var(--panel); }
+.mark-item:hover { background: var(--hover); }
+.mark-item.active { border-color: var(--mark); background: var(--mark-bg); }
+.mark-icon { flex: none; width: 20px; height: 20px; border-radius: 4px; display: grid; place-items: center; font-size: 11px; font-weight: 600; background: var(--hl); color: var(--ink); }
+.mark-icon.c-verde { background: var(--hl-verde); }
+.mark-icon.c-azul { background: var(--hl-azul); }
+.mark-icon.c-rosa { background: var(--hl-rosa); }
+.mark-icon.c-naranja { background: var(--hl-naranja); }
+.mark-icon.c-morado { background: var(--hl-morado); }
+.mark-icon.k-nota { background: #ffd75e; color: #5b4300; border-radius: 50% 50% 50% 2px; }
+.mark-icon.k-recorte { background: none; border: 1.5px dashed var(--accent); color: var(--accent); }
+.mark-body { flex: 1; min-width: 0; font-family: var(--font-text); font-size: 13px; overflow-wrap: anywhere; }
+.mark-thumb { display: block; max-width: 100%; max-height: 90px; object-fit: contain; }
+.mark-page { flex: none; font-size: 11px; font-variant-numeric: tabular-nums; }
+
+.ficha-color { display: flex; align-items: center; gap: 10px; font-size: 13px; }
+.ficha-image { margin: 0; display: flex; flex-direction: column; gap: 4px; }
+.ficha-image img { max-width: 100%; max-height: 320px; object-fit: contain; align-self: flex-start; border: 1px solid var(--line); background: #fff; }
+.ficha-image figcaption { font-size: 12px; }
+.tool-hint {
+  position: absolute; top: 10px; left: 50%; transform: translateX(-50%); z-index: 30; display: flex; gap: 10px; align-items: center;
+  max-width: calc(100% - 24px); padding: 6px 12px; font-size: 13px; background: var(--ok-bg); color: var(--ok); border: 1px solid var(--ok-line); border-radius: 8px; box-shadow: 0 3px 12px var(--shadow);
+}
+.og-crop.ficha { border-style: solid; border-color: var(--mark); background: rgb(224 160 48 / 0.06); }
+.ficha-card-image { display: block; max-width: 100%; max-height: 140px; object-fit: contain; margin: 4px 0; border: 1px solid var(--line); background: #fff; }
+/* Con poco ancho, los botones del Lector se quedan en su icono. */
+@media (max-width: 1100px) { .reader .tool-label { display: none; } }

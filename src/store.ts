@@ -4,6 +4,7 @@
 //   organon.json   ajustes del proyecto y lista de ficheros
 //   fuentes.json   fuentes: metadatos CSL, PDF adjunto y paginación
 //   fichas.json    fichas
+//   marcas.json    resaltados, notas y recortes del PDF que no son fichas
 //
 // Todo se carga en memoria al abrir el proyecto (son cientos de fichas, no
 // millones) y cada cambio reescribe el archivo afectado de forma atómica.
@@ -12,10 +13,10 @@ import { DEFAULT_PAGINATION, type PageRange } from './pagination'
 import { suggestCitekey } from './source-form'
 import { matchSource, orderKey, type ImportedFicha } from './fichero-io'
 import { applyColumns, reorder, type ColumnDraft } from './fichero-table'
-import { DEFAULT_COLUMNS, type Column, type CslItem, type Ficha, type Fichero, type Source } from './types'
+import { DEFAULT_COLUMNS, type Column, type CslItem, type Ficha, type Fichero, type Marca, type Source } from './types'
 
 const FORMAT = 1
-const FILES = { project: 'organon.json', sources: 'fuentes.json', fichas: 'fichas.json' } as const
+const FILES = { project: 'organon.json', sources: 'fuentes.json', fichas: 'fichas.json', marcas: 'marcas.json' } as const
 
 interface ProjectFile {
   format: number
@@ -27,6 +28,7 @@ interface Data {
   project: ProjectFile
   sources: Source[]
   fichas: Ficha[]
+  marcas: Marca[]
 }
 
 let data: Data | null = null
@@ -71,6 +73,7 @@ export async function loadProject(): Promise<void> {
   if (project && project.format > FORMAT) throw new Error('Este proyecto se creó con una versión más reciente de Organon.')
   const sources = await readJson<{ fuentes: Source[] }>(FILES.sources)
   const fichas = await readJson<{ fichas: Ficha[] }>(FILES.fichas)
+  const marcas = await readJson<{ marcas: Marca[] }>(FILES.marcas)
   data = {
     project: {
       format: FORMAT,
@@ -79,6 +82,7 @@ export async function loadProject(): Promise<void> {
     },
     sources: sources?.fuentes ?? [],
     fichas: fichas?.fichas ?? [],
+    marcas: marcas?.marcas ?? [],
   }
   if (!project) await persist('project')
 }
@@ -96,11 +100,16 @@ function persist(...which: (keyof typeof FILES)[]): Promise<void> {
   const d = db()
   const files = which.map((w) => ({
     name: FILES[w],
-    content: stringify(w === 'project' ? d.project : w === 'sources' ? { format: FORMAT, fuentes: d.sources } : { format: FORMAT, fichas: d.fichas }),
+    content: stringify(
+      w === 'project' ? d.project
+        : w === 'sources' ? { format: FORMAT, fuentes: d.sources }
+        : w === 'marcas' ? { format: FORMAT, marcas: d.marcas }
+        : { format: FORMAT, fichas: d.fichas },
+    ),
   }))
   const run = queue.then(async () => {
     try {
-      // Se comprueban los tres archivos: si cualquiera cambió, la copia en memoria ya no vale.
+      // Se comprueban todos los archivos: si cualquiera cambió, la copia en memoria ya no vale.
       stamps = { ...stamps, ...(await backend.writeData(files, stamps)) }
     } catch (e) {
       if (String(e instanceof Error ? e.message : e).includes('CONFLICT')) {
@@ -319,6 +328,11 @@ export async function savePagination(id: string, pagination: PageRange[], verifi
 export async function deleteSource(id: string): Promise<void> {
   const d = db()
   d.sources = d.sources.filter((s) => s.id !== id)
+  // Sus marcas eran del PDF de esta fuente: se van con ella.
+  if (d.marcas.some((m) => m.sourceId === id)) {
+    d.marcas = d.marcas.filter((m) => m.sourceId !== id)
+    await persist('marcas')
+  }
   // También se olvida dónde se había quedado su lectura.
   if (`lector:${id}` in d.project.settings) {
     const { [`lector:${id}`]: _lector, ...settings } = d.project.settings
@@ -353,7 +367,8 @@ export async function listTags(): Promise<string[]> {
 
 export type FichaDraft = Omit<Ficha, 'id' | 'num' | 'orden' | 'createdAt' | 'updatedAt'> & { id?: string }
 
-export async function saveFicha(draft: FichaDraft): Promise<string> {
+/** Con `replacesMarca`, la ficha nace de esa marca (un resaltado o un recorte), que deja de existir. */
+export async function saveFicha(draft: FichaDraft, opts: { replacesMarca?: string } = {}): Promise<string> {
   const d = db()
   // Un borrador hecho a partir de una ficha trae su posición: no se toca (pudo moverse mientras se editaba).
   const { id: draftId, orden: _orden, ...fields } = draft as FichaDraft & { orden?: number }
@@ -369,7 +384,10 @@ export async function saveFicha(draft: FichaDraft): Promise<string> {
     const num = nextNum()
     d.fichas = [...d.fichas, { id, num, ...fields, orden: endOrder(d.fichas, fields.ficheroId), createdAt: now(), updatedAt: now() }]
   }
-  await persist('fichas')
+  if (opts.replacesMarca && d.marcas.some((m) => m.id === opts.replacesMarca)) {
+    d.marcas = d.marcas.filter((m) => m.id !== opts.replacesMarca)
+    await persist('fichas', 'marcas')
+  } else await persist('fichas')
   return id
 }
 
@@ -377,4 +395,32 @@ export async function deleteFicha(id: string): Promise<void> {
   const d = db()
   d.fichas = d.fichas.filter((f) => f.id !== id)
   await persist('fichas')
+}
+
+// ---- Marcas ---------------------------------------------------------------------
+
+export const listMarcas = async (sourceId: string): Promise<Marca[]> => db().marcas.filter((m) => m.sourceId === sourceId)
+
+export type MarcaDraft = Omit<Marca, 'id' | 'createdAt' | 'updatedAt'> & { id?: string }
+
+/** Crea o actualiza una marca. Devuelve su id. */
+export async function saveMarca(draft: MarcaDraft): Promise<string> {
+  const d = db()
+  const { id: draftId, ...fields } = draft
+  let id = draftId
+  if (id && d.marcas.some((m) => m.id === id)) {
+    d.marcas = d.marcas.map((m) => (m.id === id ? { ...m, ...fields, updatedAt: now() } : m))
+  } else {
+    // Un recorte trae su id (con él se nombra su imagen).
+    id = id ?? newId()
+    d.marcas = [...d.marcas, { id, ...fields, createdAt: now(), updatedAt: now() }]
+  }
+  await persist('marcas')
+  return id
+}
+
+export async function deleteMarca(id: string): Promise<void> {
+  const d = db()
+  d.marcas = d.marcas.filter((m) => m.id !== id)
+  await persist('marcas')
 }

@@ -24,16 +24,16 @@ Acordado el 22 nov 2026. Marca con [x] lo que vaya quedando hecho.
 
 ## 2. Marcar
 
-- [ ] **Resaltar sin hacer ficha.** Seleccionas un pasaje y lo resaltas; la ficha se hace después,
+- [x] **Resaltar sin hacer ficha.** Seleccionas un pasaje y lo resaltas; la ficha se hace después,
   o nunca.
-- [ ] **Colores del resaltado.** Una paleta fija de unos seis colores. Organon recuerda el último que
+- [x] **Colores del resaltado.** Una paleta fija de unos seis colores. Organon recuerda el último que
   usaste. Las fichas que tienen pasaje en el PDF también llevan color.
-- [ ] **Convertir un resaltado en ficha** con un clic. La ficha hereda el pasaje y el color, y el
+- [x] **Convertir un resaltado en ficha** con un clic. La ficha hereda el pasaje y el color, y el
   resaltado suelto desaparece porque ya es la ficha.
-- [ ] **Notas al margen.** Un comentario pegado a un punto de la página, que no es una ficha.
-- [ ] **Panel de marcas de la fuente.** Reúne resaltados, notas y fichas, filtrables por color y por
+- [x] **Notas al margen.** Un comentario pegado a un punto de la página, que no es una ficha.
+- [x] **Panel de marcas de la fuente.** Reúne resaltados, notas y fichas, filtrables por color y por
   tipo, y lleva a cada marca con un clic.
-- [ ] **Captura por rectángulo.** Arrastras un recuadro sobre una tabla, un esquema o un escaneo
+- [x] **Captura por rectángulo.** Arrastras un recuadro sobre una tabla, un esquema o un escaneo
   sin texto. Organon guarda la imagen y puedes hacer una ficha con ella.
 
 ## 3. Entrar y salir
