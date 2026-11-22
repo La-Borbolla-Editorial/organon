@@ -4,6 +4,8 @@
 
 - **El formulario de fuentes ya no se arrastra al escribir.** La vista previa de la bibliografía
   rehacía el motor de citas a cada tecla (unos 0,7 s por letra); ahora tarda milisegundos.
+- **Lector: una selección nueva trae su propia cita.** Con el formulario de una ficha abierto,
+  seleccionar otro pasaje y pulsar «+ Ficha» se quedaba con la cita anterior.
 
 ## 0.6.1
 

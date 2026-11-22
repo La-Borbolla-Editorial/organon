@@ -25,7 +25,10 @@ interface Props {
   onBack: () => void
 }
 
-type Panel = { kind: 'list' } | { kind: 'form'; draft: FichaDraft; num: number | null; notice?: string } | { kind: 'pagination' }
+// `seq` distingue cada apertura del formulario: una selección nueva trae una cita nueva, aunque
+// el formulario ya estuviera abierto con otra.
+type Panel = { kind: 'list' } | { kind: 'form'; draft: FichaDraft; num: number | null; notice?: string; seq?: number } | { kind: 'pagination' }
+let formSeq = 0
 
 export function Reader({ sourceId, cite, focusFichaId, linkFichaId, backLabel, onBack }: Props) {
   const [source, setSource] = useState<Source | null>(null)
@@ -191,12 +194,13 @@ export function Reader({ sourceId, cite, focusFichaId, linkFichaId, backLabel, o
       const { num, createdAt: _c, updatedAt: _u, ...draft } = linking
       const computed = citedPages(source.pagination, anchor.start, anchor.end)
       setActiveId(linking.id)
-      setPanel({ kind: 'form', num, notice, draft: { ...draft, anchor, pageLabel: draft.pageLabel || computed, pageManual: (draft.pageLabel || computed) !== computed } })
+      setPanel({ kind: 'form', seq: ++formSeq, num, notice, draft: { ...draft, anchor, pageLabel: draft.pageLabel || computed, pageManual: (draft.pageLabel || computed) !== computed } })
       setLinking(null)
       return
     }
     setPanel({
       kind: 'form',
+      seq: ++formSeq,
       num: null,
       notice,
       draft: {
@@ -308,7 +312,7 @@ export function Reader({ sourceId, cite, focusFichaId, linkFichaId, backLabel, o
           {source && panel.kind === 'form' && panel.notice && <div className="banner warn form-notice" data-testid="cross-page-notice">{panel.notice}</div>}
           {source && panel.kind === 'form' && (
             <FichaForm
-              key={panel.draft.id ?? 'new'} draft={panel.draft} num={panel.num} sources={[source]} ficheros={ficheros} lockSource cite={cite} knownTags={knownTags}
+              key={panel.seq ?? panel.draft.id ?? 'new'} draft={panel.draft} num={panel.num} sources={[source]} ficheros={ficheros} lockSource cite={cite} knownTags={knownTags}
               onCancel={() => setPanel({ kind: 'list' })}
               onVerifyPagination={openPagination}
               onSave={async (d) => {
