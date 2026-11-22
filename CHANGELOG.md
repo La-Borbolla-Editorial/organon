@@ -1,5 +1,10 @@
 # Cambios
 
+## 0.6.2 (en curso)
+
+- **El formulario de fuentes ya no se arrastra al escribir.** La vista previa de la bibliografía
+  rehacía el motor de citas a cada tecla (unos 0,7 s por letra); ahora tarda milisegundos.
+
 ## 0.6.1
 
 Arreglos del Fichero 0.6.0 y de Escritura:
