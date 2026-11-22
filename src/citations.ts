@@ -71,11 +71,20 @@ function engine(o: CiteOptions) {
   return e
 }
 
-function register(csl: CslItem) {
-  const prev = items.get(csl.id)
-  if (prev === csl) return
-  if (prev && JSON.stringify(prev) !== JSON.stringify(csl)) engines.clear() // citeproc guarda copia de los ítems
-  items.set(csl.id, csl)
+// citeproc guarda su propia copia de cada ítem, así que un ítem que cambia (la vista previa del
+// formulario de fuentes, a cada tecla) entra con otro nombre. Rehacer el motor costaba ~0,7 s.
+const current = new Map<string, { csl: CslItem; key: string }>()
+let version = 0
+
+/** Registra el ítem y devuelve el nombre con que lo conoce citeproc. */
+function register(csl: CslItem): string {
+  const prev = current.get(csl.id)
+  if (prev && (prev.csl === csl || JSON.stringify(prev.csl) === JSON.stringify(csl))) return prev.key
+  if (prev) items.delete(prev.key)
+  const key = prev ? `${csl.id}@@v${++version}` : csl.id
+  items.set(key, { ...csl, id: key })
+  current.set(csl.id, { csl, key })
+  return key
 }
 
 // Lo ya formateado, por ítem: citeproc tarda milisegundos por cita y las listas tienen cientos.
@@ -113,10 +122,10 @@ export function formatCitation(csl: CslItem, page: string, o: CiteOptions, canon
 
 function citationNow(csl: CslItem, page: string, o: CiteOptions, canonical?: string): string {
   try {
-    register(csl)
+    const key = register(csl)
     const e = engine(o)
-    e.updateItems([csl.id])
-    return e.makeCitationCluster([{ id: csl.id, ...locate(page, canonical) }])
+    e.updateItems([key])
+    return e.makeCitationCluster([{ id: key, ...locate(page, canonical) }])
   } catch (err) {
     console.error('citeproc', err)
     return escapeHtml([authorsLabel(csl), csl.title, canonicalText(canonical) || page].filter(Boolean).join(', '))
@@ -130,9 +139,9 @@ export function formatBibliographyEntry(csl: CslItem, o: CiteOptions): string {
 
 function bibliographyNow(csl: CslItem, o: CiteOptions): string {
   try {
-    register(csl)
+    const key = register(csl)
     const e = engine(o)
-    e.updateItems([csl.id])
+    e.updateItems([key])
     const [, entries] = e.makeBibliography()
     return String(entries[0] ?? '').trim()
   } catch (err) {
