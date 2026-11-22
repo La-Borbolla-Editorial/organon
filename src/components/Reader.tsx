@@ -33,6 +33,9 @@ interface Props {
 type Panel = { kind: 'list' } | { kind: 'form'; draft: FichaDraft; num: number | null; notice?: string; seq?: number } | { kind: 'pagination' }
 let formSeq = 0
 
+/** Una posición en el PDF: hoja y punto de arriba a la izquierda, en unidades del PDF. */
+type Loc = { pageNumber: number; top: number; left: number }
+
 export function Reader({ sourceId, cite, focusFichaId, linkFichaId, backLabel, onBack }: Props) {
   const [source, setSource] = useState<Source | null>(null)
   const [fichas, setFichas] = useState<Ficha[]>([])
@@ -58,6 +61,11 @@ export function Reader({ sourceId, cite, focusFichaId, linkFichaId, backLabel, o
   const linkRef = useRef<InstanceType<typeof PDFLinkService> | null>(null)
   // Panel de índice y miniaturas: se recuerda abierto o cerrado (para todas las fuentes).
   const [sidebar, setSidebar] = useState(false)
+  // «Volver»: dónde estabas antes de cada salto. `location` es la posición actual, según pdf.js.
+  const location = useRef<Loc | null>(null)
+  const history = useRef<Loc[]>([])
+  const [canGoBack, setCanGoBack] = useState(false)
+  const searched = useRef(false)
   /** Zoom y hoja guardados la última vez que se leyó esta fuente (JSON en los ajustes del proyecto). */
   const savedView = useRef<string | undefined>(undefined)
 
@@ -163,7 +171,7 @@ export function Reader({ sourceId, cite, focusFichaId, linkFichaId, backLabel, o
       const saved = readReaderState(savedView.current, doc.numPages)
       viewer.currentScaleValue = saved && saved.scale !== 'page-width' ? String(saved.scale) : 'page-width'
       const focus = paintState.current.fichas.find((f) => f.id === focusFichaId)
-      if (focus) setTimeout(() => jumpRef.current(focus), 150)
+      if (focus) setTimeout(() => jumpRef.current(focus, false), 150)
       else if (saved && saved.page > 1 && !linkFichaId) viewer.currentPageNumber = saved.page
       restored = true
     })
@@ -178,6 +186,7 @@ export function Reader({ sourceId, cite, focusFichaId, linkFichaId, backLabel, o
       }, 600)
     }
     eventBus.on('pagechanging', (e: { pageNumber: number }) => { setPage(e.pageNumber); setPageInput(String(e.pageNumber)); save() })
+    eventBus.on('updateviewarea', (e: { location: Loc }) => { location.current = { pageNumber: e.location.pageNumber, top: e.location.top, left: e.location.left } })
     eventBus.on('scalechanging', (e: { scale: number }) => { setZoom(e.scale); save() })
     eventBus.on('pagerendered', (e: { source: { div: HTMLElement } }) => paintPage(e.source.div))
     viewer.setDocument(doc)
@@ -237,13 +246,16 @@ export function Reader({ sourceId, cite, focusFichaId, linkFichaId, backLabel, o
     }
   }, [doc, paintPage])
 
-  // ⌘+ / ⌘− / ⌘0 (Ctrl en Windows): ampliar, reducir y ajustar al ancho.
+  const goBackRef = useRef(() => {})
+  // ⌘+ / ⌘− / ⌘0 (Ctrl en Windows): ampliar, reducir y ajustar al ancho. ⌘F busca y ⌘[ vuelve.
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (!(e.metaKey || e.ctrlKey) || e.altKey) return
       const v = pdfViewer.current
       if (!v) return
       if (e.key === 'f' || e.key === 'F') { setFindOpen(true); setFindKey((k) => k + 1) }
+      // ⌘[ como en Safari; en un teclado español «[» lleva ⌥, así que también ⌘← fuera de los campos de texto.
+      else if (e.key === '[' || e.code === 'BracketLeft' || (e.key === 'ArrowLeft' && !(e.target as HTMLElement).closest?.('input, textarea, select, [contenteditable]'))) goBackRef.current()
       else if (e.key === '+' || e.key === '=') v.increaseScale()
       else if (e.key === '-') v.decreaseScale()
       else if (e.key === '0') v.currentScaleValue = 'page-width'
@@ -254,8 +266,28 @@ export function Reader({ sourceId, cite, focusFichaId, linkFichaId, backLabel, o
     return () => window.removeEventListener('keydown', onKey)
   }, [])
 
+  /** Antes de saltar: se apunta dónde estás, para poder volver. */
+  const remember = useCallback(() => {
+    const here = location.current
+    if (!here) return
+    const last = history.current.at(-1)
+    if (last && last.pageNumber === here.pageNumber && Math.abs(last.top - here.top) < 20) return
+    history.current = [...history.current.slice(-49), here]
+    setCanGoBack(true)
+  }, [])
+
+  const goBack = useCallback(() => {
+    const v = pdfViewer.current
+    const to = history.current.pop()
+    setCanGoBack(history.current.length > 0)
+    if (!v || !to) return
+    v.scrollPageIntoView({ pageNumber: to.pageNumber, destArray: [null, { name: 'XYZ' }, to.left, to.top, null], allowNegativeOffset: true })
+  }, [])
+
   const find = useCallback((query: string, { previous, again }: { previous: boolean; again: boolean }) => {
     if (!query.trim()) setFindStatus({ current: 0, total: 0, notFound: false })
+    // Se vuelve a donde estabas antes de la búsqueda, no a cada resultado.
+    else if (!searched.current) { remember(); searched.current = true }
     eventBusRef.current?.dispatch('find', {
       // Sin acentos en la búsqueda, pdf.js encuentra la palabra con y sin ellos («individuación»
       // también halla «individuacion»); con acentos, solo la acentuada.
@@ -268,6 +300,7 @@ export function Reader({ sourceId, cite, focusFichaId, linkFichaId, backLabel, o
     eventBusRef.current?.dispatch('findbarclose', { source: null })
     setFindOpen(false)
     setFindStatus({ current: 0, total: 0, notFound: false })
+    searched.current = false
   }, [])
 
   const toggleSidebar = () => {
@@ -284,18 +317,27 @@ export function Reader({ sourceId, cite, focusFichaId, linkFichaId, backLabel, o
     if (v && p >= 1 && p <= v.pagesCount) v.currentPageNumber = p
   }, [])
 
-  const jumpTo = useCallback((f: Ficha) => {
+  /** Saltar a una hoja desde el índice, las miniaturas o el número de hoja: se puede volver. */
+  const jumpToPage = useCallback((p: number) => {
+    if (p === pdfViewer.current?.currentPageNumber) return
+    remember()
+    goToPage(p)
+  }, [goToPage, remember])
+
+  const jumpTo = useCallback((f: Ficha, back = true) => {
     setActiveId(f.id)
     const first = f.anchor?.rects[0]
     const container = containerRef.current
     if (!first || !container) return
+    if (back) remember()
     goToPage(first.page)
     requestAnimationFrame(() => {
       const pageDiv = viewerRef.current?.querySelector<HTMLElement>(`.page[data-page-number="${first.page}"]`)
       if (pageDiv) container.scrollTop = pageDiv.offsetTop + first.r[0][1] * pageDiv.clientHeight - container.clientHeight * 0.3
     })
-  }, [goToPage])
+  }, [goToPage, remember])
 
+  goBackRef.current = goBack
   const jumpRef = useRef(jumpTo)
   jumpRef.current = jumpTo
 
@@ -392,7 +434,8 @@ export function Reader({ sourceId, cite, focusFichaId, linkFichaId, backLabel, o
           <span>{source?.csl.title}</span>
         </div>
         <div className="spacer" />
-        <form className="page-nav" onSubmit={(e) => { e.preventDefault(); goToPage(Number(pageInput)) }}>
+        {canGoBack && <button onClick={goBack} title="Volver a donde estabas antes del salto (⌘← o ⌘[)" data-testid="reader-back">↩ Volver</button>}
+        <form className="page-nav" onSubmit={(e) => { e.preventDefault(); jumpToPage(Number(pageInput)) }}>
           Hoja
           <input value={pageInput} onChange={(e) => setPageInput(e.target.value)} onBlur={() => setPageInput(String(page))} aria-label="Hoja del PDF" />
           de {doc?.numPages ?? '…'}
@@ -429,9 +472,9 @@ export function Reader({ sourceId, cite, focusFichaId, linkFichaId, backLabel, o
       <div className="reader-body">
         {sidebar && doc && (
           <PdfSidebar
-            doc={doc} page={page} onPage={goToPage}
+            doc={doc} page={page} onPage={jumpToPage}
             pageLabel={(n) => sheetLabel(ranges, n) ?? ''}
-            onDest={(dest) => void linkRef.current?.goToDestination(dest as never)}
+            onDest={(dest) => { remember(); void linkRef.current?.goToDestination(dest as never) }}
           />
         )}
         <div className="pdf-pane">

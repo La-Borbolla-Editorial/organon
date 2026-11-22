@@ -11,16 +11,16 @@ Acordado el 22 nov 2026. Marca con [x] lo que vaya quedando hecho.
 
 ## 1. Leer
 
-- [ ] **Zoom con el trackpad.** Pellizcar acerca o aleja alrededor del punto donde están los
+- [x] **Zoom con el trackpad.** Pellizcar acerca o aleja alrededor del punto donde están los
   dedos, no del centro de la página. ⌘+ y ⌘− hacen lo mismo con el teclado.
-- [ ] **Recordar el zoom y la hoja** de cada fuente al volver a abrirla.
-- [ ] **Buscar en el PDF (⌘F).** Se resaltan todos los resultados y se salta de uno a otro con
+- [x] **Recordar el zoom y la hoja** de cada fuente al volver a abrirla.
+- [x] **Buscar en el PDF (⌘F).** Se resaltan todos los resultados y se salta de uno a otro con
   Intro y ⇧Intro. La búsqueda no distingue acentos ni mayúsculas, y encuentra también las
   palabras cortadas con guion al final de línea.
-- [ ] **Índice y miniaturas** en un panel lateral. El índice son los marcadores que trae el PDF,
+- [x] **Índice y miniaturas** en un panel lateral. El índice son los marcadores que trae el PDF,
   si los trae.
-- [ ] **Volver atrás.** Después de saltar a una ficha, a un resultado o a una entrada del índice,
-  un botón (y ⌘[) regresa a donde estabas.
+- [x] **Volver atrás.** Después de saltar a una ficha, a un resultado o a una entrada del índice,
+  un botón (y ⌘← o ⌘[) regresa a donde estabas.
 
 ## 2. Marcar
 

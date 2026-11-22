@@ -1,5 +1,19 @@
 # Cambios
 
+## 0.7.0 (en curso): el editor de PDF
+
+Leer:
+
+- **Zoom con el trackpad.** Pellizcar acerca o aleja alrededor de los dedos. También ⌘+, ⌘− y
+  ⌘0 (ajustar al ancho). Junto a los botones se ve el porcentaje.
+- **Cada fuente se abre donde la dejaste**, con el mismo zoom.
+- **Buscar en el PDF (⌘F).** Resalta todos los resultados; Intro y ⇧Intro saltan de uno a otro.
+  No distingue mayúsculas ni acentos, y encuentra las palabras cortadas con guion al final de línea.
+- **Índice y hojas.** El botón ☰ abre un panel con el índice del PDF (si lo trae) y las hojas en
+  miniatura, cada una con su página impresa.
+- **Volver.** Después de saltar a una ficha, a una entrada del índice, a una hoja o a una búsqueda,
+  «↩ Volver» (o ⌘←, o ⌘[) regresa a donde estabas.
+
 ## 0.6.2
 
 - **El formulario de fuentes ya no se arrastra al escribir.** La vista previa de la bibliografía
