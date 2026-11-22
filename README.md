@@ -26,6 +26,12 @@ una hoja de cálculo como fichero y un procesador de textos para citar.
 - **Lector.** Seleccionas texto, pulsas «+ Ficha» y rellenas la nota permanente,
   los tags y las notas. Las fichas quedan resaltadas en el PDF y un clic te lleva
   de vuelta al pasaje.
+- **Marcar el PDF.** Resaltados en seis colores (sin ficha, o convertidos en ficha
+  después), notas al margen y recortes de tablas o escaneos. Todo se reúne en la
+  pestaña «Marcas». Importa los resaltados y notas que el PDF ya traiga de Zotero o
+  Vista Previa, y exporta una copia del PDF con tus marcas. El PDF original no se toca.
+- **Leer cómodo.** Zoom con el trackpad, búsqueda con ⌘F, índice y miniaturas, y
+  «Volver» tras cada salto. Cada fuente se abre donde la dejaste.
 - **La página correcta.** La hoja del PDF casi nunca coincide con la página que
   hay que citar. Organon la deduce de los números impresos en encabezados y pies,
   te pide confirmarla una vez por fuente y te la enseña antes de guardar cada
@@ -113,6 +119,8 @@ Cada proyecto es una carpeta con:
 | `organon.json` | Ajustes del proyecto (estilo de cita, idioma) y sus ficheros |
 | `fuentes.json` | Fuentes: metadatos CSL, PDF adjunto y paginación |
 | `fichas.json` | Fichas |
+| `marcas.json` | Resaltados, notas y recortes del PDF que no son fichas |
+| `recortes/` | Las imágenes de los recortes |
 | `pdfs/` | Los PDF adjuntos |
 | `escritura/` | Tus textos, uno por archivo `.md` (y `.papelera/` con los eliminados) |
 

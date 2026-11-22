@@ -1,5 +1,47 @@
 # Cambios
 
+## 0.7.0: el editor de PDF
+
+Leer:
+
+- **Zoom con el trackpad.** Pellizcar acerca o aleja alrededor de los dedos. También ⌘+, ⌘− y
+  ⌘0 (ajustar al ancho). Junto a los botones se ve el porcentaje.
+- **Cada fuente se abre donde la dejaste**, con el mismo zoom.
+- **Buscar en el PDF (⌘F).** Resalta todos los resultados; Intro y ⇧Intro saltan de uno a otro.
+  No distingue mayúsculas ni acentos, y encuentra las palabras cortadas con guion al final de línea.
+- **Índice y hojas.** El botón ☰ abre un panel con el índice del PDF (si lo trae) y las hojas en
+  miniatura, cada una con su página impresa.
+- **Volver.** Después de saltar a una ficha, a una entrada del índice, a una hoja o a una búsqueda,
+  «↩ Volver» (o ⌘←, o ⌘[) regresa a donde estabas.
+
+Marcar:
+
+- **Resaltar sin hacer ficha.** Al seleccionar un pasaje, junto a «+ Ficha» salen seis colores:
+  uno resalta el pasaje con ese color. Organon recuerda el último que usaste y no le da ningún
+  significado a los colores.
+- **Las fichas también tienen color** en el PDF; se elige en su formulario.
+- **Un resaltado se convierte en ficha** desde su globo («Hacer ficha»): la ficha hereda el pasaje,
+  la cita y el color, y el resaltado suelto desaparece.
+- **Notas al margen.** Con «✎ Nota», un clic en la hoja deja una nota. Una nota que se cierra vacía
+  no se guarda.
+- **Recortes.** Con «▭ Recorte» se arrastra un rectángulo sobre una tabla, un esquema o un escaneo
+  sin texto. Organon guarda la imagen en `recortes/` y se puede hacer una ficha con ella.
+- **Pestaña «Marcas»** junto a «Fichas». Reúne resaltados, notas, recortes y fichas en el orden del
+  PDF, filtrables por tipo y por color; un clic lleva a cada una.
+- Las marcas se guardan en `marcas.json`, en la carpeta del proyecto. Tus PDF no se modifican.
+- La selección nueva en el PDF se pinta en gris, para no confundirla con el resaltado azul.
+
+Entrar y salir:
+
+- **Importar las anotaciones del PDF.** Si un PDF trae resaltados, subrayados o notas (de Zotero,
+  Vista Previa, el iPad…), Organon lo avisa al abrirlo y los copia como marcas con su color, su
+  texto y su comentario. También desde «Marcas → Importar del PDF». Importar dos veces no duplica
+  nada, y el PDF no se toca. (Hasta ahora Organon no mostraba esas anotaciones.)
+- **Exportar PDF con marcas.** Desde «Marcas», guarda una copia del PDF con los resaltados, las
+  notas, los recortes y las fichas como anotaciones estándar, que se ven en Vista Previa, en Zotero
+  o en el iPad. Las fichas llevan su número y su nota permanente. Si se importaron las anotaciones
+  del PDF, la copia lleva las de Organon en su lugar, para que no salgan dos veces.
+
 ## 0.6.2
 
 - **El formulario de fuentes ya no se arrastra al escribir.** La vista previa de la bibliografía

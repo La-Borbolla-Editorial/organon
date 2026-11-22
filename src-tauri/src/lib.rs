@@ -416,6 +416,40 @@ fn read_pdf(state: State<'_, Current>, name: String) -> Result<tauri::ipc::Respo
     fs::read(current(&state)?.join("pdfs").join(name)).map(tauri::ipc::Response::new).map_err(err)
 }
 
+// ---- Recortes del PDF (recortes/*.png) -------------------------------------------
+
+/// Guarda la imagen de un recorte en `recortes/`. El cuerpo es el PNG en bruto y el
+/// nombre viaja en la cabecera `x-name`.
+#[tauri::command]
+fn save_recorte(state: State<'_, Current>, request: tauri::ipc::Request<'_>) -> Result<(), String> {
+    let name = request
+        .headers()
+        .get("x-name")
+        .and_then(|v| v.to_str().ok())
+        .ok_or("Falta la cabecera x-name")?;
+    safe_name(name, ".png")?;
+    let dir = current(&state)?.join("recortes");
+    fs::create_dir_all(&dir).map_err(err)?;
+    match request.body() {
+        InvokeBody::Raw(bytes) => fs::write(dir.join(name), bytes).map_err(err),
+        _ => Err("Se esperaba un cuerpo binario".into()),
+    }
+}
+
+#[tauri::command]
+fn read_recorte(state: State<'_, Current>, name: String) -> Result<tauri::ipc::Response, String> {
+    safe_name(&name, ".png")?;
+    fs::read(current(&state)?.join("recortes").join(name)).map(tauri::ipc::Response::new).map_err(err)
+}
+
+/// Borra la imagen de un recorte que se eliminó (se puede volver a recortar del PDF).
+#[tauri::command]
+fn delete_recorte(state: State<'_, Current>, name: String) -> Result<(), String> {
+    safe_name(&name, ".png")?;
+    let path = current(&state)?.join("recortes").join(name);
+    if path.exists() { fs::remove_file(path).map_err(err) } else { Ok(()) }
+}
+
 /// Guarda un archivo de texto donde elija el usuario. Devuelve `false` si cancela.
 #[tauri::command]
 async fn save_text_file(app: AppHandle, default_name: String, content: String) -> Result<bool, String> {
@@ -539,7 +573,7 @@ pub fn run() {
         .manage(Current::default())
         .invoke_handler(tauri::generate_handler![
             recent_projects, forget_project, current_project, pick_folder, open_project, close_project,
-            read_data, data_stamps, write_data, list_drafts, read_draft, write_draft, rename_draft, trash_draft, save_binary_file, print_page, save_pdf, read_pdf, trash_pdf, trash_info, empty_trash, save_text_file, open_url,
+            read_data, data_stamps, write_data, list_drafts, read_draft, write_draft, rename_draft, trash_draft, save_binary_file, print_page, save_pdf, read_pdf, trash_pdf, save_recorte, read_recorte, delete_recorte, trash_info, empty_trash, save_text_file, open_url,
             read_app_settings, write_app_settings, list_themes, write_theme, delete_theme, reveal_themes_folder
         ])
         .run(tauri::generate_context!())
