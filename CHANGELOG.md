@@ -1,6 +1,6 @@
 # Cambios
 
-## 0.7.0 (en curso): el editor de PDF
+## 0.7.0: el editor de PDF
 
 Leer:
 
