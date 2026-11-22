@@ -10,6 +10,7 @@ import { clampScale, readerStateKey, readReaderState, wheelZoomFactor, type Read
 import type { Anchor, Ficha, Fichero, Source } from '../types'
 import { FichaForm } from './FichaForm'
 import { FindBar, type FindStatus } from './FindBar'
+import { PdfSidebar } from './PdfSidebar'
 import { SidePanel } from './SidePanel'
 import { PaginationEditor } from './PaginationEditor'
 import { useGrowing } from '../useGrowing'
@@ -54,6 +55,9 @@ export function Reader({ sourceId, cite, focusFichaId, linkFichaId, backLabel, o
   const [findKey, setFindKey] = useState(0)
   const [findStatus, setFindStatus] = useState<FindStatus>({ current: 0, total: 0, notFound: false })
   const eventBusRef = useRef<InstanceType<typeof EventBus> | null>(null)
+  const linkRef = useRef<InstanceType<typeof PDFLinkService> | null>(null)
+  // Panel de índice y miniaturas: se recuerda abierto o cerrado (para todas las fuentes).
+  const [sidebar, setSidebar] = useState(false)
   /** Zoom y hoja guardados la última vez que se leyó esta fuente (JSON en los ajustes del proyecto). */
   const savedView = useRef<string | undefined>(undefined)
 
@@ -83,6 +87,7 @@ export function Reader({ sourceId, cite, focusFichaId, linkFichaId, backLabel, o
       const settings = await getSettings()
       const last = settings.lastFichero
       savedView.current = settings[readerStateKey(sourceId)]
+      setSidebar(settings.lectorIndice === '1')
       setFicheros(fs)
       setDefaultFichero(fs.some((f) => f.id === last) ? last : fs[0].id)
       if (linkFichaId) setLinking(await getFicha(linkFichaId))
@@ -144,6 +149,7 @@ export function Reader({ sourceId, cite, focusFichaId, linkFichaId, backLabel, o
     linkService.setViewer(viewer)
     pdfViewer.current = viewer
     eventBusRef.current = eventBus
+    linkRef.current = linkService
     eventBus.on('updatefindmatchescount', (e: { matchesCount: { current: number; total: number } }) => {
       setFindStatus((st) => ({ ...st, ...e.matchesCount, notFound: false }))
     })
@@ -227,6 +233,7 @@ export function Reader({ sourceId, cite, focusFichaId, linkFichaId, backLabel, o
       findController.setDocument(null as never)
       pdfViewer.current = null
       eventBusRef.current = null
+      linkRef.current = null
     }
   }, [doc, paintPage])
 
@@ -262,6 +269,15 @@ export function Reader({ sourceId, cite, focusFichaId, linkFichaId, backLabel, o
     setFindOpen(false)
     setFindStatus({ current: 0, total: 0, notFound: false })
   }, [])
+
+  const toggleSidebar = () => {
+    setSidebar((open) => { void setSettings({ lectorIndice: open ? '' : '1' }); return !open })
+  }
+  // El PDF cambia de ancho al abrir o cerrar el panel: si estaba ajustado al ancho, se reajusta.
+  useEffect(() => {
+    const v = pdfViewer.current
+    if (v?.currentScaleValue === 'page-width') requestAnimationFrame(() => { v.currentScaleValue = 'page-width' })
+  }, [sidebar])
 
   const goToPage = useCallback((p: number) => {
     const v = pdfViewer.current
@@ -370,6 +386,7 @@ export function Reader({ sourceId, cite, focusFichaId, linkFichaId, backLabel, o
     <div className="reader">
       <header className="topbar">
         <button onClick={onBack}>← {backLabel}</button>
+        <button className={`sidebar-toggle ${sidebar ? 'on' : ''}`} onClick={toggleSidebar} aria-pressed={sidebar} title="Índice y hojas" data-testid="sidebar-toggle">☰</button>
         <div className="reader-title">
           <strong>{title}</strong>
           <span>{source?.csl.title}</span>
@@ -410,6 +427,13 @@ export function Reader({ sourceId, cite, focusFichaId, linkFichaId, backLabel, o
       )}
 
       <div className="reader-body">
+        {sidebar && doc && (
+          <PdfSidebar
+            doc={doc} page={page} onPage={goToPage}
+            pageLabel={(n) => sheetLabel(ranges, n) ?? ''}
+            onDest={(dest) => void linkRef.current?.goToDestination(dest as never)}
+          />
+        )}
         <div className="pdf-pane">
           {findOpen && <FindBar status={findStatus} onFind={find} onClose={closeFind} focusKey={findKey} />}
           <div className="pdf-container" ref={containerRef} onMouseUp={onMouseUp} onClick={onClick}>
