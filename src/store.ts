@@ -319,6 +319,12 @@ export async function savePagination(id: string, pagination: PageRange[], verifi
 export async function deleteSource(id: string): Promise<void> {
   const d = db()
   d.sources = d.sources.filter((s) => s.id !== id)
+  // También se olvida dónde se había quedado su lectura.
+  if (`lector:${id}` in d.project.settings) {
+    const { [`lector:${id}`]: _lector, ...settings } = d.project.settings
+    d.project = { ...d.project, settings }
+    await persist('project')
+  }
   const orphans = d.fichas.some((f) => f.sourceId === id)
   d.fichas = d.fichas.map((f) => (f.sourceId === id ? { ...f, sourceId: null, updatedAt: now() } : f))
   await persist(...(orphans ? (['sources', 'fichas'] as const) : (['sources'] as const)))

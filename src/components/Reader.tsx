@@ -6,6 +6,7 @@ import { deleteFicha, getFicha, getSettings, getSource, listFichas, listFicheros
 import { citedPages, sheetLabel, type PageRange } from '../pagination'
 import { EventBus, lacksTextLayer, openPdf, PDFLinkService, PDFViewer, type PDFDocumentProxy } from '../pdf/pdfjs'
 import { captureSelection, type Capture } from '../pdf/selection'
+import { clampScale, readerStateKey, readReaderState, wheelZoomFactor, type ReaderState } from '../pdf/view-state'
 import type { Anchor, Ficha, Fichero, Source } from '../types'
 import { FichaForm } from './FichaForm'
 import { SidePanel } from './SidePanel'
@@ -46,6 +47,9 @@ export function Reader({ sourceId, cite, focusFichaId, linkFichaId, backLabel, o
   const [activeId, setActiveId] = useState<string | null>(null)
   const [pending, setPending] = useState<Capture | null>(null)
   const [draftRanges, setDraftRanges] = useState<PageRange[] | null>(null)
+  const [zoom, setZoom] = useState<number | null>(null)
+  /** Zoom y hoja guardados la última vez que se leyó esta fuente (JSON en los ajustes del proyecto). */
+  const savedView = useRef<string | undefined>(undefined)
 
   const containerRef = useRef<HTMLDivElement>(null)
   const viewerRef = useRef<HTMLDivElement>(null)
@@ -70,7 +74,9 @@ export function Reader({ sourceId, cite, focusFichaId, linkFichaId, backLabel, o
       setFichas(all)
       setKnownTags(await listTags())
       const fs = await listFicheros()
-      const last = (await getSettings()).lastFichero
+      const settings = await getSettings()
+      const last = settings.lastFichero
+      savedView.current = settings[readerStateKey(sourceId)]
       setFicheros(fs)
       setDefaultFichero(fs.some((f) => f.id === last) ? last : fs[0].id)
       if (linkFichaId) setLinking(await getFicha(linkFichaId))
@@ -129,23 +135,97 @@ export function Reader({ sourceId, cite, focusFichaId, linkFichaId, backLabel, o
     const viewer = new PDFViewer({ container: containerRef.current, viewer: viewerRef.current, eventBus, linkService, textLayerMode: 1, annotationMode: 0 })
     linkService.setViewer(viewer)
     pdfViewer.current = viewer
+    // Se vuelve al zoom y a la hoja de la última vez, salvo si se abrió para ir a una ficha.
+    let restored = false
     eventBus.on('pagesinit', () => {
-      viewer.currentScaleValue = 'page-width'
+      const saved = readReaderState(savedView.current, doc.numPages)
+      viewer.currentScaleValue = saved && saved.scale !== 'page-width' ? String(saved.scale) : 'page-width'
       const focus = paintState.current.fichas.find((f) => f.id === focusFichaId)
       if (focus) setTimeout(() => jumpRef.current(focus), 150)
+      else if (saved && saved.page > 1 && !linkFichaId) viewer.currentPageNumber = saved.page
+      restored = true
     })
-    eventBus.on('pagechanging', (e: { pageNumber: number }) => { setPage(e.pageNumber); setPageInput(String(e.pageNumber)) })
+    let saveTimer = 0
+    const save = () => {
+      if (!restored) return
+      clearTimeout(saveTimer)
+      saveTimer = window.setTimeout(() => {
+        const state: ReaderState = { scale: viewer.currentScaleValue === 'page-width' ? 'page-width' : viewer.currentScale, page: viewer.currentPageNumber }
+        const json = JSON.stringify(state)
+        if (json !== savedView.current) { savedView.current = json; void setSettings({ [readerStateKey(sourceId)]: json }) }
+      }, 600)
+    }
+    eventBus.on('pagechanging', (e: { pageNumber: number }) => { setPage(e.pageNumber); setPageInput(String(e.pageNumber)); save() })
+    eventBus.on('scalechanging', (e: { scale: number }) => { setZoom(e.scale); save() })
     eventBus.on('pagerendered', (e: { source: { div: HTMLElement } }) => paintPage(e.source.div))
     viewer.setDocument(doc)
     linkService.setDocument(doc, null)
     const onResize = () => { if (viewer.currentScaleValue === 'page-width') viewer.currentScaleValue = 'page-width' }
     window.addEventListener('resize', onResize)
+
+    // ---- Pellizco del trackpad ----
+    // Se amplía alrededor de los dedos (`origin`), no del centro. `drawingDelay` deja que la
+    // página se estire al momento y se redibuje nítida cuando el gesto se detiene.
+    const container = containerRef.current
+    const zoomTo = (target: number, x: number, y: number) => {
+      const factor = clampScale(target) / viewer.currentScale
+      if (Math.abs(factor - 1) < 0.005) return
+      viewer.updateScale({ scaleFactor: factor, origin: [x, y], drawingDelay: 400 })
+    }
+    // WebKit (la app en macOS) envía el pellizco como gesturestart/change/end, con la escala acumulada.
+    let gestureBase = 0
+    const onGestureStart = (e: Event) => { e.preventDefault(); gestureBase = viewer.currentScale }
+    const onGestureChange = (e: Event) => {
+      e.preventDefault()
+      const g = e as Event & { scale: number; clientX: number; clientY: number }
+      if (gestureBase) zoomTo(gestureBase * g.scale, g.clientX, g.clientY)
+    }
+    const onGestureEnd = (e: Event) => { e.preventDefault(); gestureBase = 0 }
+    // Chrome, Firefox y Windows lo envían como `wheel` con ctrlKey, en pasos pequeños: la escala
+    // deseada se acumula aparte porque pdf.js redondea a centésimas y los pasos se perderían.
+    let wanted = 0
+    let lastWheel = 0
+    const onWheel = (e: WheelEvent) => {
+      if (!e.ctrlKey) return
+      e.preventDefault()
+      if (gestureBase) return
+      const t = performance.now()
+      if (t - lastWheel > 300) wanted = viewer.currentScale
+      lastWheel = t
+      wanted = clampScale(wanted * wheelZoomFactor(e.deltaY, e.deltaMode))
+      zoomTo(wanted, e.clientX, e.clientY)
+    }
+    container.addEventListener('wheel', onWheel, { passive: false })
+    container.addEventListener('gesturestart', onGestureStart)
+    container.addEventListener('gesturechange', onGestureChange)
+    container.addEventListener('gestureend', onGestureEnd)
     return () => {
+      clearTimeout(saveTimer)
+      container.removeEventListener('wheel', onWheel)
+      container.removeEventListener('gesturestart', onGestureStart)
+      container.removeEventListener('gesturechange', onGestureChange)
+      container.removeEventListener('gestureend', onGestureEnd)
       window.removeEventListener('resize', onResize)
       viewer.setDocument(null as never)
       pdfViewer.current = null
     }
   }, [doc, paintPage])
+
+  // ⌘+ / ⌘− / ⌘0 (Ctrl en Windows): ampliar, reducir y ajustar al ancho.
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (!(e.metaKey || e.ctrlKey) || e.altKey) return
+      const v = pdfViewer.current
+      if (!v) return
+      if (e.key === '+' || e.key === '=') v.increaseScale()
+      else if (e.key === '-') v.decreaseScale()
+      else if (e.key === '0') v.currentScaleValue = 'page-width'
+      else return
+      e.preventDefault()
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [])
 
   const goToPage = useCallback((p: number) => {
     const v = pdfViewer.current
@@ -272,9 +352,10 @@ export function Reader({ sourceId, cite, focusFichaId, linkFichaId, backLabel, o
           <span>{source?.paginationVerified ? '✓' : '⚠ sin verificar'}</span>
         </button>
         <div className="zoom">
-          <button onClick={() => pdfViewer.current?.decreaseScale()} aria-label="Reducir">−</button>
-          <button onClick={() => { if (pdfViewer.current) pdfViewer.current.currentScaleValue = 'page-width' }}>Ancho</button>
-          <button onClick={() => pdfViewer.current?.increaseScale()} aria-label="Ampliar">+</button>
+          <button onClick={() => pdfViewer.current?.decreaseScale()} aria-label="Reducir" title="Reducir (⌘−)">−</button>
+          <span className="zoom-level" data-testid="zoom-level">{zoom ? `${Math.round(zoom * 100)} %` : ''}</span>
+          <button onClick={() => { if (pdfViewer.current) pdfViewer.current.currentScaleValue = 'page-width' }} title="Ajustar al ancho (⌘0)" data-testid="zoom-fit">Ancho</button>
+          <button onClick={() => pdfViewer.current?.increaseScale()} aria-label="Ampliar" title="Ampliar (⌘+)">+</button>
         </div>
       </header>
 

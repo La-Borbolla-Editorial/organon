@@ -124,6 +124,7 @@ textarea { resize: vertical; width: 100%; }
 .cited-page.ok { background: var(--ok-bg); border-color: var(--ok-line); color: var(--ok); }
 .cited-page.warn { background: var(--warn-bg); border-color: var(--warn-line); color: var(--warn); }
 .zoom { display: flex; gap: 4px; }
+.zoom-level { min-width: 3.4em; align-self: center; text-align: right; font-size: 12px; color: var(--muted); font-variant-numeric: tabular-nums; }
 
 .reader-body { flex: 1; display: flex; min-height: 0; }
 .pdf-pane { flex: 1; position: relative; min-width: 0; background: var(--pdf-bg); }
