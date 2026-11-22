@@ -4,11 +4,12 @@ import { authorsLabel, formatCitation, yearLabel, type CiteOptions } from '../ci
 import { canonicalRef } from '../draft'
 import { deleteFicha, getFicha, getSettings, getSource, listFichas, listFicheros, listTags, saveFicha, savePagination, setSettings, type FichaDraft } from '../store'
 import { citedPages, sheetLabel, type PageRange } from '../pagination'
-import { EventBus, lacksTextLayer, openPdf, PDFLinkService, PDFViewer, type PDFDocumentProxy } from '../pdf/pdfjs'
+import { EventBus, FindState, lacksTextLayer, openPdf, PDFFindController, PDFLinkService, PDFViewer, type PDFDocumentProxy } from '../pdf/pdfjs'
 import { captureSelection, type Capture } from '../pdf/selection'
 import { clampScale, readerStateKey, readReaderState, wheelZoomFactor, type ReaderState } from '../pdf/view-state'
 import type { Anchor, Ficha, Fichero, Source } from '../types'
 import { FichaForm } from './FichaForm'
+import { FindBar, type FindStatus } from './FindBar'
 import { SidePanel } from './SidePanel'
 import { PaginationEditor } from './PaginationEditor'
 import { useGrowing } from '../useGrowing'
@@ -48,6 +49,11 @@ export function Reader({ sourceId, cite, focusFichaId, linkFichaId, backLabel, o
   const [pending, setPending] = useState<Capture | null>(null)
   const [draftRanges, setDraftRanges] = useState<PageRange[] | null>(null)
   const [zoom, setZoom] = useState<number | null>(null)
+  // Búsqueda (⌘F). `findKey` cambia con cada ⌘F para devolver el foco a la barra.
+  const [findOpen, setFindOpen] = useState(false)
+  const [findKey, setFindKey] = useState(0)
+  const [findStatus, setFindStatus] = useState<FindStatus>({ current: 0, total: 0, notFound: false })
+  const eventBusRef = useRef<InstanceType<typeof EventBus> | null>(null)
   /** Zoom y hoja guardados la última vez que se leyó esta fuente (JSON en los ajustes del proyecto). */
   const savedView = useRef<string | undefined>(undefined)
 
@@ -132,9 +138,19 @@ export function Reader({ sourceId, cite, focusFichaId, linkFichaId, backLabel, o
     if (!doc || !containerRef.current || !viewerRef.current) return
     const eventBus = new EventBus()
     const linkService = new PDFLinkService({ eventBus })
-    const viewer = new PDFViewer({ container: containerRef.current, viewer: viewerRef.current, eventBus, linkService, textLayerMode: 1, annotationMode: 0 })
+    // El buscador de pdf.js: no distingue acentos ni mayúsculas y une las palabras cortadas con guion.
+    const findController = new PDFFindController({ eventBus, linkService })
+    const viewer = new PDFViewer({ container: containerRef.current, viewer: viewerRef.current, eventBus, linkService, findController, textLayerMode: 1, annotationMode: 0 })
     linkService.setViewer(viewer)
     pdfViewer.current = viewer
+    eventBusRef.current = eventBus
+    eventBus.on('updatefindmatchescount', (e: { matchesCount: { current: number; total: number } }) => {
+      setFindStatus((st) => ({ ...st, ...e.matchesCount, notFound: false }))
+    })
+    eventBus.on('updatefindcontrolstate', (e: { state: number; matchesCount: { current: number; total: number } }) => {
+      if (e.state === FindState.PENDING) return
+      setFindStatus({ ...e.matchesCount, notFound: e.state === FindState.NOT_FOUND })
+    })
     // Se vuelve al zoom y a la hoja de la última vez, salvo si se abrió para ir a una ficha.
     let restored = false
     eventBus.on('pagesinit', () => {
@@ -160,6 +176,7 @@ export function Reader({ sourceId, cite, focusFichaId, linkFichaId, backLabel, o
     eventBus.on('pagerendered', (e: { source: { div: HTMLElement } }) => paintPage(e.source.div))
     viewer.setDocument(doc)
     linkService.setDocument(doc, null)
+    findController.setDocument(doc)
     const onResize = () => { if (viewer.currentScaleValue === 'page-width') viewer.currentScaleValue = 'page-width' }
     window.addEventListener('resize', onResize)
 
@@ -207,7 +224,9 @@ export function Reader({ sourceId, cite, focusFichaId, linkFichaId, backLabel, o
       container.removeEventListener('gestureend', onGestureEnd)
       window.removeEventListener('resize', onResize)
       viewer.setDocument(null as never)
+      findController.setDocument(null as never)
       pdfViewer.current = null
+      eventBusRef.current = null
     }
   }, [doc, paintPage])
 
@@ -217,7 +236,8 @@ export function Reader({ sourceId, cite, focusFichaId, linkFichaId, backLabel, o
       if (!(e.metaKey || e.ctrlKey) || e.altKey) return
       const v = pdfViewer.current
       if (!v) return
-      if (e.key === '+' || e.key === '=') v.increaseScale()
+      if (e.key === 'f' || e.key === 'F') { setFindOpen(true); setFindKey((k) => k + 1) }
+      else if (e.key === '+' || e.key === '=') v.increaseScale()
       else if (e.key === '-') v.decreaseScale()
       else if (e.key === '0') v.currentScaleValue = 'page-width'
       else return
@@ -225,6 +245,22 @@ export function Reader({ sourceId, cite, focusFichaId, linkFichaId, backLabel, o
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
+  }, [])
+
+  const find = useCallback((query: string, { previous, again }: { previous: boolean; again: boolean }) => {
+    if (!query.trim()) setFindStatus({ current: 0, total: 0, notFound: false })
+    eventBusRef.current?.dispatch('find', {
+      // Sin acentos en la búsqueda, pdf.js encuentra la palabra con y sin ellos («individuación»
+      // también halla «individuacion»); con acentos, solo la acentuada.
+      source: null, type: again ? 'again' : '', query: query.normalize('NFD').replace(/\p{M}/gu, ''), caseSensitive: false, entireWord: false,
+      highlightAll: true, findPrevious: previous, matchDiacritics: false,
+    })
+  }, [])
+
+  const closeFind = useCallback(() => {
+    eventBusRef.current?.dispatch('findbarclose', { source: null })
+    setFindOpen(false)
+    setFindStatus({ current: 0, total: 0, notFound: false })
   }, [])
 
   const goToPage = useCallback((p: number) => {
@@ -375,6 +411,7 @@ export function Reader({ sourceId, cite, focusFichaId, linkFichaId, backLabel, o
 
       <div className="reader-body">
         <div className="pdf-pane">
+          {findOpen && <FindBar status={findStatus} onFind={find} onClose={closeFind} focusKey={findKey} />}
           <div className="pdf-container" ref={containerRef} onMouseUp={onMouseUp} onClick={onClick}>
             <div className="pdfViewer" ref={viewerRef} />
           </div>

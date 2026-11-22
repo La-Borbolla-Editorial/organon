@@ -1,11 +1,11 @@
 // El orden importa: pdf_viewer.mjs lee globalThis.pdfjsLib, que define pdf.mjs.
 import * as pdfjs from 'pdfjs-dist'
 import workerUrl from 'pdfjs-dist/build/pdf.worker.min.mjs?url'
-import { EventBus, PDFLinkService, PDFViewer } from 'pdfjs-dist/web/pdf_viewer.mjs'
+import { EventBus, FindState, PDFFindController, PDFLinkService, PDFViewer } from 'pdfjs-dist/web/pdf_viewer.mjs'
 
 pdfjs.GlobalWorkerOptions.workerSrc = workerUrl
 
-export { EventBus, PDFLinkService, PDFViewer }
+export { EventBus, FindState, PDFFindController, PDFLinkService, PDFViewer }
 export type { PDFDocumentProxy } from 'pdfjs-dist'
 
 export function openPdf(data: Uint8Array) {
