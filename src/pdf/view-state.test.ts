@@ -17,3 +17,9 @@ test('lo que se recuerda de una fuente se lee con cuidado', () => {
   expect(readReaderState('{"scale":99,"page":40}', 10)).toEqual({ scale: MAX_SCALE, page: 10 }) // otro PDF, más corto
   expect(readReaderState('{"scale":"x","page":0}', 10)).toEqual({ scale: 'page-width', page: 1 })
 })
+
+test('se recuerda el punto exacto de la hoja, si la hoja sigue existiendo', () => {
+  expect(readReaderState('{"scale":1.5,"page":4,"top":620,"left":12}', 10)).toEqual({ scale: 1.5, page: 4, top: 620, left: 12 })
+  expect(readReaderState('{"scale":1.5,"page":40,"top":620,"left":12}', 10)).toEqual({ scale: 1.5, page: 10 }) // otro PDF, más corto
+  expect(readReaderState('{"scale":1.5,"page":4,"top":"x"}', 10)).toEqual({ scale: 1.5, page: 4 })
+})

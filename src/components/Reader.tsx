@@ -227,28 +227,72 @@ export function Reader({ sourceId, cite, focusFichaId, linkFichaId, backLabel, o
       if (e.state === FindState.PENDING) return
       setFindStatus({ ...e.matchesCount, notFound: e.state === FindState.NOT_FOUND })
     })
-    // Se vuelve al zoom y a la hoja de la última vez, salvo si se abrió para ir a una ficha.
+    // Se vuelve al zoom y al punto de la última vez, salvo si se abrió para ir a una ficha.
+    // Al abrir, las hojas aún no tienen su tamaño real (pdf.js supone el de la primera hasta leerlas
+    // todas) y WebKit recorta el salto: se repite cuando las hojas ya están, como hace el visor de
+    // pdf.js, mientras no hayas tocado nada. Hasta entonces no se guarda nada, para no apuntar la
+    // hoja 1 de un salto que se quedó corto.
+    let target: ReaderState | null = null
     let restored = false
+    const container = containerRef.current
+    const goToTarget = () => {
+      if (!target) return
+      if (target.top !== undefined && target.left !== undefined) {
+        viewer.scrollPageIntoView({ pageNumber: target.page, destArray: [null, { name: 'XYZ' }, target.left, target.top, null], allowNegativeOffset: true })
+      } else viewer.currentPageNumber = target.page
+    }
+    const finishRestore = () => { target = null; restored = true }
+    // Cualquier gesto tuyo manda: deja de reintentar.
+    const onUserMove = () => { if (target) finishRestore() }
+    // En toda la ventana: pulsar una miniatura o el índice también cuenta.
+    window.addEventListener('wheel', onUserMove, { passive: true, capture: true })
+    window.addEventListener('mousedown', onUserMove, true)
+    window.addEventListener('keydown', onUserMove, true)
+    window.addEventListener('touchstart', onUserMove, { passive: true, capture: true })
+    let restoreTimer = 0
     eventBus.on('pagesinit', () => {
       const saved = readReaderState(savedView.current, doc.numPages)
       viewer.currentScaleValue = saved && saved.scale !== 'page-width' ? String(saved.scale) : 'page-width'
       const focus = paintState.current.fichas.find((f) => f.id === focusFichaId)
       if (focus) setTimeout(() => jumpRef.current(focus, false), 150)
-      else if (saved && saved.page > 1 && !linkFichaId) viewer.currentPageNumber = saved.page
-      restored = true
+      if (focus || linkFichaId || !saved || (saved.page === 1 && !saved.top)) return finishRestore()
+      target = saved
+      goToTarget()
+      requestAnimationFrame(goToTarget)
+      // Por si las hojas tardan (un PDF largo o escaneado): se deja de intentar a los 5 s.
+      restoreTimer = window.setTimeout(finishRestore, 5000)
     })
+    eventBus.on('pagesloaded', () => { goToTarget(); requestAnimationFrame(() => { goToTarget(); if (target) setTimeout(finishRestore, 300) }) })
+    let firstRender = true
+    eventBus.on('pagerendered', () => { if (firstRender) { firstRender = false; requestAnimationFrame(goToTarget) } })
+
     let saveTimer = 0
+    const writeState = () => {
+      clearTimeout(saveTimer)
+      saveTimer = 0
+      if (!restored) return
+      const here = location.current
+      const state: ReaderState = {
+        scale: viewer.currentScaleValue === 'page-width' ? 'page-width' : viewer.currentScale,
+        page: here?.pageNumber ?? viewer.currentPageNumber,
+        ...(here ? { top: Math.round(here.top), left: Math.round(here.left) } : {}),
+      }
+      const json = JSON.stringify(state)
+      if (json !== savedView.current) { savedView.current = json; void setSettings({ [readerStateKey(sourceId)]: json }) }
+    }
     const save = () => {
       if (!restored) return
       clearTimeout(saveTimer)
-      saveTimer = window.setTimeout(() => {
-        const state: ReaderState = { scale: viewer.currentScaleValue === 'page-width' ? 'page-width' : viewer.currentScale, page: viewer.currentPageNumber }
-        const json = JSON.stringify(state)
-        if (json !== savedView.current) { savedView.current = json; void setSettings({ [readerStateKey(sourceId)]: json }) }
-      }, 600)
+      saveTimer = window.setTimeout(writeState, 600)
     }
-    eventBus.on('pagechanging', (e: { pageNumber: number }) => { setPage(e.pageNumber); setPageInput(String(e.pageNumber)); save() })
-    eventBus.on('updateviewarea', (e: { location: Loc }) => { location.current = { pageNumber: e.location.pageNumber, top: e.location.top, left: e.location.left } })
+    // Al cerrar el lector o la app, lo pendiente se guarda ya.
+    const flush = () => { if (saveTimer) writeState() }
+    window.addEventListener('pagehide', flush)
+    eventBus.on('pagechanging', (e: { pageNumber: number }) => { setPage(e.pageNumber); setPageInput(String(e.pageNumber)) })
+    eventBus.on('updateviewarea', (e: { location: Loc }) => {
+      location.current = { pageNumber: e.location.pageNumber, top: e.location.top, left: e.location.left }
+      save()
+    })
     eventBus.on('scalechanging', (e: { scale: number }) => { setZoom(e.scale); save() })
     eventBus.on('pagerendered', (e: { source: { div: HTMLElement } }) => paintPage(e.source.div))
     viewer.setDocument(doc)
@@ -260,9 +304,8 @@ export function Reader({ sourceId, cite, focusFichaId, linkFichaId, backLabel, o
     // ---- Pellizco del trackpad ----
     // Se amplía alrededor de los dedos (`origin`), no del centro. `drawingDelay` deja que la
     // página se estire al momento y se redibuje nítida cuando el gesto se detiene.
-    const container = containerRef.current
-    const zoomTo = (target: number, x: number, y: number) => {
-      const factor = clampScale(target) / viewer.currentScale
+    const zoomTo = (to: number, x: number, y: number) => {
+      const factor = clampScale(to) / viewer.currentScale
       if (Math.abs(factor - 1) < 0.005) return
       viewer.updateScale({ scaleFactor: factor, origin: [x, y], drawingDelay: 400 })
     }
@@ -294,7 +337,13 @@ export function Reader({ sourceId, cite, focusFichaId, linkFichaId, backLabel, o
     container.addEventListener('gesturechange', onGestureChange)
     container.addEventListener('gestureend', onGestureEnd)
     return () => {
-      clearTimeout(saveTimer)
+      flush()
+      clearTimeout(restoreTimer)
+      window.removeEventListener('pagehide', flush)
+      window.removeEventListener('wheel', onUserMove, { capture: true })
+      window.removeEventListener('mousedown', onUserMove, true)
+      window.removeEventListener('keydown', onUserMove, true)
+      window.removeEventListener('touchstart', onUserMove, { capture: true })
       container.removeEventListener('wheel', onWheel)
       container.removeEventListener('gesturestart', onGestureStart)
       container.removeEventListener('gesturechange', onGestureChange)

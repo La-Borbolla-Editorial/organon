@@ -15,10 +15,15 @@ export function wheelZoomFactor(deltaY: number, deltaMode: number): number {
   return Math.exp(-Math.max(-50, Math.min(50, px)) / 100)
 }
 
-/** Lo que se recuerda de cada fuente: el zoom («page-width» = ajustada al ancho) y la hoja. */
+/**
+ * Lo que se recuerda de cada fuente: el zoom («page-width» = ajustada al ancho), la hoja y el punto
+ * de la hoja que estaba arriba a la izquierda (en unidades del PDF), para volver al mismo sitio.
+ */
 export interface ReaderState {
   scale: number | 'page-width'
   page: number
+  top?: number
+  left?: number
 }
 
 export const readerStateKey = (sourceId: string) => `lector:${sourceId}`
@@ -29,7 +34,10 @@ export function readReaderState(json: string | undefined, numPages: number): Rea
     const v = JSON.parse(json)
     const scale = v.scale === 'page-width' ? 'page-width' : typeof v.scale === 'number' && Number.isFinite(v.scale) ? clampScale(v.scale) : 'page-width'
     const page = Number.isInteger(v.page) ? Math.min(Math.max(1, v.page), numPages) : 1
-    return { scale, page }
+    const state: ReaderState = { scale, page }
+    // El punto exacto solo vale si la hoja es la misma (un PDF más corto la habría cambiado).
+    if (page === v.page && Number.isFinite(v.top) && Number.isFinite(v.left)) { state.top = v.top; state.left = v.left }
+    return state
   } catch {
     return null
   }

@@ -1,5 +1,12 @@
 # Cambios
 
+## 0.7.1
+
+- **Cada PDF se abre donde lo cerraste.** En la app de macOS los PDF se abrían siempre al principio
+  aunque la posición se guardaba: al abrir, las hojas aún no tienen su tamaño y el salto se quedaba
+  corto. Ahora se repite cuando ya lo tienen (mientras no toques nada), y vuelve al punto exacto de
+  la hoja, no solo a su comienzo. Tampoco se pierde la posición si cierras justo después de moverte.
+
 ## 0.7.0: el editor de PDF
 
 Leer:
