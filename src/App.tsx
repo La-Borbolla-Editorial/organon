@@ -101,6 +101,24 @@ export function App() {
     }
   }, [])
 
+  // Atajos (⌘ en macOS, Ctrl en Windows): ⌘, abre los Ajustes; ⌘⇧1/2/3, Biblioteca, Fichero y Escritura.
+  // Se mira `code` y no `key`, porque con ⇧ el «1» es «!» (y en otros teclados, otra cosa).
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (!(e.metaKey || e.ctrlKey) || e.altKey) return
+      if (e.key === ',' && !e.shiftKey) {
+        setSettingsOpen(true)
+      } else if (e.shiftKey && project && !settingsOpen) {
+        const name = ({ Digit1: 'library', Digit2: 'fichero', Digit3: 'drafts' } as const)[e.code as 'Digit1']
+        if (!name) return
+        setView({ name })
+      } else return
+      e.preventDefault()
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [project, settingsOpen, setView])
+
   const reloadProject = useCallback(async () => {
     if (!project) return
     try {

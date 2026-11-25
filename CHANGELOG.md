@@ -9,6 +9,10 @@
   (`{f. N}` y `[f. N]`). Se ordena y se filtra como un número (desde / hasta), y con «Sin usar» o
   «Usadas». Es calculada: no se guarda en la ficha y al importar un CSV se ignora. Los ficheros que
   ya tenías la reciben al final; se puede ocultar o mover en «Columnas…».
+- **Atajos de teclado.** ⌘, abre los Ajustes; ⌘⇧1, ⌘⇧2 y ⌘⇧3 llevan a Biblioteca, Fichero y
+  Escritura (Ctrl en Windows).
+- **Ajustes: primero «Este proyecto»,** después «Apariencia». Con un proyecto abierto, los Ajustes
+  abren en su pestaña.
 
 ## 0.7.1
 
