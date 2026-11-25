@@ -460,9 +460,9 @@ button.link.bad { color: var(--bad); }
 .ficha-picker { display: grid; gap: 10px; }
 .ficha-picker select { max-width: 150px; }
 .ficha-picker .search { flex: 1; width: auto; min-width: 0; }
-.ficha-card.pick { cursor: default; }
+.ficha-card.pick { cursor: default; -webkit-user-select: text; user-select: text; }
 .pick-row { display: flex; gap: 6px; align-items: center; }
-.ficha-card.pick blockquote { display: block; max-height: 8.5em; overflow: auto; user-select: text; cursor: text; }
+.ficha-card.pick blockquote { display: block; max-height: 8.5em; overflow: auto; -webkit-user-select: text; user-select: text; cursor: text; }
 .ficha-card.pick blockquote::selection { background: var(--ref-insert-bg); }
 .marker-input { width: 70px; }
 .tab code { margin-left: 2px; }

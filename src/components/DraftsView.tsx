@@ -487,7 +487,12 @@ export function DraftsView({ project, cite, onSection, onSwitchProject, onOpenFi
                   <Html className="draft-preview" testId="draft-preview" html={preview.html} />
                 </>
               ) : (
-                <div className="ficha-picker">
+                // Mientras el editor tiene el foco, deshace cualquier selección que no sea suya: al pulsar
+                // en el texto de una ficha se le quita, para poder seleccionarlo y copiarlo.
+                <div className="ficha-picker" onMouseDown={(e) => {
+                  const active = document.activeElement
+                  if (active instanceof HTMLElement && active.closest('.cm-editor') && !(e.target as HTMLElement).closest('button, input, select, textarea, label')) active.blur()
+                }}>
                   <div className="page-row">
                     <select value={pickId} onChange={(e) => setPickFichero(e.target.value)}>
                       <option value="">Todos los ficheros</option>

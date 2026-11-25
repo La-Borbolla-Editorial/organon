@@ -11,6 +11,8 @@
   ya tenías la reciben al final; se puede ocultar o mover en «Columnas…».
 - **Atajos de teclado.** ⌘, abre los Ajustes; ⌘1, ⌘2 y ⌘3 llevan a Biblioteca, Fichero y
   Escritura (Ctrl en Windows).
+- **Arreglo: el texto de las fichas del panel de Escritura se puede seleccionar y copiar.** Con el
+  cursor en el editor, la selección se deshacía al instante.
 - **Ajustes: primero «Este proyecto»,** después «Apariencia». Con un proyecto abierto, los Ajustes
   abren en su pestaña.
 
