@@ -78,13 +78,24 @@ export async function loadProject(): Promise<void> {
     project: {
       format: FORMAT,
       settings: project?.settings ?? {},
-      ficheros: ((project?.ficheros?.length ? project.ficheros : [{ id: 'general', name: 'General' }]) as Partial<Fichero>[] as Fichero[]).map((f) => ({ ...f, marker: f.marker?.trim() || 'f.', columns: f.columns?.length ? f.columns : DEFAULT_COLUMNS })),
+      ficheros: ((project?.ficheros?.length ? project.ficheros : [{ id: 'general', name: 'General' }]) as Partial<Fichero>[] as Fichero[]).map((f) => ({ ...f, marker: f.marker?.trim() || 'f.', columns: withUsage(f.columns?.length ? f.columns : DEFAULT_COLUMNS) })),
     },
     sources: sources?.fuentes ?? [],
     fichas: fichas?.fichas ?? [],
     marcas: marcas?.marcas ?? [],
   }
   if (!project) await persist('project')
+}
+
+/**
+ * Los ficheros de antes de 0.8 no tienen la columna «Veces usada»: se les añade al final. Si el
+ * nombre ya lo usa una columna propia, se le pone otro.
+ */
+function withUsage(columns: Column[]): Column[] {
+  if (columns.some((c) => c.field === 'usos')) return columns
+  const taken = new Set(columns.map((c) => c.header.trim().toLowerCase()))
+  const header = ['Veces usada', 'Veces usada (Organon)', 'Usos en Escritura'].find((h) => !taken.has(h.toLowerCase())) ?? 'Usos'
+  return [...columns, { header, field: 'usos' }]
 }
 
 export function unloadProject(): void {

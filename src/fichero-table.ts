@@ -64,7 +64,7 @@ export type FilterKind = 'texto' | 'valores' | 'numero' | 'fecha'
 
 export function filterKind(c: Column): FilterKind {
   switch (c.field) {
-    case 'num': return 'numero'
+    case 'num': case 'usos': return 'numero'
     case 'tags': case 'autor': case 'fuente': return 'valores'
     case 'extra':
       if (c.kind === 'numero') return 'numero'
@@ -149,7 +149,8 @@ export function distinctValues(fichas: Ficha[], c: Column, sourceOf: (f: Ficha) 
 /** ¿Pasa la ficha el filtro de esta columna? `text` es lo que muestra la celda. */
 export function matchFilter(f: Ficha, c: Column, filter: ColumnFilter, source: Source | undefined, text: string): boolean {
   if (filter.empty) {
-    const blank = c.kind === 'casilla' ? !isChecked(f.extra[c.header]) : c.field === 'fuente' ? !f.sourceId && !text.trim() : !text.trim()
+    // En «Veces usada», «vacía» es una ficha que ningún texto cita.
+    const blank = c.kind === 'casilla' ? !isChecked(f.extra[c.header]) : c.field === 'fuente' ? !f.sourceId && !text.trim() : c.field === 'usos' ? text === '0' : !text.trim()
     if (blank !== (filter.empty === 'vacia')) return false
   }
   const q = filter.q?.trim()

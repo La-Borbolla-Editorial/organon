@@ -1,5 +1,15 @@
 # Cambios
 
+## 0.8.0 (en curso)
+
+- **Escritura: filtrar las fichas por uso.** En el panel «Fichas», un selector muestra todas, solo
+  las que ningún texto cita aún o solo las que este texto no cita. Cada tarjeta dice cuántas veces
+  la citan este texto y los demás. El texto que estás escribiendo cuenta en vivo, guardado o no.
+- **Fichero: columna «Veces usada».** Cuántas veces citan cada ficha los textos de Escritura
+  (`{f. N}` y `[f. N]`). Se ordena y se filtra como un número (desde / hasta), y con «Sin usar» o
+  «Usadas». Es calculada: no se guarda en la ficha y al importar un CSV se ignora. Los ficheros que
+  ya tenías la reciben al final; se puede ocultar o mover en «Columnas…».
+
 ## 0.7.1
 
 - **Cada PDF se abre donde lo cerraste.** En la app de macOS los PDF se abrían siempre al principio

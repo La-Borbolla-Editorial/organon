@@ -193,7 +193,7 @@ export function defaultFichero(md: string, ficheros: Fichero[]): Fichero | null 
   return (name && ficheros.find((f) => fold(f.name) === fold(name))) || null
 }
 
-export function lookupRef(ref: FichaRef, fallback: Fichero | null, ctx: DraftContext): Lookup {
+export function lookupRef(ref: FichaRef, fallback: Fichero | null, ctx: Pick<DraftContext, 'fichas' | 'ficheros' | 'sources'>): Lookup {
   const byMarker = ctx.ficheros.filter((f) => fold(f.marker) === fold(ref.marker))
   let pool = byMarker
   if (ref.fichero) pool = ctx.ficheros.filter((f) => fold(f.name) === fold(ref.fichero!))
