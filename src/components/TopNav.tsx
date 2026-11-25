@@ -21,9 +21,9 @@ export function TopNav({ project, section, onSection, onSwitchProject, children 
         <strong>{project.name}</strong> ▾
       </button>
       <nav className="sections">
-        <button className={section === 'library' ? 'current' : ''} onClick={() => onSection('library')} title="Biblioteca (⌘⇧1)">Biblioteca</button>
-        <button className={section === 'fichero' ? 'current' : ''} onClick={() => onSection('fichero')} title="Fichero (⌘⇧2)" data-testid="nav-fichero">Fichero</button>
-        <button className={section === 'drafts' ? 'current' : ''} onClick={() => onSection('drafts')} title="Escritura (⌘⇧3)" data-testid="nav-drafts">Escritura</button>
+        <button className={section === 'library' ? 'current' : ''} onClick={() => onSection('library')} title="Biblioteca (⌘1)">Biblioteca</button>
+        <button className={section === 'fichero' ? 'current' : ''} onClick={() => onSection('fichero')} title="Fichero (⌘2)" data-testid="nav-fichero">Fichero</button>
+        <button className={section === 'drafts' ? 'current' : ''} onClick={() => onSection('drafts')} title="Escritura (⌘3)" data-testid="nav-drafts">Escritura</button>
       </nav>
       <div className="spacer" />
       {children}
