@@ -1,17 +1,19 @@
 import MarkdownIt from 'markdown-it'
 import footnote from 'markdown-it-footnote'
-import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { memo, useCallback, useDeferredValue, useEffect, useMemo, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { backend, MOD_KEY, type ProjectInfo } from '../backend'
 import { authorsLabel, canonicalText, yearLabel, type CiteOptions } from '../citations'
 import { bibliographyHeading, canonicalRef, defaultFichero, lookupRef, resolveDraft, setFrontMatter, tokenText, type DraftContext, type RenderedToken, type Token } from '../draft'
 import { getSettings, listFichas, listFicheros, listSources, setSettings } from '../store'
 import { byManualOrder } from '../fichero-io'
+import { addCounts, countIn, readAllDrafts, usageOf } from '../usage'
 import type { Ficha, Fichero, Source } from '../types'
 import { MarkdownEditor, type EditorMode, type Format, type MarkdownEditorHandle, type PeekItem, type TokenInfo } from './MarkdownEditor'
 import { ExportMenu, type ExportKind } from './ExportMenu'
 import { SidePanel } from './SidePanel'
 import { TopNav, type Section } from './TopNav'
+import { useCommandKey } from '../useCommandKey'
 
 interface Props {
   project: ProjectInfo
@@ -63,11 +65,17 @@ export function DraftsView({ project, cite, onSection, onSwitchProject, onOpenFi
   const [sources, setSources] = useState<Source[]>([])
   const [panel, setPanel] = useState<'preview' | 'fichas'>('preview')
   const [naming, setNaming] = useState<{ mode: 'new' | 'rename'; value: string } | null>(null)
+  // ⌘N: texto nuevo.
+  useCommandKey('KeyN', () => setNaming({ mode: 'new', value: '' }), naming?.mode !== 'new')
   const [confirmTrash, setConfirmTrash] = useState(false)
   const [preview, setPreview] = useState({ html: '', tokens: [] as RenderedToken[], problems: [] as { message: string; from: number }[], citations: 0, sources: 0 })
   const [pickFichero, setPickFichero] = useState('')
   const [query, setQuery] = useState('')
   const [fullInNote, setFullInNote] = useState(false)
+  // Filtro por uso: todas, las que ningún texto cita aún, o las que este texto no cita.
+  const [useFilter, setUseFilter] = useState<'todas' | 'nunca' | 'aqui'>('todas')
+  // Citas de cada ficha en los demás textos (leídos del disco); las de este se cuentan en vivo.
+  const [otherUsage, setOtherUsage] = useState<Map<string, number>>(new Map())
   // Texto enriquecido o Markdown tal cual: es el mismo archivo, cambia solo cómo se ve.
   const [mode, setModeState] = useState<EditorMode>(() => { try { return localStorage.getItem('organon.modoEditor') === 'markdown' ? 'markdown' : 'rich' } catch { return 'rich' } })
   const setMode = (m: EditorMode) => { setModeState(m); try { localStorage.setItem('organon.modoEditor', m) } catch { /* preferencia no guardada */ } }
@@ -314,14 +322,32 @@ export function DraftsView({ project, cite, onSection, onSwitchProject, onOpenFi
     }
   }
 
+  // ---- Fichas usadas ----
+  // Los demás textos se releen al cambiar de texto o al abrir el panel de fichas (solo los que
+  // cambiaron en disco); el que se está escribiendo se cuenta tal como está, guardado o no.
+  useEffect(() => {
+    if (panel !== 'fichas' || !fichas.length) return
+    let alive = true
+    void readAllDrafts().then((all) => {
+      if (!alive) return
+      const { byDraft } = usageOf(all.filter((d) => d.name !== current), { fichas, ficheros, sources })
+      setOtherUsage(addCounts(...byDraft.values()))
+    }).catch(() => {})
+    return () => { alive = false }
+  }, [panel, current, fichas, ficheros, sources])
+  const liveText = useDeferredValue(text)
+  const hereUsage = useMemo(() => (panel === 'fichas' ? countIn(liveText, { fichas, ficheros, sources }) : new Map<string, number>()), [panel, liveText, fichas, ficheros, sources])
+
   const pickId = pickFichero || fallback?.id || ''
   const picked = useMemo(() => {
     const q = fold(query.trim())
     return fichas
       .filter((f) => (!pickId || f.ficheroId === pickId) && (!q || fold(`${f.num} ${f.notaPermanente} ${f.cita} ${f.tags.join(' ')} ${sourceLabel(f)} ${Object.values(f.extra).join(' ')}`).includes(q)))
+      .filter((f) => useFilter === 'todas'
+        || (useFilter === 'aqui' ? !hereUsage.get(f.id) : !hereUsage.get(f.id) && !otherUsage.get(f.id)))
       // Por fichero y, dentro de cada uno, en su orden manual (el de la tabla del Fichero).
       .sort((a, b) => a.ficheroId.localeCompare(b.ficheroId) || byManualOrder(a, b))
-  }, [fichas, pickId, query, sourceLabel])
+  }, [fichas, pickId, query, sourceLabel, useFilter, hereUsage, otherUsage])
 
   const words = useMemo(() => (text.replace(/^---[\s\S]*?---/, '').match(/[\p{L}\p{N}]+/gu) ?? []).length, [text])
 
@@ -350,7 +376,7 @@ export function DraftsView({ project, cite, onSection, onSwitchProject, onOpenFi
               </div>
             </form>
           ) : (
-            <button className="link" onClick={() => setNaming({ mode: 'new', value: '' })} data-testid="draft-new">+ Nuevo texto</button>
+            <button className="link" onClick={() => setNaming({ mode: 'new', value: '' })} title="Nuevo texto (⌘N)" data-testid="draft-new">+ Nuevo texto</button>
           )}
           <p className="muted small">Cada texto es un archivo Markdown en la carpeta <code>escritura/</code> del proyecto.</p>
         </aside>
@@ -464,13 +490,25 @@ export function DraftsView({ project, cite, onSection, onSwitchProject, onOpenFi
                   <Html className="draft-preview" testId="draft-preview" html={preview.html} />
                 </>
               ) : (
-                <div className="ficha-picker">
+                // Mientras el editor tiene el foco, deshace cualquier selección que no sea suya: al pulsar
+                // en el texto de una ficha se le quita, para poder seleccionarlo y copiarlo.
+                <div className="ficha-picker" onMouseDown={(e) => {
+                  const active = document.activeElement
+                  if (active instanceof HTMLElement && active.closest('.cm-editor') && !(e.target as HTMLElement).closest('button, input, select, textarea, label')) active.blur()
+                }}>
                   <div className="page-row">
                     <select value={pickId} onChange={(e) => setPickFichero(e.target.value)}>
                       <option value="">Todos los ficheros</option>
                       {ficheros.map((f) => <option key={f.id} value={f.id}>{f.name}</option>)}
                     </select>
                     <input className="search" placeholder="Buscar fichas…" value={query} onChange={(e) => setQuery(e.target.value)} data-testid="picker-search" />
+                  </div>
+                  <div className="page-row">
+                    <select value={useFilter} onChange={(e) => setUseFilter(e.target.value as typeof useFilter)} data-testid="pick-use-filter" title="Las fichas que ya citas con {f. N} o [f. N]">
+                      <option value="todas">Usadas y sin usar</option>
+                      <option value="nunca">Sin usar en ningún texto</option>
+                      <option value="aqui">Sin usar en este texto</option>
+                    </select>
                   </div>
                   <label className="check">
                     <input type="checkbox" checked={fullInNote} onChange={(e) => setFullInNote(e.target.checked)} data-testid="pick-full-in-note" />
@@ -501,6 +539,7 @@ export function DraftsView({ project, cite, onSection, onSwitchProject, onOpenFi
                       <button className="link small" onClick={() => toggle(f.id)} data-testid="pick-toggle">{expanded.has(f.id) ? 'Plegar' : 'Ver la ficha completa'}</button>
                       <div className="pick-row">
                         <span className="ficha-citation">{sourceLabel(f)}</span>
+                        <UseBadge here={hereUsage.get(f.id) ?? 0} elsewhere={otherUsage.get(f.id) ?? 0} />
                         <div className="spacer" />
                         <button onMouseDown={(e) => e.preventDefault()} onClick={(e) => insertFicha('insert', f, e.currentTarget.closest('article'))} disabled={!f.cita.trim()} data-testid="pick-insert">Insertar</button>
                         <button onMouseDown={(e) => e.preventDefault()} onClick={(e) => insertFicha('cite', f, e.currentTarget.closest('article'))} data-testid="pick-cite">Referenciar</button>
@@ -517,4 +556,11 @@ export function DraftsView({ project, cite, onSection, onSwitchProject, onOpenFi
       {createPortal(<Html className="print-doc draft-preview" html={printHtml} />, document.body)}
     </div>
   )
+}
+
+/** Cuántas veces citan la ficha este texto y los demás. */
+function UseBadge({ here, elsewhere }: { here: number; elsewhere: number }) {
+  if (!here && !elsewhere) return <span className="use-badge none" data-testid="use-badge">sin usar</span>
+  const parts = [here && `${here} aquí`, elsewhere && `${elsewhere} en otros textos`].filter(Boolean)
+  return <span className="use-badge" title={`Citada ${here + elsewhere} ${here + elsewhere === 1 ? 'vez' : 'veces'}`} data-testid="use-badge">{parts.join(' · ')}</span>
 }

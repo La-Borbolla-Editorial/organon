@@ -1,5 +1,23 @@
 # Cambios
 
+## 0.8.0
+
+- **Escritura: filtrar las fichas por uso.** En el panel «Fichas», un selector muestra todas, solo
+  las que ningún texto cita aún o solo las que este texto no cita. Cada tarjeta dice cuántas veces
+  la citan este texto y los demás. El texto que estás escribiendo cuenta en vivo, guardado o no.
+- **Fichero: columna «Veces usada».** Cuántas veces citan cada ficha los textos de Escritura
+  (`{f. N}` y `[f. N]`). Se ordena y se filtra como un número (desde / hasta), y con «Sin usar» o
+  «Usadas». Es calculada: no se guarda en la ficha y al importar un CSV se ignora. Los ficheros que
+  ya tenías la reciben al final; se puede ocultar o mover en «Columnas…».
+- **Atajos de teclado.** ⌘, abre los Ajustes; ⌘1, ⌘2 y ⌘3 llevan a Biblioteca, Fichero y
+  Escritura (Ctrl en Windows). ⌘N crea según dónde estés: una fuente en la Biblioteca, una ficha en
+  el Fichero, un texto en Escritura y, en el Lector, la ficha del pasaje seleccionado o, sin
+  selección, una ficha en blanco de esa fuente con la página que estás leyendo.
+- **Arreglo: el texto de las fichas del panel de Escritura se puede seleccionar y copiar.** Con el
+  cursor en el editor, la selección se deshacía al instante.
+- **Ajustes: primero «Este proyecto»,** después «Apariencia». Con un proyecto abierto, los Ajustes
+  abren en su pestaña.
+
 ## 0.7.1
 
 - **Cada PDF se abre donde lo cerraste.** En la app de macOS los PDF se abrían siempre al principio

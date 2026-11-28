@@ -23,7 +23,7 @@ const HEX = /^#[0-9a-f]{6}$/i
 const clone = (t: Theme): Theme => JSON.parse(JSON.stringify(t))
 
 export function Settings({ project, cite, onCiteChange, onClose }: Props) {
-  const [tab, setTab] = useState<Tab>('apariencia')
+  const [tab, setTab] = useState<Tab>(project ? 'proyecto' : 'apariencia')
   const [themes, setThemes] = useState<ThemeEntry[]>([])
   const [broken, setBroken] = useState<string[]>([])
   const [selected, setSelected] = useState(appSettings().tema)
@@ -112,8 +112,8 @@ export function Settings({ project, cite, onCiteChange, onClose }: Props) {
         <header className="settings-head">
           <h2>Ajustes</h2>
           <div className="panel-tabs">
-            <button className={tab === 'apariencia' ? 'current' : ''} onClick={() => setTab('apariencia')}>Apariencia</button>
             <button className={tab === 'proyecto' ? 'current' : ''} onClick={() => setTab('proyecto')} disabled={!project} data-testid="settings-project">Este proyecto</button>
+            <button className={tab === 'apariencia' ? 'current' : ''} onClick={() => setTab('apariencia')} data-testid="settings-appearance">Apariencia</button>
           </div>
           <div className="spacer" />
           <button onClick={close} data-testid="settings-close">Cerrar</button>

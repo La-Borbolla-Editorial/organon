@@ -65,7 +65,8 @@ export interface Ficha {
 }
 
 /** A qué campo de la ficha corresponde una columna del CSV. */
-export type FieldKey = 'num' | 'notaPermanente' | 'cita' | 'tags' | 'autor' | 'fuente' | 'pageLabel' | 'referencia' | 'notas' | 'extra'
+/** `usos` es calculada: cuántas veces citan la ficha los textos de Escritura. No se guarda ni se importa. */
+export type FieldKey = 'num' | 'notaPermanente' | 'cita' | 'tags' | 'autor' | 'fuente' | 'pageLabel' | 'referencia' | 'notas' | 'usos' | 'extra'
 
 /** Qué guarda una columna propia (`field: 'extra'`). Los valores son siempre texto, como en el CSV. */
 export type ColumnKind = 'texto' | 'numero' | 'fecha' | 'casilla' | 'lista'
@@ -111,6 +112,7 @@ export const DEFAULT_COLUMNS: Column[] = [
   { header: 'Página', field: 'pageLabel' },
   { header: 'Obra Canónica', field: 'referencia' },
   { header: 'Notas', field: 'notas' },
+  { header: 'Veces usada', field: 'usos' },
 ]
 
 // ---- Marcas del PDF (marcas.json) ----------------------------------------------

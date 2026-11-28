@@ -15,6 +15,7 @@ export const FIELD_NAMES: Record<FieldKey, string> = {
   pageLabel: 'Página',
   referencia: 'Obra canónica / referencias',
   notas: 'Notas',
+  usos: 'Veces usada en Escritura (calculada)',
   extra: 'Otra columna (se conserva tal cual)',
 }
 
@@ -30,6 +31,7 @@ const GUESSES: [FieldKey, RegExp][] = [
   ['pageLabel', /^(pagina|paginas|pag|pags|p|pp|page)$/],
   ['referencia', /^(obra canonica|referencias?)$/],
   ['notas', /^(notas?|comentarios?)$/],
+  ['usos', /^(veces usada|veces citada|usos)$/],
 ]
 
 /** Propone a qué campo corresponde cada encabezado. Cada campo se usa una sola vez. */
@@ -105,6 +107,7 @@ export function rowsToFichas(csv: ParsedCsv, columns: Column[], sources: Source[
         case 'autor': author = value; if (value !== '') f.extra[col.header] = value; break
         case 'fuente': title = value; if (value !== '') f.extra[col.header] = value; break
         case 'extra': if (value !== '') f.extra[col.header] = value; break
+        case 'usos': break // calculada: lo que diga el CSV no cuenta
         default: f[col.field] = value
       }
     })
@@ -128,8 +131,16 @@ export const byManualOrder = (a: Ficha, b: Ficha) => orderKey(a) - orderKey(b) |
 // ---- Exportar ---------------------------------------------------------------------
 
 /** Texto de una ficha en una columna de su fichero (lo que se ve en la tabla y lo que se exporta). */
+// Veces que los textos de Escritura citan cada ficha (por id). La calcula `usage.ts` y la
+// actualiza quien lee los textos; aquí solo se consulta, para que la columna «Veces usada» se
+// filtre, se ordene, se busque y se exporte como cualquier otra.
+let usage: ReadonlyMap<string, number> = new Map()
+export function setUsage(counts: ReadonlyMap<string, number>): void { usage = counts }
+export const usesOf = (fichaId: string) => usage.get(fichaId) ?? 0
+
 export function cellText(f: Ficha, col: Column, source: Source | undefined): string {
   switch (col.field) {
+    case 'usos': return String(usesOf(f.id))
     case 'num': return f.extra[col.header] ?? String(f.num)
     case 'tags': return f.tags.join(', ')
     case 'autor': return f.extra[col.header] ?? (source ? authorsLabel(source.csl) : '')

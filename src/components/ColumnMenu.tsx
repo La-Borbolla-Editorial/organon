@@ -105,7 +105,9 @@ export function ColumnMenu({ column: c, anchor, filter, sort, values, onFilter, 
 
         {kind !== 'valores' && (
           <div className="column-menu-row">
-            {([['', 'Todas'], ['vacia', 'Vacías'], ['llena', 'Con algo']] as const).map(([v, label]) => (
+            {(c.field === 'usos'
+              ? ([['', 'Todas'], ['vacia', 'Sin usar'], ['llena', 'Usadas']] as const)
+              : ([['', 'Todas'], ['vacia', 'Vacías'], ['llena', 'Con algo']] as const)).map(([v, label]) => (
               <label key={v} className="radio">
                 <input type="radio" name="empty" checked={(f.empty ?? '') === v} onChange={() => update({ empty: v || undefined })} />
                 {label}

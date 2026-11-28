@@ -6,6 +6,7 @@ import { SourceForm } from './SourceForm'
 import { TopNav, type Section } from './TopNav'
 import { useGrowing } from '../useGrowing'
 import type { Source } from '../types'
+import { useCommandKey } from '../useCommandKey'
 
 interface Props {
   project: ProjectInfo
@@ -61,12 +62,14 @@ export function Library({ project, onSwitchProject, onSection, cite, onOpen }: P
     return () => clearTimeout(timer)
   }, [sources, cite])
   const editSource = useCallback((source: Source) => setForm({ source }), [])
+  // ⌘N: nueva fuente (si no hay ya un formulario abierto).
+  useCommandKey('KeyN', () => setForm({}), !form)
 
   return (
     <div className="library">
       <TopNav project={project} section="library" onSection={onSection} onSwitchProject={onSwitchProject}>
         <button onClick={() => zoteroInput.current?.click()}>Importar de Zotero…</button>
-        <button className="primary" onClick={() => setForm({})} data-testid="add-source">+ Añadir fuente</button>
+        <button className="primary" onClick={() => setForm({})} title="Añadir fuente (⌘N)" data-testid="add-source">+ Añadir fuente</button>
       </TopNav>
 
       <input

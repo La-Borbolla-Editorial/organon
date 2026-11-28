@@ -2,7 +2,8 @@ import { memo, useCallback, useDeferredValue, useEffect, useMemo, useRef, useSta
 import { backend, type ProjectInfo } from '../backend'
 import type { CiteOptions } from '../citations'
 import { markerProblem, suggestMarker } from '../draft'
-import { byManualOrder, cellText, fichasToCsv, readCsv, type ParsedCsv } from '../fichero-io'
+import { byManualOrder, cellText, fichasToCsv, readCsv, setUsage, usesOf, type ParsedCsv } from '../fichero-io'
+import { readAllDrafts, usageOf } from '../usage'
 import { distinctValues, EMPTY_VIEW, filterActive, fold, isChecked, matchFilter, readView, sortByColumn, type ColumnFilter, type TableView } from '../fichero-table'
 import { createFichero, deleteFicha, deleteFichero, getSettings, listFichas, listFicheros, listSources, listTags, moveFicha, saveFicha, saveFicheroColumns, setSettings, updateFichero, type FichaDraft } from '../store'
 import type { Column, Ficha, Fichero, FieldKey, Source } from '../types'
@@ -13,6 +14,7 @@ import { SidePanel } from './SidePanel'
 import { ImportDialog } from './ImportDialog'
 import { TopNav, type Section } from './TopNav'
 import { useGrowing } from '../useGrowing'
+import { useCommandKey } from '../useCommandKey'
 
 interface Props {
   project: ProjectInfo
@@ -25,7 +27,7 @@ interface Props {
 }
 
 const MIN_COLUMN = 48
-const DEFAULT_WIDTH: Record<FieldKey, number> = { num: 64, notaPermanente: 230, cita: 400, tags: 150, autor: 120, fuente: 190, pageLabel: 84, referencia: 190, notas: 240, extra: 150 }
+const DEFAULT_WIDTH: Record<FieldKey, number> = { num: 64, notaPermanente: 230, cita: 400, tags: 150, autor: 120, fuente: 190, pageLabel: 84, referencia: 190, notas: 240, usos: 90, extra: 150 }
 const viewKey = (ficheroId: string) => `vista:${ficheroId}`
 
 /** Dónde se soltaría la fila que se arrastra: delante o detrás de otra. */
@@ -53,12 +55,22 @@ export function FicheroView({ project, cite, onSection, onSwitchProject, onOpenP
   // Columna que se está arrastrando: su ancho provisional hasta soltar.
   const [resizing, setResizing] = useState<{ index: number; width: number } | null>(null)
 
+  // Cambia cuando se recuentan las veces que Escritura usa cada ficha (columna «Veces usada»).
+  const [usageVersion, setUsageVersion] = useState(0)
+
   const reload = useCallback(async () => {
     const fs = await listFicheros()
+    const fichasAll = await listFichas()
+    const srcs = await listSources()
     setFicheros(fs)
-    setAll(await listFichas())
-    setSources(await listSources())
+    setAll(fichasAll)
+    setSources(srcs)
     setKnownTags(await listTags())
+    // Los textos se leen aparte: la tabla no espera por ellos.
+    void readAllDrafts().then((drafts) => {
+      setUsage(usageOf(drafts, { fichas: fichasAll, ficheros: fs, sources: srcs }).total)
+      setUsageVersion((v) => v + 1)
+    }).catch(() => {})
     return fs
   }, [])
 
@@ -117,6 +129,9 @@ export function FicheroView({ project, cite, onSection, onSwitchProject, onOpenP
     changeView(currentId, { ...view, sort: dir ? { header, desc: dir === 'desc' } : undefined })
 
   const fichero = ficheros.find((f) => f.id === currentId)
+  const newFicha = () => setEditing({ num: null, draft: { ficheroId: currentId, notaPermanente: '', cita: '', sourceId: null, pageLabel: '', pageManual: true, anchor: null, tags: [], referencia: '', notas: '', extra: {} } })
+  // ⌘N: ficha nueva en este fichero (si no se está editando ya una).
+  useCommandKey('KeyN', newFicha, !!fichero && !editing)
   const sourceById = useMemo(() => new Map(sources.map((s) => [s.id, s])), [sources])
   const sourceOf = useCallback((f: Ficha) => (f.sourceId ? sourceById.get(f.sourceId) : undefined), [sourceById])
   // En su orden manual: el que se cambia arrastrando las filas.
@@ -147,17 +162,17 @@ export function FicheroView({ project, cite, onSection, onSwitchProject, onOpenP
       if (t === undefined) m.set(f, (t = fold(visible.map(({ c }) => cellText(f, c, sourceOf(f))).join(' \n '))))
       return t
     }
-  }, [visible, sourceOf])
+  }, [visible, sourceOf, usageVersion]) // eslint-disable-line react-hooks/exhaustive-deps
   // La búsqueda va un paso por detrás de lo que se escribe: el campo nunca se traba.
   const q = fold(useDeferredValue(query).trim())
   const passes = useCallback((f: Ficha) => {
     if (q && !searchText(f).includes(q)) return false
     return activeFilters.every(({ c, filter }) => matchFilter(f, c, filter, sourceOf(f), cellText(f, c, sourceOf(f))))
-  }, [q, searchText, activeFilters, sourceOf])
+  }, [q, searchText, activeFilters, sourceOf, usageVersion]) // eslint-disable-line react-hooks/exhaustive-deps
   const shown = useMemo(() => {
     const kept = fichas.filter(passes)
     return sortColumn ? sortByColumn(kept, sortColumn, !!tableView.sort?.desc, sourceOf) : kept
-  }, [fichas, passes, sortColumn, tableView.sort?.desc, sourceOf])
+  }, [fichas, passes, sortColumn, tableView.sort?.desc, sourceOf, usageVersion]) // eslint-disable-line react-hooks/exhaustive-deps
   const viewSignature = useMemo(() => JSON.stringify(tableView), [tableView])
   const { limit, sentinel, reveal } = useGrowing(shown.length, `${currentId}|${q}|${viewSignature}`)
   const filtering = !!q || activeFilters.length > 0
@@ -399,7 +414,7 @@ export function FicheroView({ project, cite, onSection, onSwitchProject, onOpenP
         )}
         <span className="muted" data-testid="fichero-count">{shown.length === fichas.length ? `${fichas.length} fichas` : `${shown.length} de ${fichas.length}`}</span>
         <button onClick={() => setEditingColumns(true)} disabled={!fichero} data-testid="edit-columns">Columnas…</button>
-        <button className="primary" onClick={() => setEditing({ num: null, draft: { ficheroId: currentId, notaPermanente: '', cita: '', sourceId: null, pageLabel: '', pageManual: true, anchor: null, tags: [], referencia: '', notas: '', extra: {} } })}>
+        <button className="primary" onClick={newFicha} title="Nueva ficha (⌘N)">
           + Ficha
         </button>
       </div>
@@ -452,7 +467,7 @@ export function FicheroView({ project, cite, onSection, onSwitchProject, onOpenP
               <tbody>
                 {shown.slice(0, limit).map((f) => (
                   <FichaRow
-                    key={f.id} ficha={f} columns={visible} source={sourceOf(f)} current={editingId === f.id} onEdit={openRow}
+                    key={f.id} ficha={f} columns={visible} source={sourceOf(f)} uses={usesOf(f.id)} current={editingId === f.id} onEdit={openRow}
                     onGrip={canDrag ? startDrag : undefined} onKeyMove={canDrag ? moveByKey : undefined} dragging={drag?.id === f.id} drop={drag?.drop?.id === f.id ? (drag.drop.after ? 'after' : 'before') : null}
                   />
                 ))}
@@ -537,6 +552,8 @@ interface RowProps {
   /** Las columnas visibles, con su posición en la lista completa. */
   columns: { c: Column; i: number }[]
   source: Source | undefined
+  /** Veces que la usa Escritura: con él cambia la fila cuando se recuentan. */
+  uses: number
   current: boolean
   onEdit: (f: Ficha) => void
   /** Sin él, la fila no se puede arrastrar (p. ej. mientras se ordena por una columna). */

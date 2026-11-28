@@ -18,6 +18,7 @@ import { PdfSidebar } from './PdfSidebar'
 import { SidePanel } from './SidePanel'
 import { PaginationEditor } from './PaginationEditor'
 import { useGrowing } from '../useGrowing'
+import { useCommandKey } from '../useCommandKey'
 
 const OCR_URL = 'https://www.ilovepdf.com/ocr-pdf'
 
@@ -504,6 +505,26 @@ export function Reader({ sourceId, cite, focusFichaId, linkFichaId, backLabel, o
     })
     setActiveId(null)
   }
+
+  /** Ficha de esta fuente sin pasaje marcado, en la hoja que se está leyendo. */
+  const blankFicha = () => {
+    if (!source) return
+    setActiveId(null)
+    setPanel({
+      kind: 'form', seq: ++formSeq, num: null,
+      draft: {
+        ficheroId: defaultFichero, notaPermanente: '', cita: '', sourceId: source.id,
+        pageLabel: sheetLabel(source.pagination, page) ?? '', pageManual: true,
+        anchor: null, tags: [], referencia: '', notas: '', extra: {},
+      },
+    })
+  }
+  // ⌘N: con un pasaje seleccionado, su ficha (como «+ Ficha»); sin selección, una ficha en blanco
+  // de esta fuente, salvo que ya haya una abierta.
+  useCommandKey('KeyN', () => {
+    if (pending && tool === 'texto') startFicha()
+    else if (panel.kind !== 'form') blankFicha()
+  })
 
   const editFicha = useCallback((f: Ficha) => {
     setActiveId(f.id)

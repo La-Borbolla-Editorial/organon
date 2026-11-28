@@ -21,13 +21,13 @@ export function TopNav({ project, section, onSection, onSwitchProject, children 
         <strong>{project.name}</strong> ▾
       </button>
       <nav className="sections">
-        <button className={section === 'library' ? 'current' : ''} onClick={() => onSection('library')}>Biblioteca</button>
-        <button className={section === 'fichero' ? 'current' : ''} onClick={() => onSection('fichero')} data-testid="nav-fichero">Fichero</button>
-        <button className={section === 'drafts' ? 'current' : ''} onClick={() => onSection('drafts')} data-testid="nav-drafts">Escritura</button>
+        <button className={section === 'library' ? 'current' : ''} onClick={() => onSection('library')} title="Biblioteca (⌘1)">Biblioteca</button>
+        <button className={section === 'fichero' ? 'current' : ''} onClick={() => onSection('fichero')} title="Fichero (⌘2)" data-testid="nav-fichero">Fichero</button>
+        <button className={section === 'drafts' ? 'current' : ''} onClick={() => onSection('drafts')} title="Escritura (⌘3)" data-testid="nav-drafts">Escritura</button>
       </nav>
       <div className="spacer" />
       {children}
-      <button className="settings-button" onClick={openSettings} title="Ajustes: apariencia y proyecto" aria-label="Ajustes" data-testid="open-settings">⚙︎</button>
+      <button className="settings-button" onClick={openSettings} title="Ajustes: proyecto y apariencia (⌘,)" aria-label="Ajustes" data-testid="open-settings">⚙︎</button>
     </header>
   )
 }
