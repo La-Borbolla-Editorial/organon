@@ -14,6 +14,7 @@ import { SidePanel } from './SidePanel'
 import { ImportDialog } from './ImportDialog'
 import { TopNav, type Section } from './TopNav'
 import { useGrowing } from '../useGrowing'
+import { useCommandKey } from '../useCommandKey'
 
 interface Props {
   project: ProjectInfo
@@ -128,6 +129,9 @@ export function FicheroView({ project, cite, onSection, onSwitchProject, onOpenP
     changeView(currentId, { ...view, sort: dir ? { header, desc: dir === 'desc' } : undefined })
 
   const fichero = ficheros.find((f) => f.id === currentId)
+  const newFicha = () => setEditing({ num: null, draft: { ficheroId: currentId, notaPermanente: '', cita: '', sourceId: null, pageLabel: '', pageManual: true, anchor: null, tags: [], referencia: '', notas: '', extra: {} } })
+  // ⌘N: ficha nueva en este fichero (si no se está editando ya una).
+  useCommandKey('KeyN', newFicha, !!fichero && !editing)
   const sourceById = useMemo(() => new Map(sources.map((s) => [s.id, s])), [sources])
   const sourceOf = useCallback((f: Ficha) => (f.sourceId ? sourceById.get(f.sourceId) : undefined), [sourceById])
   // En su orden manual: el que se cambia arrastrando las filas.
@@ -410,7 +414,7 @@ export function FicheroView({ project, cite, onSection, onSwitchProject, onOpenP
         )}
         <span className="muted" data-testid="fichero-count">{shown.length === fichas.length ? `${fichas.length} fichas` : `${shown.length} de ${fichas.length}`}</span>
         <button onClick={() => setEditingColumns(true)} disabled={!fichero} data-testid="edit-columns">Columnas…</button>
-        <button className="primary" onClick={() => setEditing({ num: null, draft: { ficheroId: currentId, notaPermanente: '', cita: '', sourceId: null, pageLabel: '', pageManual: true, anchor: null, tags: [], referencia: '', notas: '', extra: {} } })}>
+        <button className="primary" onClick={newFicha} title="Nueva ficha (⌘N)">
           + Ficha
         </button>
       </div>

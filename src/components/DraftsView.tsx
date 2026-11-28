@@ -13,6 +13,7 @@ import { MarkdownEditor, type EditorMode, type Format, type MarkdownEditorHandle
 import { ExportMenu, type ExportKind } from './ExportMenu'
 import { SidePanel } from './SidePanel'
 import { TopNav, type Section } from './TopNav'
+import { useCommandKey } from '../useCommandKey'
 
 interface Props {
   project: ProjectInfo
@@ -64,6 +65,8 @@ export function DraftsView({ project, cite, onSection, onSwitchProject, onOpenFi
   const [sources, setSources] = useState<Source[]>([])
   const [panel, setPanel] = useState<'preview' | 'fichas'>('preview')
   const [naming, setNaming] = useState<{ mode: 'new' | 'rename'; value: string } | null>(null)
+  // ⌘N: texto nuevo.
+  useCommandKey('KeyN', () => setNaming({ mode: 'new', value: '' }), naming?.mode !== 'new')
   const [confirmTrash, setConfirmTrash] = useState(false)
   const [preview, setPreview] = useState({ html: '', tokens: [] as RenderedToken[], problems: [] as { message: string; from: number }[], citations: 0, sources: 0 })
   const [pickFichero, setPickFichero] = useState('')
@@ -373,7 +376,7 @@ export function DraftsView({ project, cite, onSection, onSwitchProject, onOpenFi
               </div>
             </form>
           ) : (
-            <button className="link" onClick={() => setNaming({ mode: 'new', value: '' })} data-testid="draft-new">+ Nuevo texto</button>
+            <button className="link" onClick={() => setNaming({ mode: 'new', value: '' })} title="Nuevo texto (⌘N)" data-testid="draft-new">+ Nuevo texto</button>
           )}
           <p className="muted small">Cada texto es un archivo Markdown en la carpeta <code>escritura/</code> del proyecto.</p>
         </aside>

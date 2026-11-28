@@ -10,7 +10,9 @@
   «Usadas». Es calculada: no se guarda en la ficha y al importar un CSV se ignora. Los ficheros que
   ya tenías la reciben al final; se puede ocultar o mover en «Columnas…».
 - **Atajos de teclado.** ⌘, abre los Ajustes; ⌘1, ⌘2 y ⌘3 llevan a Biblioteca, Fichero y
-  Escritura (Ctrl en Windows).
+  Escritura (Ctrl en Windows). ⌘N crea según dónde estés: una fuente en la Biblioteca, una ficha en
+  el Fichero, un texto en Escritura y, en el Lector, la ficha del pasaje seleccionado o, sin
+  selección, una ficha en blanco de esa fuente con la página que estás leyendo.
 - **Arreglo: el texto de las fichas del panel de Escritura se puede seleccionar y copiar.** Con el
   cursor en el editor, la selección se deshacía al instante.
 - **Ajustes: primero «Este proyecto»,** después «Apariencia». Con un proyecto abierto, los Ajustes
