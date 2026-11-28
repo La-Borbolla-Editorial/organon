@@ -1,6 +1,6 @@
 # Cambios
 
-## 0.8.0 (en curso)
+## 0.8.0
 
 - **Escritura: filtrar las fichas por uso.** En el panel «Fichas», un selector muestra todas, solo
   las que ningún texto cita aún o solo las que este texto no cita. Cada tarjeta dice cuántas veces
